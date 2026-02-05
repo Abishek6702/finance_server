@@ -1,17 +1,7 @@
-const welcome = require("./mailTemplates/welcomeMail");
-const enquiry = require("./mailTemplates/enquiryMail");
-const forgotPassword = require("./mailTemplates/forgotPassword");
-const application = require("./mailTemplates/application")
-const remark = require("./mailTemplates/remark")
-
+const forgotPassword = require("./mailTemplates/forgotPassword.js");
 
 const templates = {
-  welcome,
-  enquiry,
   forgotPassword,
-  application ,
-  remark,
- 
 };
 
 function renderTemplate(templateName, data) {
