@@ -3,6 +3,8 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./config/swagger");
 
 const fs = require("fs");
 const path = require("path");
@@ -30,6 +32,9 @@ connectDB();
 
 app.use(express.json());
 app.use("/assets", express.static("public/assets"));
+
+// Swagger API Documentation
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use("/api/auth", authRoutes);
 
