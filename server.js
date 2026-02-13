@@ -5,9 +5,11 @@ const authRoutes=require("./routes/authRoutes");
 const corsMiddleware=require("./middleware/corsMiddleware");
 
 dotenv.config();
+
 const app=express();
   
 app.use(express.json());
+
 app.use(corsMiddleware);
 
 app.use("/api/auth",authRoutes);
