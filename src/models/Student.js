@@ -29,7 +29,7 @@ const academicSchema = new mongoose.Schema({
   educationType: { type: String, enum: ["UG", "PG"] },
   academicType: { type: String, enum: ["REG", "PART_TIME"] },
   isLateralEntry: { type: Boolean, default: false },
-  department: { type: String, trim: true, maxlength: 100 },
+  course: { type: String, trim: true, maxlength: 100 },//B.E CCE
   yearStudying: { type: Number, enum: [1, 2, 3, 4] },
   currentSem: { type: Number, enum: [1, 2, 3, 4, 5, 6, 7, 8] },
   section: { type: String, enum: ["A", "B", "C", "D", "E", "F"], uppercase: true, default: null },
