@@ -21,8 +21,7 @@ exports.login = async (credentials, reqInfo) => {
   if (!user) throw new Error("User not found");
 
   const isPasswordValid = await bcrypt.compare(password, user.password);
-  
-  // Log Activity Helper
+   
   const log = (status, desc) => ActivityLog.create({
     user: user._id, module: "Auth", endpoint: reqInfo.url, 
     method: reqInfo.method, description: desc, meta: { email, status }
