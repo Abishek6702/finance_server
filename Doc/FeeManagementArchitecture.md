@@ -27,7 +27,7 @@ Step 6: Tracking Table Updated (Balance Reduced, Status Changed)
 ## The 4 Core Tables
 
 | Table | Purpose | Mutability |
-|---|---|---|
+| --- | --- | --- |
 | **Student** | Store student information | Rarely changes (profile updates only) |
 | **Fee Structure** | Define fee rules per student type | Never — new version created for changes |
 | **Student Fee Tracking** | Track who owes what and payment status | **Yes** — updates on every payment |
@@ -50,14 +50,14 @@ Step 6: Tracking Table Updated (Balance Reduced, Status Changed)
 │   FEE TRACKING     │  ← Initially marked NOT_PAID
 │  Status: NOT_PAID  │
 └────────┬───────────┘
-│ Payment made
-↓
+         │ Payment made
+         ↓
 ┌────────────────────┐
 │   TRANSACTIONS     │  ← Each payment stored here
 │   (Payment Log)    │
 └────────┬───────────┘
-│ After recording payment
-↓
+         │ After recording payment
+         ↓
 ┌────────────────────┐
 │   FEE TRACKING     │
 │ NOT_PAID → PARTIAL │  ← Status changes automatically
@@ -532,7 +532,7 @@ totalPaid = totalPayable               → PAID
 ### Status Progression Example
 
 | Stage | Total Fee | Paid | Balance | Status |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | Initially | ₹50,000 | ₹0 | ₹50,000 | `NOT_PAID` |
 | After 1st payment | ₹50,000 | ₹20,000 | ₹30,000 | `PARTIAL` |
 | After 2nd payment | ₹50,000 | ₹40,000 | ₹10,000 | `PARTIAL` |
@@ -679,13 +679,13 @@ module.exports = mongoose.model("PaymentTransaction", paymentTransactionSchema);
 **Fee Tracking** (1 row per student — current status):
 
 | Student | Total Fee | Paid | Balance | Status |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | John | ₹50,000 | ₹30,000 | ₹20,000 | `PARTIAL` |
 
 **Payment Transactions** (1 row per payment — full history):
 
 | Transaction ID | Student | Amount | Date | Receipt |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | TXN001 | John | ₹10,000 | Jan 5 | RCP001 |
 | TXN002 | John | ₹10,000 | Jan 15 | RCP002 |
 | TXN003 | John | ₹10,000 | Jan 25 | RCP003 |
@@ -770,7 +770,7 @@ STUDENT FEE TRACKING updated:
 ### Scenario 1 — Paying in Installments
 
 | Payment | Amount | Paid So Far | Balance | Status |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | Initial | — | ₹0 | ₹50,000 | `NOT_PAID` |
 | Payment 1 | ₹10,000 | ₹10,000 | ₹40,000 | `PARTIAL` |
 | Payment 2 | ₹20,000 | ₹30,000 | ₹20,000 | `PARTIAL` |
@@ -779,7 +779,7 @@ STUDENT FEE TRACKING updated:
 ### Scenario 2 — Multiple Students, Same Fee Structure
 
 | Student | Total Fee | Paid | Balance | Status |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | John | ₹50,000 | ₹50,000 | ₹0 | `PAID` |
 | Sarah | ₹50,000 | ₹20,000 | ₹30,000 | `PARTIAL` |
 | Mike | ₹50,000 | ₹0 | ₹50,000 | `NOT_PAID` |
@@ -807,7 +807,7 @@ All three share the same Fee Structure but have independent tracking records and
 ## Key Rules Summary
 
 | Rule | Detail |
-|---|---|
+| --- | --- |
 | Balance formula | `Balance = Total Fee − Total Paid` |
 | Status on creation | Always `NOT_PAID` |
 | Fee Structure mutability | Never modified — new version created |
