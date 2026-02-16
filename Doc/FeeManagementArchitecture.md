@@ -1,10 +1,12 @@
 # Fee Management System Architecture
 
-## System Overview
+## Overview
 
 This document explains how the fee management system works — from student admission to payment tracking.
 
-### How It Works (Simple Flow)
+---
+
+## How It Works
 
 ```
 Step 1: Student Added
@@ -24,26 +26,12 @@ Step 6: Tracking Table Updated (Balance Reduced, Status Changed)
 
 ## The 4 Core Tables
 
-### Table 1: STUDENT (Master Data)
-
-**Purpose:** Store student information
-**Changes:** Rarely (only profile updates)
-
-### Table 2: FEE STRUCTURE (Fee Rules)
-
-**Purpose:** Define what fees apply to which students
-**Changes:** Never (new version created for changes)
-
-### Table 3: STUDENT FEE TRACKING (Status Table)
-
-**Purpose:** Track who owes what and payment status
-**Changes:** YES — updates whenever payment is made
-**Initial Status:** UNPAID
-
-### Table 4: PAYMENT TRANSACTIONS (Payment Log)
-
-**Purpose:** Record every payment made
-**Changes:** Never (append-only)
+| Table | Purpose | Mutability |
+|---|---|---|
+| **Student** | Store student information | Rarely changes (profile updates only) |
+| **Fee Structure** | Define fee rules per student type | Never — new version created for changes |
+| **Student Fee Tracking** | Track who owes what and payment status | **Yes** — updates on every payment |
+| **Payment Transactions** | Record every payment made | Append-only — never modified |
 
 ---
 
@@ -52,30 +40,27 @@ Step 6: Tracking Table Updated (Balance Reduced, Status Changed)
 ```
 ┌──────────────┐         ┌──────────────┐
 │   STUDENT    │         │     FEE      │
-│              │         │  STRUCTURE   │
-│  (Profile)   │         │  (Fee Rules) │
+│   (Profile)  │         │  STRUCTURE   │
+│              │         │  (Fee Rules) │
 └──────┬───────┘         └──────┬───────┘
        │                        │
        └────────┬───────────────┘
                 ↓
        ┌────────────────────┐
-       │  FEE TRACKING      │
-       │  (Status: UNPAID)  │ ←─── Initially marked UNPAID
+       │   FEE TRACKING     │  ← Initially marked UNPAID
+       │  Status: UNPAID    │
        └────────┬───────────┘
-                │
                 │ Payment made
                 ↓
        ┌────────────────────┐
-       │  TRANSACTIONS      │ ←─── Each payment stored here
-       │  (Payment Log)     │
-       └────────────────────┘
-                │
+       │   TRANSACTIONS     │  ← Each payment stored here
+       │   (Payment Log)    │
+       └────────┬───────────┘
                 │ After recording payment
                 ↓
        ┌────────────────────┐
-       │  FEE TRACKING      │
-       │  Status Updated:   │
-       │  UNPAID → PARTIAL  │ ←─── Status changes automatically
+       │   FEE TRACKING     │
+       │  UNPAID → PARTIAL  │  ← Status changes automatically
        │  PARTIAL → PAID    │
        │  Balance Reduced   │
        └────────────────────┘
@@ -83,633 +68,432 @@ Step 6: Tracking Table Updated (Balance Reduced, Status Changed)
 
 ---
 
-## TABLE 1: STUDENT (Master Profile)
+## Table 1: Student
 
-### What It Stores
+### Purpose
 
-Basic student information that rarely changes.
+Stores basic student information that rarely changes. Used to determine which fee structure applies, based on department, program, semester, and student type.
 
-### Fields
+### Schema
 
-```javascript
+```js
 Student {
   // Identity
-  studentId: ObjectId (Primary Key)
-  rollNumber: String (Unique)
-  registerNumber: String (Unique)
-  fullName: String
-  gender: Enum ['Male', 'Female', 'Other']
-  dateOfBirth: Date
+  studentId:        ObjectId   // Primary Key
+  rollNumber:       String     // Unique
+  registerNumber:   String     // Unique
+  fullName:         String
+  gender:           Enum ['Male', 'Female', 'Other']
+  dateOfBirth:      Date
 
   // Academic Details
-  department: String
-  program: String ['UG', 'PG', 'Diploma']
-  admissionYear: Number
-  currentYear: Number
-  semester: Number
+  department:       String
+  program:          Enum ['UG', 'PG', 'Diploma']
+  admissionYear:    Number
+  currentYear:      Number
+  semester:         Number
 
   // Classification (affects fee calculation)
-  studentType: Enum ['Day Scholar', 'Hosteller', 'Transport']
+  studentType:      Enum ['Day Scholar', 'Hosteller', 'Transport']
   communityCategory: String
-  quotaType: String
+  quotaType:        String
 
-  // Contact Information
-  mobileNumber: String
-  email: String
-  guardianContact: String
-  guardianName: String
+  // Contact
+  mobileNumber:     String
+  email:            String
+  guardianName:     String
+  guardianContact:  String
 
   // Status
-  status: Enum ['Active', 'Graduated', 'Discontinued', 'On Leave']
+  status:           Enum ['Active', 'Graduated', 'Discontinued', 'On Leave']
 
   // Audit
-  createdAt: DateTime
-  updatedAt: DateTime
+  createdAt:        DateTime
+  updatedAt:        DateTime
 }
 ```
 
-### Important Notes
-
-- This table stores WHO the student is
-- Used to determine WHICH fee structure applies to them
-- Based on: department, program, semester, studentType
-
 ---
 
-## TABLE 2: FEE STRUCTURE (Fee Rules)
+## Table 2: Fee Structure
 
-### What It Stores
+### Purpose
 
-Defines what fees apply for different types of students.
+Defines fee rules for different student types. This is a **template only** — not actual student fees. A new version is created if rules change.
 
-### Fields
+### Schema
 
-```javascript
+```js
 FeeStructure {
   // Identification
-  feeStructureId: ObjectId (Primary Key)
-  academicYear: String
+  feeStructureId: ObjectId   // Primary Key
+  academicYear:   String
 
-  // Scope Definition
-  department: String
-  program: String
-  semester: Number
-  studentType: Enum ['Day Scholar', 'Hosteller', 'Transport']
-  quota: String (optional)
-  category: String (optional)
+  // Scope
+  department:     String
+  program:        String
+  semester:       Number
+  studentType:    Enum ['Day Scholar', 'Hosteller', 'Transport']
+  quota:          String     // optional
+  category:       String     // optional
 
-  // Fee Components (Heads)
+  // Fee Components
   feeHeads: [
     {
-      name: String
-      amount: Number
-      mandatory: Boolean
+      name:        String    // e.g. Tuition Fee, Exam Fee, Lab Fee
+      amount:      Number
+      mandatory:   Boolean
       description: String
     }
   ]
 
-  // Example Fee Heads:
-  // - Tuition Fee
-  // - Exam Fee
-  // - Lab Fee
-  // - Library Fee
-  // - Hostel Fee
-  // - Transport Fee
-  // - Miscellaneous Charges
-
-  // Concession Rules (Optional)
+  // Concession Rules (optional)
   concessionRules: [
     {
-      type: Enum ['Community', 'Scholarship', 'Staff Ward', 'Merit']
-      eligibilityCriteria: Object
-      discountPercentage: Number
-      discountAmount: Number
-      applicableTo: [String] // fee head names
+      type:                 Enum ['Community', 'Scholarship', 'Staff Ward', 'Merit']
+      eligibilityCriteria:  Object
+      discountPercentage:   Number
+      discountAmount:       Number
+      applicableTo:         [String]  // fee head names
     }
   ]
 
-  // Total
+  // Summary
   totalAmount: Number
 
   // Metadata
-  isActive: Boolean
-  version: Number
-  createdBy: ObjectId
-  approvedBy: ObjectId
-  approvedAt: DateTime
+  isActive:    Boolean
+  version:     Number
+  createdBy:   ObjectId
+  approvedBy:  ObjectId
+  approvedAt:  DateTime
 
   // Audit
-  createdAt: DateTime
-  updatedAt: DateTime
+  createdAt:   DateTime
+  updatedAt:   DateTime
 }
 ```
 
-### Important Notes
-
-- One fee structure defines fees for: specific department + semester + student type
-- Example: CSE, Semester 1, Day Scholar = ₹50,000 (broken into fee heads)
-- This is just the TEMPLATE — not actual student fees yet
+> **Example:** CSE + Semester 1 + Day Scholar = ₹50,000 (broken into fee heads)
 
 ---
 
-## TABLE 3: STUDENT FEE TRACKING (The Payment Status Table)
+## Table 3: Student Fee Tracking
 
-### What It Stores
+### Purpose
 
-**This is the MAIN tracking table.** For each student, it stores:
-
-- What fees they need to pay
-- How much they've paid so far
-- Current balance
-- Payment status (UNPAID / PARTIAL / PAID)
+The **main tracking table**. For each student it stores: what fees they owe, how much has been paid, the current balance, and the payment status.
 
 ### How It Gets Created
 
-**When a student is added:**
+When a student is added, the system:
 
-1. System looks at the student's department, semester, and type
-2. Finds matching FEE STRUCTURE
-3. Copies those fees into THIS table for that student
-4. **Initially marks everything as UNPAID and balance = total amount**
+1. Reads the student's department, semester, and type
+2. Finds the matching Fee Structure
+3. Copies those fees into this table for that student
+4. Sets initial status to **UNPAID** with balance = total amount
 
-**Example:**
+### Schema
 
-- Student: John (CSE, Semester 1, Day Scholar)
-- System finds: FeeStructure for CSE-Sem1-DayScholar = ₹50,000
-- Creates entry in THIS table:
-  - Total Fee: ₹50,000
-  - Paid: ₹0
-  - Balance: ₹50,000
-  - **Status: UNPAID**
-
-### Fields
-
-```javascript
+```js
 StudentFeeTracking {
-  // Primary Keys
-  demandId: ObjectId (Primary Key)
-  studentId: ObjectId (Foreign Key → Student)
-  feeStructureId: ObjectId (Foreign Key → FeeStructure)
+  // Keys
+  demandId:        ObjectId   // Primary Key
+  studentId:       ObjectId   // → Student
+  feeStructureId:  ObjectId   // → FeeStructure
 
   // Student Snapshot (frozen at generation time)
   studentSnapshot: {
-    rollNumber: String
-    fullName: String
-    department: String
-    program: String
-    studentType: String
-    semester: Number
-    academicYear: String
+    rollNumber:    String
+    fullName:      String
+    department:    String
+    program:       String
+    studentType:   String
+    semester:      Number
+    academicYear:  String
   }
 
-  // Fee Breakdown (Copied from FeeStructure)
+  // Fee Breakdown (copied from FeeStructure)
   feeHeads: [
     {
-      name: String
-      baseAmount: Number
+      name:             String
+      baseAmount:       Number
       concessionAmount: Number
-      payableAmount: Number
-      mandatory: Boolean
+      payableAmount:    Number
+      mandatory:        Boolean
     }
   ]
 
   // Concession Applied
   concessionDetails: {
-    type: String
-    percentage: Number
-    totalConcession: Number
-    approvedBy: ObjectId
-    remarks: String
+    type:             String
+    percentage:       Number
+    totalConcession:  Number
+    approvedBy:       ObjectId
+    remarks:          String
   }
 
-  // Financial Summary (MUTABLE — updates with payments)
-  totalFeeAmount: Number        // Original total
-  totalConcession: Number       // Discount applied
-  totalPayable: Number          // After concession
-  totalPaid: Number             // Sum of all payments
-  balanceAmount: Number         // Remaining to pay
-  fineAmount: Number            // Late fee accumulated
-  adjustmentAmount: Number      // Special adjustments
+  // Financial Summary  ← MUTABLE
+  totalFeeAmount:    Number   // Original total
+  totalConcession:   Number   // Discount applied
+  totalPayable:      Number   // After concession
+  totalPaid:         Number   // Sum of all payments
+  balanceAmount:     Number   // Remaining to pay
+  fineAmount:        Number   // Late fee accumulated
+  adjustmentAmount:  Number   // Special adjustments
 
-  // Tracking Status (MUTABLE — derived from payments)
+  // Status  ← MUTABLE
   paymentStatus: Enum [
-    'NOT_PAID',     // totalPaid = 0
-    'PARTIAL',      // 0 < totalPaid < totalPayable
-    'PAID',         // totalPaid = totalPayable
-    'OVERDUE',      // past due date with balance > 0
-    'OVERPAID'      // totalPaid > totalPayable
+    'NOT_PAID',   // totalPaid = 0
+    'PARTIAL',    // 0 < totalPaid < totalPayable
+    'PAID',       // totalPaid = totalPayable
+    'OVERDUE',    // past due date with balance > 0
+    'OVERPAID'    // totalPaid > totalPayable
   ]
 
   // Timeline
-  dueDate: Date
-  lastPaymentDate: Date
-  paidInFullDate: Date
+  dueDate:          Date
+  lastPaymentDate:  Date
+  paidInFullDate:   Date
 
-  // Payment References
-  transactionIds: [ObjectId]    // Links to payment transactions
+  // References
+  transactionIds:   [ObjectId]
 
   // Flags
   isDemandGenerated: Boolean
-  isFinalized: Boolean
-  isCancelled: Boolean
+  isFinalized:       Boolean
+  isCancelled:       Boolean
 
   // Audit
-  generatedBy: ObjectId
-  generatedAt: DateTime
-  lastModifiedBy: ObjectId
-  updatedAt: DateTime
-  remarks: String
+  generatedBy:      ObjectId
+  generatedAt:      DateTime
+  lastModifiedBy:   ObjectId
+  updatedAt:        DateTime
+  remarks:          String
 }
 ```
 
-### How Status Gets Updated (Automatically)
-
-**This table changes every time a payment is made:**
-
-| Scenario | Total Fee | Paid | Balance | Status |
-|----------|-----------|------|---------|--------|
-| **Initially** | ₹50,000 | ₹0 | ₹50,000 | **UNPAID** |
-| After 1st payment | ₹50,000 | ₹20,000 | ₹30,000 | **PARTIAL** |
-| After 2nd payment | ₹50,000 | ₹40,000 | ₹10,000 | **PARTIAL** |
-| After 3rd payment | ₹50,000 | ₹50,000 | ₹0 | **PAID** |
-
-**Status Logic:**
+### Status Logic
 
 ```
-If totalPaid = 0                     → Status = UNPAID
-If totalPaid > 0 AND < totalPayable  → Status = PARTIAL
-If totalPaid = totalPayable          → Status = PAID
+totalPaid = 0                          → NOT_PAID
+totalPaid > 0  AND  < totalPayable     → PARTIAL
+totalPaid = totalPayable               → PAID
 ```
 
-### Why This Table Changes
+### Status Progression Example
 
-**YES, this table is UPDATED (mutable)** because:
+| Stage | Total Fee | Paid | Balance | Status |
+|---|---|---|---|---|
+| Initially | ₹50,000 | ₹0 | ₹50,000 | `NOT_PAID` |
+| After 1st payment | ₹50,000 | ₹20,000 | ₹30,000 | `PARTIAL` |
+| After 2nd payment | ₹50,000 | ₹40,000 | ₹10,000 | `PARTIAL` |
+| After 3rd payment | ₹50,000 | ₹50,000 | ₹0 | `PAID` |
 
-- Payment amounts change
-- Balance reduces
-- Status changes from UNPAID → PARTIAL → PAID
-
-**Every time a payment transaction is recorded:**
-
-1. `totalPaid` increases
-2. `balanceAmount` decreases
-3. `paymentStatus` updates automatically
-4. `lastPaymentDate` updates
+> **Why this table is mutable:** `totalPaid`, `balanceAmount`, `paymentStatus`, and `lastPaymentDate` all update on every payment.
 
 ---
 
-## TABLE 4: PAYMENT TRANSACTIONS (Separate Payment Log)
+## Table 4: Payment Transactions
 
-### What It Stores
+### Purpose
 
-**Every single payment is recorded here separately.**
+An **append-only log** of every payment made. One student can have multiple records — one per payment.
 
-One student can have multiple payment records (one for each payment they make).
+### Schema
 
-### Fields
-
-```javascript
+```js
 PaymentTransaction {
-  // Primary Keys
-  transactionId: ObjectId (Primary Key)
-  studentId: ObjectId (Foreign Key → Student)
-  demandId: ObjectId (Foreign Key → StudentFeeTracking)
+  // Keys
+  transactionId: ObjectId   // Primary Key
+  studentId:     ObjectId   // → Student
+  demandId:      ObjectId   // → StudentFeeTracking
 
   // Payment Details
-  amountPaid: Number
-  paymentMode: Enum [
-    'Cash',
-    'UPI',
-    'Credit Card',
-    'Debit Card',
-    'Net Banking',
-    'Demand Draft',
-    'Cheque',
-    'Bank Transfer'
+  amountPaid:   Number
+  paymentMode:  Enum [
+    'Cash', 'UPI', 'Credit Card', 'Debit Card',
+    'Net Banking', 'Demand Draft', 'Cheque', 'Bank Transfer'
   ]
 
   // Transaction Info
-  transactionReference: String    // UTR/Transaction ID from bank
-  bankName: String
-  bankTransactionDate: Date
-  receiptNumber: String (Unique)
+  transactionReference: String   // UTR / bank transaction ID
+  bankName:             String
+  bankTransactionDate:  Date
+  receiptNumber:        String   // Unique
 
-  // Fee Head Allocation (optional breakdown)
+  // Fee Head Allocation (optional)
   feeHeadAllocations: [
     {
-      feeHeadName: String
+      feeHeadName:     String
       allocatedAmount: Number
     }
   ]
 
-  // Payment Status
+  // Verification
   paymentVerified: Boolean
-  verifiedBy: ObjectId
-  verifiedAt: DateTime
+  verifiedBy:      ObjectId
+  verifiedAt:      DateTime
 
   // Reversal Support
-  isReversed: Boolean
-  reversalTransactionId: ObjectId
-  reversalReason: String
-  reversedBy: ObjectId
-  reversedAt: DateTime
+  isReversed:             Boolean
+  reversalTransactionId:  ObjectId
+  reversalReason:         String
+  reversedBy:             ObjectId
+  reversedAt:             DateTime
 
-  // Audit Trail
-  recordedBy: ObjectId             // Who entered the payment
-  paidAt: DateTime                 // When payment was made
-  createdAt: DateTime              // When record was created
-  remarks: String
+  // Audit
+  recordedBy:           ObjectId   // Who entered the payment
+  paidAt:               DateTime   // When payment was made
+  createdAt:            DateTime
+  remarks:              String
 
-  // Receipt Data
-  receiptGeneratedAt: DateTime
-  receiptUrl: String
+  // Receipt
+  receiptGeneratedAt:   DateTime
+  receiptUrl:           String
 }
 ```
 
-### Why Separate Table?
+### Two-Table Relationship Example
 
-**Student Fee Tracking Table** → Shows CURRENT status (total paid, balance, status)
-**Payment Transactions Table** → Shows HISTORY of all individual payments
-
-### Example for One Student
-
-**Fee Tracking Table (1 row):**
+**Fee Tracking** (1 row per student — current status):
 
 | Student | Total Fee | Paid | Balance | Status |
-|---------|-----------|------|---------|--------|
-| John | ₹50,000 | ₹30,000 | ₹20,000 | PARTIAL |
+|---|---|---|---|---|
+| John | ₹50,000 | ₹30,000 | ₹20,000 | `PARTIAL` |
 
-**Payment Transactions Table (3 rows for same student):**
+**Payment Transactions** (1 row per payment — full history):
 
 | Transaction ID | Student | Amount | Date | Receipt |
-|---------------|---------|--------|------|---------|
+|---|---|---|---|---|
 | TXN001 | John | ₹10,000 | Jan 5 | RCP001 |
 | TXN002 | John | ₹10,000 | Jan 15 | RCP002 |
 | TXN003 | John | ₹10,000 | Jan 25 | RCP003 |
 
-### How Payment Recording Works
-
-**When student makes a payment:**
-
-**Step 1:** Add new record to PAYMENT TRANSACTIONS table
-
-```
-Insert new payment:
-- Student: John
-- Amount: ₹10,000
-- Date: Jan 5, 2026
-- Receipt: RCP001
-```
-
-**Step 2:** Update the STUDENT FEE TRACKING table
-
-```
-Update John's tracking record:
-- totalPaid: ₹0 → ₹10,000
-- balanceAmount: ₹50,000 → ₹40,000
-- paymentStatus: UNPAID → PARTIAL
-```
-
-**Result:**
-
-- Payment history is stored separately (never deleted)
-- Current status is updated automatically
-- Balance reduces with each payment
-
 ---
 
-## COMPLETE WORKFLOW: Step-by-Step
+## Complete Workflow
 
-### Step 1: Add Student
-
-```
-Student registered in system
-→ Stored in STUDENT table
-→ Example: John, CSE Department, Semester 1, Day Scholar
-```
-
-### Step 2: Fee Structure Exists
+### Step 1 — Add Student
 
 ```
-Fee structure already defined for:
-→ CSE + Semester 1 + Day Scholar = ₹50,000
-→ Contains breakdown:
-   - Tuition: ₹30,000
-   - Lab Fee: ₹10,000
-   - Exam Fee: ₹5,000
-   - Library: ₹5,000
+Student registered → stored in STUDENT table
+Example: John, CSE, Semester 1, Day Scholar
 ```
 
-### Step 3: Fees Pushed to Tracking Table (UNPAID)
+### Step 2 — Match Fee Structure
 
 ```
-System automatically:
-→ Takes John's profile (CSE, Sem 1, Day Scholar)
-→ Finds matching fee structure (₹50,000)
-→ Creates record in STUDENT FEE TRACKING table
-
-Entry created:
-┌─────────────────────────────────────┐
-│ Student: John                       │
-│ Total Fee: ₹50,000                 │
-│ Total Paid: ₹0                     │
-│ Balance: ₹50,000                   │
-│ Status: UNPAID       ← Initially   │
-└─────────────────────────────────────┘
+Fee structure already defined:
+  CSE + Semester 1 + Day Scholar = ₹50,000
+  Breakdown:
+    Tuition:  ₹30,000
+    Lab Fee:  ₹10,000
+    Exam Fee:  ₹5,000
+    Library:   ₹5,000
 ```
 
-### Step 4: Student Makes First Payment
+### Step 3 — Generate Tracking Record
+
+```
+System creates entry in STUDENT FEE TRACKING:
+  Student:    John
+  Total Fee:  ₹50,000
+  Total Paid: ₹0
+  Balance:    ₹50,000
+  Status:     NOT_PAID  ← initial
+```
+
+### Step 4 — First Payment
 
 ```
 John pays ₹20,000
 
-Transaction recorded in PAYMENT TRANSACTIONS table:
-┌─────────────────────────────────────┐
-│ Transaction ID: TXN001              │
-│ Student: John                       │
-│ Amount: ₹20,000                    │
-│ Date: Jan 5, 2026                  │
-│ Receipt: RCP001                    │
-└─────────────────────────────────────┘
+New record in PAYMENT TRANSACTIONS:
+  Transaction ID: TXN001
+  Student:        John
+  Amount:         ₹20,000
+  Date:           Jan 5, 2026
+  Receipt:        RCP001
 ```
 
-### Step 5: Tracking Table Updated Automatically
+### Step 5 — Tracking Record Updated
 
 ```
-System updates STUDENT FEE TRACKING table:
-┌─────────────────────────────────────┐
-│ Student: John                       │
-│ Total Fee: ₹50,000                 │
-│ Total Paid: ₹20,000   ← Updated    │
-│ Balance: ₹30,000      ← Reduced    │
-│ Status: PARTIAL       ← Changed    │
-└─────────────────────────────────────┘
+STUDENT FEE TRACKING updated automatically:
+  Total Paid: ₹0       → ₹20,000
+  Balance:    ₹50,000  → ₹30,000
+  Status:     NOT_PAID → PARTIAL
 ```
 
-### Step 6: Student Makes Second Payment
+### Step 6 — Final Payment
 
 ```
 John pays another ₹30,000
 
-New transaction recorded:
-┌─────────────────────────────────────┐
-│ Transaction ID: TXN002              │
-│ Student: John                       │
-│ Amount: ₹30,000                    │
-│ Date: Feb 10, 2026                 │
-│ Receipt: RCP002                    │
-└─────────────────────────────────────┘
+New record in PAYMENT TRANSACTIONS:
+  Transaction ID: TXN002
+  Amount:         ₹30,000
+  Date:           Feb 10, 2026
+  Receipt:        RCP002
 
-Tracking table updated again:
-┌─────────────────────────────────────┐
-│ Student: John                       │
-│ Total Fee: ₹50,000                 │
-│ Total Paid: ₹50,000   ← Full amt   │
-│ Balance: ₹0           ← Zero       │
-│ Status: PAID          ← Done       │
-└─────────────────────────────────────┘
+STUDENT FEE TRACKING updated:
+  Total Paid: ₹50,000
+  Balance:    ₹0
+  Status:     PAID  ✓
 ```
-
-### Summary: Two Tables Working Together
-
-**PAYMENT TRANSACTIONS Table** (stores each payment separately):
-
-| Trans ID | Student | Amount | Date | Receipt |
-|----------|---------|--------|------|---------|
-| TXN001 | John | ₹20,000 | Jan 5 | RCP001 |
-| TXN002 | John | ₹30,000 | Feb 10 | RCP002 |
-
-**STUDENT FEE TRACKING Table** (shows current status):
-
-| Student | Total Fee | Paid | Balance | Status |
-|---------|-----------|------|---------|--------|
-| John | ₹50,000 | ₹50,000 | ₹0 | PAID |
 
 ---
 
-## KEY RULES
+## Common Scenarios
 
-### Which Tables Change and Which Don't
-
-| Table | Can Change? | When? |
-|-------|-------------|-------|
-| **STUDENT** | Rarely | Only profile updates |
-| **FEE STRUCTURE** | No | Create new version if needed |
-| **FEE TRACKING** | **YES** | Every payment updates it |
-| **PAYMENT TRANSACTIONS** | No | Only add new records |
-
-### Balance Calculation
-
-```
-Balance = Total Fee - Total Paid
-```
-
-Simple formula that updates automatically after each payment.
-
----
-
-## COMMON SCENARIOS
-
-### Scenario 1: Partial Payment
-
-**Student pays in installments**
+### Scenario 1 — Paying in Installments
 
 | Payment | Amount | Paid So Far | Balance | Status |
-|---------|--------|-------------|---------|--------|
-| Initial | - | ₹0 | ₹50,000 | UNPAID |
-| Payment 1 | ₹10,000 | ₹10,000 | ₹40,000 | PARTIAL |
-| Payment 2 | ₹20,000 | ₹30,000 | ₹20,000 | PARTIAL |
-| Payment 3 | ₹20,000 | ₹50,000 | ₹0 | PAID |
+|---|---|---|---|---|
+| Initial | — | ₹0 | ₹50,000 | `NOT_PAID` |
+| Payment 1 | ₹10,000 | ₹10,000 | ₹40,000 | `PARTIAL` |
+| Payment 2 | ₹20,000 | ₹30,000 | ₹20,000 | `PARTIAL` |
+| Payment 3 | ₹20,000 | ₹50,000 | ₹0 | `PAID` |
 
-Each payment:
-
-- Adds new record to Payment Transactions table
-- Updates the Fee Tracking table automatically
-
-### Scenario 2: Multiple Students, Same Fee Structure
-
-**3 students from same department/semester/type:**
+### Scenario 2 — Multiple Students, Same Fee Structure
 
 | Student | Total Fee | Paid | Balance | Status |
-|---------|-----------|------|---------|--------|
-| John | ₹50,000 | ₹50,000 | ₹0 | PAID |
-| Sarah | ₹50,000 | ₹20,000 | ₹30,000 | PARTIAL |
-| Mike | ₹50,000 | ₹0 | ₹50,000 | UNPAID |
+|---|---|---|---|---|
+| John | ₹50,000 | ₹50,000 | ₹0 | `PAID` |
+| Sarah | ₹50,000 | ₹20,000 | ₹30,000 | `PARTIAL` |
+| Mike | ₹50,000 | ₹0 | ₹50,000 | `NOT_PAID` |
 
-All three:
-
-- Share same FeeStructure (same rules)
-- Have separate entries in Fee Tracking table
-- Have separate payment transaction records
-- Tracked independently
+All three share the same Fee Structure but have independent tracking records and separate transaction histories.
 
 ---
 
-## DASHBOARD VIEWS
-
-### What Admin Can See
+## Dashboard Views
 
 **Fee Collection Dashboard:**
-
-- Total fees collected today/month
+- Total fees collected today / this month
 - Pending fees by department
-- List of students with UNPAID status
-- List of students with PARTIAL status
+- Students with `NOT_PAID` or `PARTIAL` status
 - Overdue payments
 
-**Student Fee Status:**
-
+**Student Fee Detail:**
 - Search any student
-- See their total fee, paid amount, balance
-- See payment history (all transactions)
+- View total fee, paid amount, and balance
+- Full payment history (all transactions)
 - Generate receipts
 
 ---
 
-## SUMMARY: How The System Works
+## Key Rules Summary
 
-### The Exact Flow
-
-```
-1. Student Added to System
-   → Stored in STUDENT table
-
-2. Fee Structure Applied
-   → System finds matching fee structure
-   → Based on: department + semester + student type
-
-3. Fees Pushed to Tracking Table
-   → New entry created in STUDENT FEE TRACKING table
-   → Status: UNPAID
-   → Balance: Full amount
-
-4. Student Makes Payment
-   → New record added to PAYMENT TRANSACTIONS table
-   → This table stores each payment separately
-
-5. Tracking Table Updated Automatically
-   → Total Paid increases
-   → Balance decreases
-   → Status changes: UNPAID → PARTIAL → PAID
-```
-
-### The 4 Tables
-
-1. **STUDENT** → Who the student is (profile)
-2. **FEE STRUCTURE** → Fee rules (what to charge)
-3. **STUDENT FEE TRACKING** → Current status (how much paid/balance)
-4. **PAYMENT TRANSACTIONS** → Payment history (each payment recorded)
-
-### Key Points
-
-- ✓ When student added, fees are **pushed to tracking table**
-- ✓ Everything starts as **UNPAID**
-- ✓ Payments are **tracked separately** for each student
-- ✓ Tracking table **gets updated** after each payment
-- ✓ Balance **reduces automatically**
-- ✓ Status changes: **UNPAID → PARTIAL → PAID**
+| Rule | Detail |
+|---|---|
+| Balance formula | `Balance = Total Fee − Total Paid` |
+| Status on creation | Always `NOT_PAID` |
+| Fee Structure mutability | Never modified — new version created |
+| Transaction records | Append-only — never deleted or edited |
+| Tracking record | Updated automatically after each payment |
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** February 16, 2026
+*Document Version: 1.0 · Last Updated: February 16, 2026*
