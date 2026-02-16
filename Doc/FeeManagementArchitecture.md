@@ -13,7 +13,7 @@ Step 1: Student Added
     ↓
 Step 2: Fee Structure Applied (based on department, semester, type)
     ↓
-Step 3: Fees Pushed to Tracking Table (Status: UNPAID)
+Step 3: Fees Pushed to Tracking Table (Status: NOT_PAID)
     ↓
 Step 4: Student Makes Payment
     ↓
@@ -46,24 +46,24 @@ Step 6: Tracking Table Updated (Balance Reduced, Status Changed)
        │                        │
        └────────┬───────────────┘
                 ↓
-       ┌────────────────────┐
-       │   FEE TRACKING     │  ← Initially marked UNPAID
-       │  Status: UNPAID    │
-       └────────┬───────────┘
-                │ Payment made
-                ↓
-       ┌────────────────────┐
-       │   TRANSACTIONS     │  ← Each payment stored here
-       │   (Payment Log)    │
-       └────────┬───────────┘
-                │ After recording payment
-                ↓
-       ┌────────────────────┐
-       │   FEE TRACKING     │
-       │  UNPAID → PARTIAL  │  ← Status changes automatically
-       │  PARTIAL → PAID    │
-       │  Balance Reduced   │
-       └────────────────────┘
+┌────────────────────┐
+│   FEE TRACKING     │  ← Initially marked NOT_PAID
+│  Status: NOT_PAID  │
+└────────┬───────────┘
+│ Payment made
+↓
+┌────────────────────┐
+│   TRANSACTIONS     │  ← Each payment stored here
+│   (Payment Log)    │
+└────────┬───────────┘
+│ After recording payment
+↓
+┌────────────────────┐
+│   FEE TRACKING     │
+│ NOT_PAID → PARTIAL │  ← Status changes automatically
+│  PARTIAL → PAID    │
+│  Balance Reduced   │
+└────────────────────┘
 ```
 
 ---
@@ -77,40 +77,162 @@ Stores basic student information that rarely changes. Used to determine which fe
 ### Schema
 
 ```js
-Student {
-  // Identity
-  studentId:        ObjectId   // Primary Key
-  rollNumber:       String     // Unique
-  registerNumber:   String     // Unique
-  fullName:         String
-  gender:           Enum ['Male', 'Female', 'Other']
-  dateOfBirth:      Date
+// ---------- 1. PERSONAL ----------
+const personalSchema = new mongoose.Schema({
+  rollNo: {
+    type: String,
+    required: true,
+    unique: true,
+    uppercase: true,
+    trim: true,
+    match: [/^\d{2}[A-Z]{2}\d{3}$/, "Invalid roll number format"]
+  },
+  studentName: { type: String, trim: true, minlength: 1, maxlength: 100 },
+  gender: { type: String, enum: ["Male", "Female", "Other"] },
+  dob: Date,
+  bloodGroup: { type: String, enum: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] },
+  aadharNo: { type: String, trim: true, match: [/^\d{12}$/, "Aadhar must be 12 digits"] },
+  emisNo: { type: String, trim: true },
+  religion: { type: String, trim: true, maxlength: 50 },
+  nationality: { type: String, trim: true, maxlength: 50 },
+  studentPhoto: { type: String, trim: true },
+  hostelDayScholar: { type: String, enum: ["Hosteller", "Day Scholar"] },
+  isCollegeTransport: { type: Boolean, default: false }
+}, { _id: false });
 
-  // Academic Details
-  department:       String
-  program:          Enum ['UG', 'PG', 'Diploma']
-  admissionYear:    Number
-  currentYear:      Number
-  semester:         Number
 
-  // Classification (affects fee calculation)
-  studentType:      Enum ['Day Scholar', 'Hosteller', 'Transport']
-  communityCategory: String
-  quotaType:        String
+// ---------- 2. ACADEMIC ----------
+const academicSchema = new mongoose.Schema({
+  educationType: { type: String, enum: ["UG", "PG"] },
+  academicType: { type: String, enum: ["REG", "PART_TIME"] },
+  isLateralEntry: { type: Boolean, default: false },
+  course: { type: String, trim: true, maxlength: 100 },//B.E CCE
+  yearStudying: { type: Number, enum: [1, 2, 3, 4] },
+  currentSem: { type: Number, enum: [1, 2, 3, 4, 5, 6, 7, 8] },
+  section: { type: String, enum: ["A", "B", "C", "D", "E", "F"], uppercase: true, default: null },
+  batch: {
+    from: { type: Number, min: 1900, max: 2100 },
+    to: { type: Number, min: 1900, max: 2100 }
+  },
+  currentAcademicYear: {
+    from: { type: Number, min: 1900, max: 2100 },
+    to: { type: Number, min: 1900, max: 2100 }
+  }
+}, { _id: false });
 
-  // Contact
-  mobileNumber:     String
-  email:            String
-  guardianName:     String
-  guardianContact:  String
 
-  // Status
-  status:           Enum ['Active', 'Graduated', 'Discontinued', 'On Leave']
+// ---------- 3. CONTACT ----------
+const contactSchema = new mongoose.Schema({
+  selfMobileNo: {
+    type: String,
+    trim: true,
+    match: [/^[6-9]\d{9}$/, "Mobile number must be 10 digits starting with 6-9"]
+  },
+  selfEmail: {
+    type: String,
+    trim: true,
+    lowercase: true,
+    match: [/^\S+@\S+\.\S+$/, "Invalid email format"]
+  },
+  officialEmail: {
+    type: String,
+    trim: true,
+    lowercase: true,
+    match: [/^[a-z0-9._%+-]+@sece\.ac\.in$/, "Official email must end with @sece.ac.in"]
+  }
+}, { _id: false });
 
-  // Audit
-  createdAt:        DateTime
-  updatedAt:        DateTime
-}
+
+// ---------- 4. FAMILY ----------
+const familySchema = new mongoose.Schema({
+  father: {
+    name: { type: String, trim: true, maxlength: 100 },
+    mobile: {
+      type: String,
+      trim: true,
+      match: [/^[6-9]\d{9}$/, "Mobile number must be 10 digits starting with 6-9"]
+    },
+    workType: { type: String, trim: true, maxlength: 50 },
+    qualification: { type: String, trim: true, maxlength: 50 }
+  },
+  mother: {
+    name: { type: String, trim: true, maxlength: 100 },
+    mobile: {
+      type: String,
+      trim: true,
+      match: [/^[6-9]\d{9}$/, "Mobile number must be 10 digits starting with 6-9"]
+    },
+    workType: { type: String, trim: true, maxlength: 50 },
+    qualification: { type: String, trim: true, maxlength: 50 }
+  },
+  guardian: {
+    name: { type: String, trim: true, maxlength: 100 },
+    mobile: {
+      type: String,
+      trim: true,
+      match: [/^[6-9]\d{9}$/, "Mobile number must be 10 digits starting with 6-9"]
+    }
+  },
+  familyIncomeAsPerCertificate: { type: Number, min: 0 },
+  community: { type: String, trim: true, maxlength: 50 },
+  casteName: { type: String, trim: true, maxlength: 50 },
+  communityCertificateNo: { type: String, trim: true, maxlength: 50 }
+}, { _id: false });
+
+
+// ---------- 5. ADDRESS ----------
+const addressSchema = new mongoose.Schema({
+  permanent: {
+    doorNo: { type: String, trim: true, maxlength: 50 },
+    street: { type: String, trim: true, maxlength: 100 },
+    area: { type: String, trim: true, maxlength: 100 },
+    villageOrTown: { type: String, trim: true, maxlength: 100 },
+    taluk: { type: String, trim: true, maxlength: 100 },
+    district: { type: String, trim: true, maxlength: 100 },
+    state: { type: String, trim: true, maxlength: 100 },
+    pincode: {
+      type: String,
+      trim: true,
+      match: [/^\d{6}$/, "Pincode must be 6 digits"]
+    }
+  },
+  communication: {
+    doorNo: { type: String, trim: true, maxlength: 50 },
+    street: { type: String, trim: true, maxlength: 100 },
+    area: { type: String, trim: true, maxlength: 100 },
+    villageOrTown: { type: String, trim: true, maxlength: 100 },
+    taluk: { type: String, trim: true, maxlength: 100 },
+    district: { type: String, trim: true, maxlength: 100 },
+    state: { type: String, trim: true, maxlength: 100 },
+    pincode: {
+      type: String,
+      trim: true,
+      match: [/^\d{6}$/, "Pincode must be 6 digits"]
+    }
+  }
+}, { _id: false });
+
+
+// ---------- 6. ENROLLMENT ----------
+const enrollmentSchema = new mongoose.Schema({
+  quota: { type: String, enum: ["Management Quota", "Government Quota"] },
+  isFirstGraduate: { type: Boolean, default: false },
+  is7point5Scheme: { type: Boolean, default: false },
+  isPMSSScheme: { type: Boolean, default: false },
+  isSakthiScheme: { type: Boolean, default: false }
+}, { _id: false });
+
+
+// ---------- MAIN STUDENT SCHEMA ----------
+const studentSchema = new mongoose.Schema({
+  personal: personalSchema,
+  academic: academicSchema,
+  contact: contactSchema,
+  family: familySchema,
+  address: addressSchema,
+  enrollment: enrollmentSchema
+}, { timestamps: true });
+
 ```
 
 ---
@@ -124,54 +246,157 @@ Defines fee rules for different student types. This is a **template only** — n
 ### Schema
 
 ```js
-FeeStructure {
-  // Identification
-  feeStructureId: ObjectId   // Primary Key
-  academicYear:   String
+const mongoose = require("mongoose");
 
-  // Scope
-  department:     String
-  program:        String
-  semester:       Number
-  studentType:    Enum ['Day Scholar', 'Hosteller', 'Transport']
-  quota:          String     // optional
-  category:       String     // optional
+const feeStructureSchema = new mongoose.Schema({
 
-  // Fee Components
-  feeHeads: [
-    {
-      name:        String    // e.g. Tuition Fee, Exam Fee, Lab Fee
-      amount:      Number
-      mandatory:   Boolean
-      description: String
-    }
-  ]
+  // ===== IDENTIFICATION =====
+  academicYear:{
+    type:String,
+    required:true,           // "2026-2027"
+    trim:true
+  },
 
-  // Concession Rules (optional)
-  concessionRules: [
-    {
-      type:                 Enum ['Community', 'Scholarship', 'Staff Ward', 'Merit']
-      eligibilityCriteria:  Object
-      discountPercentage:   Number
-      discountAmount:       Number
-      applicableTo:         [String]  // fee head names
-    }
-  ]
+  version:{
+    type:Number,
+    default:1
+  },
 
-  // Summary
-  totalAmount: Number
+  isActive:{
+    type:Boolean,
+    default:true
+  },
 
-  // Metadata
-  isActive:    Boolean
-  version:     Number
-  createdBy:   ObjectId
-  approvedBy:  ObjectId
-  approvedAt:  DateTime
+  // ===== APPLICABILITY =====
+  course:{
+    type:String,             // B.E CSE, B.Tech IT
+    required:true,
+    trim:true
+  },
 
-  // Audit
-  createdAt:   DateTime
-  updatedAt:   DateTime
-}
+  educationType:{
+    type:String,
+    enum:["UG","PG"]
+  },
+
+  semester:{
+    type:Number,
+    required:true
+  },
+
+  hostelDayScholar:{
+    type:String,
+    enum:["Hosteller","Day Scholar"],
+    required:true
+  },
+
+  isCollegeTransport:{
+    type:Boolean,
+    default:false
+  },
+
+  quota:{
+    type:String,
+    enum:["Management Quota","Government Quota"],
+    default:null
+  },
+
+  // ===== CORE ACADEMIC FEES =====
+  tuitionFee:{ type:Number, default:0 },
+  admissionFee:{ type:Number, default:0 },
+  universityFee:{ type:Number, default:0 },
+  examFee:{ type:Number, default:0 },
+  labFee:{ type:Number, default:0 },
+  libraryFee:{ type:Number, default:0 },
+  sportsFee:{ type:Number, default:0 },
+  developmentFee:{ type:Number, default:0 },
+  studentWelfareFee:{ type:Number, default:0 },
+  medicalFee:{ type:Number, default:0 },
+  insuranceFee:{ type:Number, default:0 },
+  idCardFee:{ type:Number, default:0 },
+
+  // ===== FACILITY FEES =====
+  internetFee:{ type:Number, default:0 },
+  smartClassFee:{ type:Number, default:0 },
+  placementTrainingFee:{ type:Number, default:0 },
+
+  // ===== HOSTEL & TRANSPORT =====
+  hostelFee:{ type:Number, default:0 },
+  messFee:{ type:Number, default:0 },
+  transportFee:{ type:Number, default:0 },
+
+  // ===== REFUNDABLE DEPOSITS =====
+  cautionDeposit:{ type:Number, default:0 },     // refundable
+  hostelDeposit:{ type:Number, default:0 },
+
+  // ===== MISCELLANEOUS =====
+  miscellaneousFee:{ type:Number, default:0 },
+
+  // ===== SCHEME / CONCESSION SUPPORT =====
+  firstGraduateDiscount:{ type:Number, default:0 },
+  scholarshipEligible:{
+    type:Boolean,
+    default:false
+  },
+
+  // ===== PAYMENT RULES =====
+  dueDays:{
+    type:Number,
+    default:30
+  },
+
+  allowInstallments:{
+    type:Boolean,
+    default:true
+  },
+
+  maxInstallments:{
+    type:Number,
+    default:3
+  },
+
+  // ===== LATE FEE SETTINGS =====
+  lateFeeEnabled:{
+    type:Boolean,
+    default:false
+  },
+
+  lateFeeAmount:{
+    type:Number,
+    default:0       // flat fine
+  },
+
+  lateFeePerDay:{
+    type:Number,
+    default:0
+  },
+
+  lateFeeMaxLimit:{
+    type:Number,
+    default:0
+  },
+
+  // ===== SUMMARY =====
+  totalAmount:{
+    type:Number,
+    required:true
+  },
+
+  // ===== METADATA =====
+  createdBy:{ type:mongoose.Schema.Types.ObjectId },
+  approvedBy:{ type:mongoose.Schema.Types.ObjectId },
+  approvedAt:{ type:Date },
+
+  notes:{
+    type:String,
+    maxlength:500,
+    trim:true
+  }
+
+},{ timestamps:true });
+
+module.exports = mongoose.model("FeeStructure", feeStructureSchema);
+
 ```
 
 > **Example:** CSE + Semester 1 + Day Scholar = ₹50,000 (broken into fee heads)
@@ -191,86 +416,109 @@ When a student is added, the system:
 1. Reads the student's department, semester, and type
 2. Finds the matching Fee Structure
 3. Copies those fees into this table for that student
-4. Sets initial status to **UNPAID** with balance = total amount
+4. Sets initial status to **NOT_PAID** with balance = total amount
 
 ### Schema
 
 ```js
-StudentFeeTracking {
-  // Keys
-  demandId:        ObjectId   // Primary Key
-  studentId:       ObjectId   // → Student
-  feeStructureId:  ObjectId   // → FeeStructure
+const mongoose = require("mongoose");
 
-  // Student Snapshot (frozen at generation time)
-  studentSnapshot: {
-    rollNumber:    String
-    fullName:      String
-    department:    String
-    program:       String
-    studentType:   String
-    semester:      Number
-    academicYear:  String
-  }
+const feeHeadSnapshotSchema = new mongoose.Schema({
+  name:{ type:String, required:true },
+  amount:{ type:Number, required:true },
+  concession:{ type:Number, default:0 },
+  payable:{ type:Number, required:true }
+},{ _id:false });
 
-  // Fee Breakdown (copied from FeeStructure)
-  feeHeads: [
+const studentFeeTrackingSchema = new mongoose.Schema({
+
+  // ===== KEYS =====
+  demandId:{
+    type:mongoose.Schema.Types.ObjectId,
+    auto:true
+  },
+
+  studentId:{
+    type:mongoose.Schema.Types.ObjectId,
+    ref:"Student",
+    required:true,
+    index:true
+  },
+
+  feeStructureId:{
+    type:mongoose.Schema.Types.ObjectId,
+    ref:"FeeStructure",
+    required:true
+  },
+
+  // ===== SNAPSHOT (IMMUTABLE) =====
+  studentSnapshot:{
+    rollNo:String,
+    studentName:String,
+    course:String,
+    semester:Number,
+    academicYear:String,
+    hostelDayScholar:String,
+    isCollegeTransport:Boolean,
+    quota:String
+  },
+
+  // ===== FEE BREAKDOWN SNAPSHOT =====
+  feeHeads:[feeHeadSnapshotSchema],
+
+  // ===== FINANCIAL SUMMARY =====
+  totalFeeAmount:{ type:Number, required:true },   // original sum
+  totalConcession:{ type:Number, default:0 },
+  totalPayable:{ type:Number, required:true },
+
+  // ===== TRACKING (MUTABLE) =====
+  totalPaid:{ type:Number, default:0 },
+  balanceAmount:{ type:Number, required:true },
+
+  fineAmount:{ type:Number, default:0 },
+  adjustmentAmount:{ type:Number, default:0 },
+
+  // ===== STATUS =====
+  paymentStatus:{
+    type:String,
+    enum:[
+      "NOT_PAID",
+      "PARTIAL",
+      "PAID",
+      "OVERDUE",
+      "OVERPAID"
+    ],
+    default:"NOT_PAID",
+    index:true
+  },
+
+  // ===== TIMELINE =====
+  dueDate:{ type:Date },
+  lastPaymentDate:{ type:Date },
+  paidInFullDate:{ type:Date },
+
+  // ===== PAYMENT REFERENCES =====
+  transactionIds:[
     {
-      name:             String
-      baseAmount:       Number
-      concessionAmount: Number
-      payableAmount:    Number
-      mandatory:        Boolean
+      type:mongoose.Schema.Types.ObjectId,
+      ref:"PaymentTransaction"
     }
-  ]
+  ],
 
-  // Concession Applied
-  concessionDetails: {
-    type:             String
-    percentage:       Number
-    totalConcession:  Number
-    approvedBy:       ObjectId
-    remarks:          String
-  }
+  // ===== FLAGS =====
+  isDemandGenerated:{ type:Boolean, default:true },
+  isFinalized:{ type:Boolean, default:false },
+  isCancelled:{ type:Boolean, default:false },
 
-  // Financial Summary  ← MUTABLE
-  totalFeeAmount:    Number   // Original total
-  totalConcession:   Number   // Discount applied
-  totalPayable:      Number   // After concession
-  totalPaid:         Number   // Sum of all payments
-  balanceAmount:     Number   // Remaining to pay
-  fineAmount:        Number   // Late fee accumulated
-  adjustmentAmount:  Number   // Special adjustments
+  // ===== AUDIT =====
+  generatedBy:{ type:mongoose.Schema.Types.ObjectId },
+  lastModifiedBy:{ type:mongoose.Schema.Types.ObjectId },
+  remarks:{ type:String, maxlength:300 }
 
-  // Status  ← MUTABLE
-  paymentStatus: Enum [
-    'NOT_PAID',   // totalPaid = 0
-    'PARTIAL',    // 0 < totalPaid < totalPayable
-    'PAID',       // totalPaid = totalPayable
-    'OVERDUE',    // past due date with balance > 0
-    'OVERPAID'    // totalPaid > totalPayable
-  ]
+},{ timestamps:true });
 
-  // Timeline
-  dueDate:          Date
-  lastPaymentDate:  Date
-  paidInFullDate:   Date
+module.exports = mongoose.model("StudentFeeTracking", studentFeeTrackingSchema);
 
-  // References
-  transactionIds:   [ObjectId]
-
-  // Flags
-  isDemandGenerated: Boolean
-  isFinalized:       Boolean
-  isCancelled:       Boolean
-
-  // Audit
-  generatedBy:      ObjectId
-  generatedAt:      DateTime
-  lastModifiedBy:   ObjectId
-  updatedAt:        DateTime
-  remarks:          String
-}
 ```
 
 ### Status Logic
@@ -303,55 +551,127 @@ An **append-only log** of every payment made. One student can have multiple reco
 ### Schema
 
 ```js
-PaymentTransaction {
-  // Keys
-  transactionId: ObjectId   // Primary Key
-  studentId:     ObjectId   // → Student
-  demandId:      ObjectId   // → StudentFeeTracking
+const mongoose = require("mongoose");
 
-  // Payment Details
-  amountPaid:   Number
-  paymentMode:  Enum [
-    'Cash', 'UPI', 'Credit Card', 'Debit Card',
-    'Net Banking', 'Demand Draft', 'Cheque', 'Bank Transfer'
-  ]
+const feeAllocationSchema = new mongoose.Schema({
+  feeHead:{ type:String, required:true },
+  amount:{ type:Number, required:true }
+},{ _id:false });
 
-  // Transaction Info
-  transactionReference: String   // UTR / bank transaction ID
-  bankName:             String
-  bankTransactionDate:  Date
-  receiptNumber:        String   // Unique
+const paymentTransactionSchema = new mongoose.Schema({
 
-  // Fee Head Allocation (optional)
-  feeHeadAllocations: [
-    {
-      feeHeadName:     String
-      allocatedAmount: Number
-    }
-  ]
+  // ===== KEYS =====
+  transactionId:{
+    type:mongoose.Schema.Types.ObjectId,
+    auto:true
+  },
 
-  // Verification
-  paymentVerified: Boolean
-  verifiedBy:      ObjectId
-  verifiedAt:      DateTime
+  studentId:{
+    type:mongoose.Schema.Types.ObjectId,
+    ref:"Student",
+    required:true,
+    index:true
+  },
 
-  // Reversal Support
-  isReversed:             Boolean
-  reversalTransactionId:  ObjectId
-  reversalReason:         String
-  reversedBy:             ObjectId
-  reversedAt:             DateTime
+  demandId:{
+    type:mongoose.Schema.Types.ObjectId,
+    ref:"StudentFeeTracking",
+    required:true,
+    index:true
+  },
 
-  // Audit
-  recordedBy:           ObjectId   // Who entered the payment
-  paidAt:               DateTime   // When payment was made
-  createdAt:            DateTime
-  remarks:              String
+  // ===== PAYMENT DETAILS =====
+  amountPaid:{
+    type:Number,
+    required:true,
+    min:0
+  },
 
-  // Receipt
-  receiptGeneratedAt:   DateTime
-  receiptUrl:           String
-}
+  paymentMode:{
+    type:String,
+    enum:[
+      "Cash",
+      "UPI",
+      "Debit Card",
+      "Credit Card",
+      "Net Banking",
+      "Bank Transfer",
+      "Demand Draft",
+      "Cheque"
+    ],
+    required:true
+  },
+
+  // ===== BANK / GATEWAY INFO =====
+  transactionReference:{
+    type:String,   // UTR / gateway reference
+    trim:true
+  },
+
+  bankName:{ type:String, trim:true },
+
+  bankTransactionDate:{ type:Date },
+
+  // ===== RECEIPT =====
+  receiptNumber:{
+    type:String,
+    required:true,
+    unique:true,
+    index:true
+  },
+
+  receiptGeneratedAt:{ type:Date },
+  receiptUrl:{ type:String },
+
+  // ===== OPTIONAL ALLOCATION =====
+  feeHeadAllocations:[feeAllocationSchema],
+
+  // ===== VERIFICATION =====
+  paymentVerified:{
+    type:Boolean,
+    default:true
+  },
+
+  verifiedBy:{ type:mongoose.Schema.Types.ObjectId },
+  verifiedAt:{ type:Date },
+
+  // ===== REVERSAL / REFUND SUPPORT =====
+  isReversed:{
+    type:Boolean,
+    default:false
+  },
+
+  reversalTransactionId:{
+    type:mongoose.Schema.Types.ObjectId,
+    ref:"PaymentTransaction"
+  },
+
+  reversalReason:{ type:String },
+
+  reversedBy:{ type:mongoose.Schema.Types.ObjectId },
+  reversedAt:{ type:Date },
+
+  // ===== AUDIT =====
+  recordedBy:{
+    type:mongoose.Schema.Types.ObjectId,
+    required:true
+  },
+
+  paidAt:{
+    type:Date,
+    required:true,
+    default:Date.now
+  },
+
+  remarks:{
+    type:String,
+    maxlength:300
+  }
+
+},{ timestamps:true });
+
+module.exports = mongoose.model("PaymentTransaction", paymentTransactionSchema);
+
 ```
 
 ### Two-Table Relationship Example
