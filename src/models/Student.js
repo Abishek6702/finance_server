@@ -174,15 +174,42 @@ const addressSchema = new mongoose.Schema(
 
 // ---------- 6. ENROLLMENT ----------
 const enrollmentSchema = new mongoose.Schema(
-  {
-    quota: { type: String, enum: ["Management Quota", "Government Quota"] },
-    isFirstGraduate: { type: Boolean, default: false },
-    is7point5Scheme: { type: Boolean, default: false },
-    isPMSSScheme: { type: Boolean, default: false },
-    isSakthiScheme: { type: Boolean, default: false },
+{
+  quota:{
+    type:String,
+    enum:["Management Quota","Government Quota"],
   },
-  { _id: false },
+
+  firstGraduate:{
+    isApplicable:{type:Boolean,default:false},
+    concessionAmount:{type:Number,default:0},
+  },
+
+  scheme7point5:{
+    isApplicable:{type:Boolean,default:false},
+    concessionAmount:{type:Number,default:0},
+  },
+
+  pmssScheme:{
+    isApplicable:{type:Boolean,default:false},
+    concessionAmount:{type:Number,default:0},
+  },
+
+  sakthiScheme:{
+    isApplicable:{type:Boolean,default:false},
+    concessionAmount:{type:Number,default:0},
+  },
+
+  specialFees:{
+    isApplicable:{type:Boolean,default:false},
+    transport:{type:Number,default:0},
+    hostel:{type:Number,default:0},
+    tuitionFee:{type:Number,default:0},
+  },
+},
+{_id:false}
 );
+
 
 // ---------- MAIN STUDENT SCHEMA ----------
 const studentSchema = new mongoose.Schema(
