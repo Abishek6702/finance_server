@@ -1,819 +1,436 @@
-# Fee Management System Architecture
+# Fee Management System - Documentation
+
+## Table of Contents
+1. [Overview](#overview)
+2. [System Components](#system-components)
+3. [How It Works](#how-it-works)
+4. [Workflows](#workflows)
+5. [Key Concepts](#key-concepts)
+6. [Common Scenarios](#common-scenarios)
+
+---
 
 ## Overview
 
-This document explains how the fee management system works — from student admission to payment tracking.
+The Fee Management System handles all aspects of student fee collection in an educational institution. It automatically calculates fees, tracks payments, and maintains complete financial records for each student throughout their academic journey.
+
+### What It Does
+
+- **Stores institutional fee structures** for each academic year
+- **Creates personalized fee records** for every student
+- **Tracks payments** and outstanding balances
+- **Applies concessions** and scholarships automatically
+- **Updates fee records** when institutional fees change
+- **Maintains transaction history** for audit purposes
+
+### Why It Matters
+
+Without this system, maintaining fee records manually would be:
+- Time-consuming and error-prone
+- Difficult to track across multiple years
+- Hard to update when fee structures change
+- Complex when applying various concessions
+- Challenging to generate accurate reports
+
+---
+
+## System Components
+
+### 1. Fee Structure Master
+
+**What it is:** The official fee structure defined by the institution for each academic year.
+
+**What it contains:**
+- Academic fees (tuition, exam, books, lab, ERP) organized by:
+  - Quota type (Government or Management)
+  - Education level (UG or PG)
+  - Degree program (BE, BTech, ME, MTech)
+  - Department (CSE, ECE, Mechanical, etc.)
+  - Semester (1 through 8)
+- Transport fees by route and bus stop
+- Hostel fees by block and room type
+
+**Key feature:** Totals are calculated automatically at every level. Change any fee amount, and all higher-level totals update automatically.
+
+**When it's used:** Referenced during student enrollment and when fee structures are updated.
+
+---
+
+### 2. Student
+
+**What it is:** Complete profile of each student including personal, academic, and financial details.
+
+**What it contains:**
+- Personal information (name, roll number, contact details)
+- Academic details (department, program, batch, current year)
+- Enrollment information (quota, applicable schemes)
+- Transport details (if student uses bus)
+- Hostel details (if student is resident)
+- Concession eligibility (First Graduate, 7.5% scheme, PMSS, Sakthi)
+
+**Key feature:** When a new student is created, their fee ledger is automatically generated based on their profile.
+
+**When it's used:** During admission, when updating student details, and as reference for fee calculations.
+
+---
+
+### 3. Student Fee Tracking
+
+**What it is:** The personalized fee ledger for each student showing what they owe and what they've paid.
+
+**What it contains:**
+- Separate records for each academic year
+- For each year:
+  - Odd semester fees (broken down by type)
+  - Even semester fees (broken down by type)
+  - Transport fees (if applicable)
+  - Hostel fees (if applicable)
+  - Applied concessions
+  - Payment status for each component
+
+**Key feature:** Shows three values for each fee component:
+- **Total:** How much is due
+- **Paid:** How much has been paid
+- **Status:** Unpaid, Partially Paid, or Paid (calculated automatically)
+
+**When it's used:** Every time a payment is recorded, when checking outstanding dues, and when generating reports.
+
+---
+
+### 4. Student Transaction
+
+**What it is:** Complete payment history for each student.
+
+**What it contains:**
+- List of all payments made
+- For each payment:
+  - Receipt number
+  - Payment method (Cash, Card, UPI, etc.)
+  - Date and time
+  - Detailed breakdown showing which fees were paid
+  - Bank details (if applicable)
+  - Remarks
+
+**Key feature:** Supports partial payments and payments that cover multiple fee types or even multiple academic years.
+
+**When it's used:** When recording payments, generating receipts, and for financial audits.
 
 ---
 
 ## How It Works
 
+### The Big Picture
+
 ```
-Step 1: Student Added
-    ↓
-Step 2: Fee Structure Applied (based on department, semester, type)
-    ↓
-Step 3: Fees Pushed to Tracking Table (Status: NOT_PAID)
-    ↓
-Step 4: Student Makes Payment
-    ↓
-Step 5: Transaction Recorded Separately
-    ↓
-Step 6: Tracking Table Updated (Balance Reduced, Status Changed)
+Institution defines → Student enrolls → Ledger created → Payments recorded → Balance updated
+      fee structure        →→→                 →→→              →→→              →→→
 ```
+
+### Automatic Calculations
+
+The system automatically handles complex calculations:
+
+1. **Fee Structure Totals:**
+   - Add up all semester fees for a department
+   - Add up all departments for a program
+   - Add up all programs for the institution
+   - Include transport and hostel in institution total
+
+2. **Student Ledger Totals:**
+   - Apply special concessions to specific fee components
+   - Calculate semester totals after component-level concessions
+   - Apply yearly concessions (schemes) to academic total
+   - Calculate final payable amount for the year
+
+3. **Payment Status:**
+   - Compare paid amount to total amount
+   - Automatically set status based on comparison
+   - Update higher-level totals when component fees are paid
+
+### Smart Updates
+
+When institutional fees change:
+1. System finds all affected students
+2. Takes a snapshot of their current payments
+3. Regenerates their ledgers with new fee amounts
+4. Restores all previously recorded payments
+5. New outstanding balances reflect the updated fees
 
 ---
 
-## The 4 Core Tables
+## Workflows
 
-| Table | Purpose | Mutability |
-| --- | --- | --- |
-| **Student** | Store student information | Rarely changes (profile updates only) |
-| **Fee Structure** | Define fee rules per student type | Never — new version created for changes |
-| **Student Fee Tracking** | Track who owes what and payment status | **Yes** — updates on every payment |
-| **Payment Transactions** | Record every payment made | Append-only — never modified |
+### 1. New Student Enrollment
 
----
+**What happens:**
 
-## Architecture Diagram
+1. Admin enters student information (personal, academic, enrollment details)
+2. System saves the student record
+3. Automatic trigger activates
+4. System determines how many years to generate (based on batch years remaining)
+5. For each year:
+   - Finds the fee structure for that year
+   - Matches student's quota, program, department
+   - Extracts applicable fees
+   - Matches transport route (if student uses bus)
+   - Matches hostel configuration (if student is resident)
+   - Applies all eligible concessions
+   - Calculates final amounts
+6. Creates complete fee ledger showing all years
+7. Creates empty transaction record ready for payments
 
-```
-┌──────────────┐         ┌──────────────┐
-│   STUDENT    │         │     FEE      │
-│   (Profile)  │         │  STRUCTURE   │
-│              │         │  (Fee Rules) │
-└──────┬───────┘         └──────┬───────┘
-       │                        │
-       └────────┬───────────────┘
-                ↓
-┌────────────────────┐
-│   FEE TRACKING     │  ← Initially marked NOT_PAID
-│  Status: NOT_PAID  │
-└────────┬───────────┘
-         │ Payment made
-         ↓
-┌────────────────────┐
-│   TRANSACTIONS     │  ← Each payment stored here
-│   (Payment Log)    │
-└────────┬───────────┘
-         │ After recording payment
-         ↓
-┌────────────────────┐
-│   FEE TRACKING     │
-│ NOT_PAID → PARTIAL │  ← Status changes automatically
-│  PARTIAL → PAID    │
-│  Balance Reduced   │
-└────────────────────┘
-```
+**Result:** Student has a complete fee structure from enrollment to graduation, ready for payment tracking.
 
 ---
 
-## Table 1: Student
+### 2. Recording a Payment
 
-### Purpose
+**What happens:**
 
-Stores basic student information that rarely changes. Used to determine which fee structure applies, based on department, program, semester, and student type.
+1. Student makes payment at accounts office
+2. Accounts staff opens student's record
+3. Creates new transaction with:
+   - Receipt number
+   - Payment method
+   - Amount paid
+   - Breakdown of which fees are being paid
+4. System validates:
+   - Payment doesn't exceed outstanding amount
+   - Breakdown adds up to total payment
+5. Updates tracking record:
+   - Increases "paid" amount for each fee component
+   - Status automatically updates based on new paid amount
+6. Saves transaction and updated tracking
 
-### Schema
-
-```js
-// ---------- 1. PERSONAL ----------
-const personalSchema = new mongoose.Schema({
-  rollNo: {
-    type: String,
-    required: true,
-    unique: true,
-    uppercase: true,
-    trim: true,
-    match: [/^\d{2}[A-Z]{2}\d{3}$/, "Invalid roll number format"]
-  },
-  studentName: { type: String, trim: true, minlength: 1, maxlength: 100 },
-  gender: { type: String, enum: ["Male", "Female", "Other"] },
-  dob: Date,
-  bloodGroup: { type: String, enum: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] },
-  aadharNo: { type: String, trim: true, match: [/^\d{12}$/, "Aadhar must be 12 digits"] },
-  emisNo: { type: String, trim: true },
-  religion: { type: String, trim: true, maxlength: 50 },
-  nationality: { type: String, trim: true, maxlength: 50 },
-  studentPhoto: { type: String, trim: true },
-  hostelDayScholar: { type: String, enum: ["Hosteller", "Day Scholar"] },
-  isCollegeTransport: { type: Boolean, default: false }
-}, { _id: false });
-
-
-// ---------- 2. ACADEMIC ----------
-const academicSchema = new mongoose.Schema({
-  educationType: { type: String, enum: ["UG", "PG"] },
-  academicType: { type: String, enum: ["REG", "PART_TIME"] },
-  isLateralEntry: { type: Boolean, default: false },
-  course: { type: String, trim: true, maxlength: 100 },//B.E CCE
-  yearStudying: { type: Number, enum: [1, 2, 3, 4] },
-  currentSem: { type: Number, enum: [1, 2, 3, 4, 5, 6, 7, 8] },
-  section: { type: String, enum: ["A", "B", "C", "D", "E", "F"], uppercase: true, default: null },
-  batch: {
-    from: { type: Number, min: 1900, max: 2100 },
-    to: { type: Number, min: 1900, max: 2100 }
-  },
-  currentAcademicYear: {
-    from: { type: Number, min: 1900, max: 2100 },
-    to: { type: Number, min: 1900, max: 2100 }
-  }
-}, { _id: false });
-
-
-// ---------- 3. CONTACT ----------
-const contactSchema = new mongoose.Schema({
-  selfMobileNo: {
-    type: String,
-    trim: true,
-    match: [/^[6-9]\d{9}$/, "Mobile number must be 10 digits starting with 6-9"]
-  },
-  selfEmail: {
-    type: String,
-    trim: true,
-    lowercase: true,
-    match: [/^\S+@\S+\.\S+$/, "Invalid email format"]
-  },
-  officialEmail: {
-    type: String,
-    trim: true,
-    lowercase: true,
-    match: [/^[a-z0-9._%+-]+@sece\.ac\.in$/, "Official email must end with @sece.ac.in"]
-  }
-}, { _id: false });
-
-
-// ---------- 4. FAMILY ----------
-const familySchema = new mongoose.Schema({
-  father: {
-    name: { type: String, trim: true, maxlength: 100 },
-    mobile: {
-      type: String,
-      trim: true,
-      match: [/^[6-9]\d{9}$/, "Mobile number must be 10 digits starting with 6-9"]
-    },
-    workType: { type: String, trim: true, maxlength: 50 },
-    qualification: { type: String, trim: true, maxlength: 50 }
-  },
-  mother: {
-    name: { type: String, trim: true, maxlength: 100 },
-    mobile: {
-      type: String,
-      trim: true,
-      match: [/^[6-9]\d{9}$/, "Mobile number must be 10 digits starting with 6-9"]
-    },
-    workType: { type: String, trim: true, maxlength: 50 },
-    qualification: { type: String, trim: true, maxlength: 50 }
-  },
-  guardian: {
-    name: { type: String, trim: true, maxlength: 100 },
-    mobile: {
-      type: String,
-      trim: true,
-      match: [/^[6-9]\d{9}$/, "Mobile number must be 10 digits starting with 6-9"]
-    }
-  },
-  familyIncomeAsPerCertificate: { type: Number, min: 0 },
-  community: { type: String, trim: true, maxlength: 50 },
-  casteName: { type: String, trim: true, maxlength: 50 },
-  communityCertificateNo: { type: String, trim: true, maxlength: 50 }
-}, { _id: false });
-
-
-// ---------- 5. ADDRESS ----------
-const addressSchema = new mongoose.Schema({
-  permanent: {
-    doorNo: { type: String, trim: true, maxlength: 50 },
-    street: { type: String, trim: true, maxlength: 100 },
-    area: { type: String, trim: true, maxlength: 100 },
-    villageOrTown: { type: String, trim: true, maxlength: 100 },
-    taluk: { type: String, trim: true, maxlength: 100 },
-    district: { type: String, trim: true, maxlength: 100 },
-    state: { type: String, trim: true, maxlength: 100 },
-    pincode: {
-      type: String,
-      trim: true,
-      match: [/^\d{6}$/, "Pincode must be 6 digits"]
-    }
-  },
-  communication: {
-    doorNo: { type: String, trim: true, maxlength: 50 },
-    street: { type: String, trim: true, maxlength: 100 },
-    area: { type: String, trim: true, maxlength: 100 },
-    villageOrTown: { type: String, trim: true, maxlength: 100 },
-    taluk: { type: String, trim: true, maxlength: 100 },
-    district: { type: String, trim: true, maxlength: 100 },
-    state: { type: String, trim: true, maxlength: 100 },
-    pincode: {
-      type: String,
-      trim: true,
-      match: [/^\d{6}$/, "Pincode must be 6 digits"]
-    }
-  }
-}, { _id: false });
-
-
-// ---------- 6. ENROLLMENT ----------
-const enrollmentSchema = new mongoose.Schema({
-  quota: { type: String, enum: ["Management Quota", "Government Quota"] },
-  isFirstGraduate: { type: Boolean, default: false },
-  is7point5Scheme: { type: Boolean, default: false },
-  isPMSSScheme: { type: Boolean, default: false },
-  isSakthiScheme: { type: Boolean, default: false }
-}, { _id: false });
-
-
-// ---------- MAIN STUDENT SCHEMA ----------
-const studentSchema = new mongoose.Schema({
-  personal: personalSchema,
-  academic: academicSchema,
-  contact: contactSchema,
-  family: familySchema,
-  address: addressSchema,
-  enrollment: enrollmentSchema
-}, { timestamps: true });
-
-```
+**Result:** Student's payment is recorded, balance updated, and receipt can be generated.
 
 ---
 
-## Table 2: Fee Structure
+### 3. Updating Fee Structure
 
-### Purpose
+**What happens:**
 
-Defines fee rules for different student types. This is a **template only** — not actual student fees. A new version is created if rules change.
+1. Admin modifies fee amounts in fee structure master
+2. System detects the change
+3. Identifies all students affected by this change (those in matching batches)
+4. For each affected student:
+   - Saves current payment data
+   - Recalculates entire ledger with new fees
+   - Restores payment data
+   - New dues = new total - old payments
+5. All student records now reflect updated fees
 
-### Schema
-
-```js
-const mongoose = require("mongoose");
-
-const feeStructureSchema = new mongoose.Schema({
-
-  // ===== IDENTIFICATION =====
-  academicYear:{
-    type:String,
-    required:true,           // "2026-2027"
-    trim:true
-  },
-
-  version:{
-    type:Number,
-    default:1
-  },
-
-  isActive:{
-    type:Boolean,
-    default:true
-  },
-
-  // ===== APPLICABILITY =====
-  course:{
-    type:String,             // B.E CSE, B.Tech IT
-    required:true,
-    trim:true
-  },
-
-  educationType:{
-    type:String,
-    enum:["UG","PG"]
-  },
-
-  semester:{
-    type:Number,
-    required:true
-  },
-
-  hostelDayScholar:{
-    type:String,
-    enum:["Hosteller","Day Scholar"],
-    required:true
-  },
-
-  isCollegeTransport:{
-    type:Boolean,
-    default:false
-  },
-
-  quota:{
-    type:String,
-    enum:["Management Quota","Government Quota"],
-    default:null
-  },
-
-  // ===== CORE ACADEMIC FEES =====
-  tuitionFee:{ type:Number, default:0 },
-  admissionFee:{ type:Number, default:0 },
-  universityFee:{ type:Number, default:0 },
-  examFee:{ type:Number, default:0 },
-  labFee:{ type:Number, default:0 },
-  libraryFee:{ type:Number, default:0 },
-  sportsFee:{ type:Number, default:0 },
-  developmentFee:{ type:Number, default:0 },
-  studentWelfareFee:{ type:Number, default:0 },
-  medicalFee:{ type:Number, default:0 },
-  insuranceFee:{ type:Number, default:0 },
-  idCardFee:{ type:Number, default:0 },
-
-  // ===== FACILITY FEES =====
-  internetFee:{ type:Number, default:0 },
-  smartClassFee:{ type:Number, default:0 },
-  placementTrainingFee:{ type:Number, default:0 },
-
-  // ===== HOSTEL & TRANSPORT =====
-  hostelFee:{ type:Number, default:0 },
-  messFee:{ type:Number, default:0 },
-  transportFee:{ type:Number, default:0 },
-
-  // ===== REFUNDABLE DEPOSITS =====
-  cautionDeposit:{ type:Number, default:0 },     // refundable
-  hostelDeposit:{ type:Number, default:0 },
-
-  // ===== MISCELLANEOUS =====
-  miscellaneousFee:{ type:Number, default:0 },
-
-  // ===== SCHEME / CONCESSION SUPPORT =====
-  firstGraduateDiscount:{ type:Number, default:0 },
-  scholarshipEligible:{
-    type:Boolean,
-    default:false
-  },
-
-  // ===== PAYMENT RULES =====
-  dueDays:{
-    type:Number,
-    default:30
-  },
-
-  allowInstallments:{
-    type:Boolean,
-    default:true
-  },
-
-  maxInstallments:{
-    type:Number,
-    default:3
-  },
-
-  // ===== LATE FEE SETTINGS =====
-  lateFeeEnabled:{
-    type:Boolean,
-    default:false
-  },
-
-  lateFeeAmount:{
-    type:Number,
-    default:0       // flat fine
-  },
-
-  lateFeePerDay:{
-    type:Number,
-    default:0
-  },
-
-  lateFeeMaxLimit:{
-    type:Number,
-    default:0
-  },
-
-  // ===== SUMMARY =====
-  totalAmount:{
-    type:Number,
-    required:true
-  },
-
-  // ===== METADATA =====
-  createdBy:{ type:mongoose.Schema.Types.ObjectId },
-  approvedBy:{ type:mongoose.Schema.Types.ObjectId },
-  approvedAt:{ type:Date },
-
-  notes:{
-    type:String,
-    maxlength:500,
-    trim:true
-  }
-
-},{ timestamps:true });
-
-module.exports = mongoose.model("FeeStructure", feeStructureSchema);
-
-```
-
-> **Example:** CSE + Semester 1 + Day Scholar = ₹50,000 (broken into fee heads)
+**Result:** Fee changes apply to all students automatically while preserving payment history.
 
 ---
 
-## Table 3: Student Fee Tracking
+### 4. Checking Outstanding Dues
 
-### Purpose
+**What happens:**
 
-The **main tracking table**. For each student it stores: what fees they owe, how much has been paid, the current balance, and the payment status.
+1. Admin requests report of students with pending fees
+2. System queries all student tracking records
+3. For each student, calculates: Outstanding = Total - Paid
+4. Filters students where outstanding > 0
+5. Sorts by amount or department as needed
+6. Returns list with student details and amounts
 
-### How It Gets Created
-
-When a student is added, the system:
-
-1. Reads the student's department, semester, and type
-2. Finds the matching Fee Structure
-3. Copies those fees into this table for that student
-4. Sets initial status to **NOT_PAID** with balance = total amount
-
-### Schema
-
-```js
-const mongoose = require("mongoose");
-
-const feeHeadSnapshotSchema = new mongoose.Schema({
-  name:{ type:String, required:true },
-  amount:{ type:Number, required:true },
-  concession:{ type:Number, default:0 },
-  payable:{ type:Number, required:true }
-},{ _id:false });
-
-const studentFeeTrackingSchema = new mongoose.Schema({
-
-  // ===== KEYS =====
-  demandId:{
-    type:mongoose.Schema.Types.ObjectId,
-    auto:true
-  },
-
-  studentId:{
-    type:mongoose.Schema.Types.ObjectId,
-    ref:"Student",
-    required:true,
-    index:true
-  },
-
-  feeStructureId:{
-    type:mongoose.Schema.Types.ObjectId,
-    ref:"FeeStructure",
-    required:true
-  },
-
-  // ===== SNAPSHOT (IMMUTABLE) =====
-  studentSnapshot:{
-    rollNo:String,
-    studentName:String,
-    course:String,
-    semester:Number,
-    academicYear:String,
-    hostelDayScholar:String,
-    isCollegeTransport:Boolean,
-    quota:String
-  },
-
-  // ===== FEE BREAKDOWN SNAPSHOT =====
-  feeHeads:[feeHeadSnapshotSchema],
-
-  // ===== FINANCIAL SUMMARY =====
-  totalFeeAmount:{ type:Number, required:true },   // original sum
-  totalConcession:{ type:Number, default:0 },
-  totalPayable:{ type:Number, required:true },
-
-  // ===== TRACKING (MUTABLE) =====
-  totalPaid:{ type:Number, default:0 },
-  balanceAmount:{ type:Number, required:true },
-
-  fineAmount:{ type:Number, default:0 },
-  adjustmentAmount:{ type:Number, default:0 },
-
-  // ===== STATUS =====
-  paymentStatus:{
-    type:String,
-    enum:[
-      "NOT_PAID",
-      "PARTIAL",
-      "PAID",
-      "OVERDUE",
-      "OVERPAID"
-    ],
-    default:"NOT_PAID",
-    index:true
-  },
-
-  // ===== TIMELINE =====
-  dueDate:{ type:Date },
-  lastPaymentDate:{ type:Date },
-  paidInFullDate:{ type:Date },
-
-  // ===== PAYMENT REFERENCES =====
-  transactionIds:[
-    {
-      type:mongoose.Schema.Types.ObjectId,
-      ref:"PaymentTransaction"
-    }
-  ],
-
-  // ===== FLAGS =====
-  isDemandGenerated:{ type:Boolean, default:true },
-  isFinalized:{ type:Boolean, default:false },
-  isCancelled:{ type:Boolean, default:false },
-
-  // ===== AUDIT =====
-  generatedBy:{ type:mongoose.Schema.Types.ObjectId },
-  lastModifiedBy:{ type:mongoose.Schema.Types.ObjectId },
-  remarks:{ type:String, maxlength:300 }
-
-},{ timestamps:true });
-
-module.exports = mongoose.model("StudentFeeTracking", studentFeeTrackingSchema);
-
-```
-
-### Status Logic
-
-```
-totalPaid = 0                          → NOT_PAID
-totalPaid > 0  AND  < totalPayable     → PARTIAL
-totalPaid = totalPayable               → PAID
-```
-
-### Status Progression Example
-
-| Stage | Total Fee | Paid | Balance | Status |
-| --- | --- | --- | --- | --- |
-| Initially | ₹50,000 | ₹0 | ₹50,000 | `NOT_PAID` |
-| After 1st payment | ₹50,000 | ₹20,000 | ₹30,000 | `PARTIAL` |
-| After 2nd payment | ₹50,000 | ₹40,000 | ₹10,000 | `PARTIAL` |
-| After 3rd payment | ₹50,000 | ₹50,000 | ₹0 | `PAID` |
-
-> **Why this table is mutable:** `totalPaid`, `balanceAmount`, `paymentStatus`, and `lastPaymentDate` all update on every payment.
+**Result:** Clear report showing who owes how much.
 
 ---
 
-## Table 4: Payment Transactions
+## Key Concepts
 
-### Purpose
+### Academic Year vs Batch
 
-An **append-only log** of every payment made. One student can have multiple records — one per payment.
+- **Academic Year:** One year in the institution's calendar (e.g., 2024-2025)
+- **Batch:** The cohort a student belongs to, spanning their entire program (e.g., 2024-2028 for a 4-year program)
 
-### Schema
-
-```js
-const mongoose = require("mongoose");
-
-const feeAllocationSchema = new mongoose.Schema({
-  feeHead:{ type:String, required:true },
-  amount:{ type:Number, required:true }
-},{ _id:false });
-
-const paymentTransactionSchema = new mongoose.Schema({
-
-  // ===== KEYS =====
-  transactionId:{
-    type:mongoose.Schema.Types.ObjectId,
-    auto:true
-  },
-
-  studentId:{
-    type:mongoose.Schema.Types.ObjectId,
-    ref:"Student",
-    required:true,
-    index:true
-  },
-
-  demandId:{
-    type:mongoose.Schema.Types.ObjectId,
-    ref:"StudentFeeTracking",
-    required:true,
-    index:true
-  },
-
-  // ===== PAYMENT DETAILS =====
-  amountPaid:{
-    type:Number,
-    required:true,
-    min:0
-  },
-
-  paymentMode:{
-    type:String,
-    enum:[
-      "Cash",
-      "UPI",
-      "Debit Card",
-      "Credit Card",
-      "Net Banking",
-      "Bank Transfer",
-      "Demand Draft",
-      "Cheque"
-    ],
-    required:true
-  },
-
-  // ===== BANK / GATEWAY INFO =====
-  transactionReference:{
-    type:String,   // UTR / gateway reference
-    trim:true
-  },
-
-  bankName:{ type:String, trim:true },
-
-  bankTransactionDate:{ type:Date },
-
-  // ===== RECEIPT =====
-  receiptNumber:{
-    type:String,
-    required:true,
-    unique:true,
-    index:true
-  },
-
-  receiptGeneratedAt:{ type:Date },
-  receiptUrl:{ type:String },
-
-  // ===== OPTIONAL ALLOCATION =====
-  feeHeadAllocations:[feeAllocationSchema],
-
-  // ===== VERIFICATION =====
-  paymentVerified:{
-    type:Boolean,
-    default:true
-  },
-
-  verifiedBy:{ type:mongoose.Schema.Types.ObjectId },
-  verifiedAt:{ type:Date },
-
-  // ===== REVERSAL / REFUND SUPPORT =====
-  isReversed:{
-    type:Boolean,
-    default:false
-  },
-
-  reversalTransactionId:{
-    type:mongoose.Schema.Types.ObjectId,
-    ref:"PaymentTransaction"
-  },
-
-  reversalReason:{ type:String },
-
-  reversedBy:{ type:mongoose.Schema.Types.ObjectId },
-  reversedAt:{ type:Date },
-
-  // ===== AUDIT =====
-  recordedBy:{
-    type:mongoose.Schema.Types.ObjectId,
-    required:true
-  },
-
-  paidAt:{
-    type:Date,
-    required:true,
-    default:Date.now
-  },
-
-  remarks:{
-    type:String,
-    maxlength:300
-  }
-
-},{ timestamps:true });
-
-module.exports = mongoose.model("PaymentTransaction", paymentTransactionSchema);
-
-```
-
-### Two-Table Relationship Example
-
-**Fee Tracking** (1 row per student — current status):
-
-| Student | Total Fee | Paid | Balance | Status |
-| --- | --- | --- | --- | --- |
-| John | ₹50,000 | ₹30,000 | ₹20,000 | `PARTIAL` |
-
-**Payment Transactions** (1 row per payment — full history):
-
-| Transaction ID | Student | Amount | Date | Receipt |
-| --- | --- | --- | --- | --- |
-| TXN001 | John | ₹10,000 | Jan 5 | RCP001 |
-| TXN002 | John | ₹10,000 | Jan 15 | RCP002 |
-| TXN003 | John | ₹10,000 | Jan 25 | RCP003 |
+**Important:** A student's ledger contains multiple academic years based on their batch duration.
 
 ---
 
-## Complete Workflow
+### Two Types of Concessions
 
-### Step 1 — Add Student
+**Special Concessions:**
+- Applied to specific fee components (tuition, transport, hostel)
+- Applied at the semester or component level
+- Example: 2000 reduction in transport fee
 
-```
-Student registered → stored in STUDENT table
-Example: John, CSE, Semester 1, Day Scholar
-```
+**Yearly Scheme Concessions:**
+- Applied to the total academic fees for the year
+- Includes: First Graduate, 7.5% scheme, PMSS, Sakthi
+- Applied after calculating semester totals
 
-### Step 2 — Match Fee Structure
+**Calculation order:**
+1. Calculate semester subtotal (tuition + exam + erp + book + lab)
+2. Apply special concession to semester
+3. Sum both semesters for academic subtotal
+4. Apply yearly scheme concessions
+5. Add transport and hostel (after their special concessions)
 
-```
-Fee structure already defined:
-  CSE + Semester 1 + Day Scholar = ₹50,000
-  Breakdown:
-    Tuition:  ₹30,000
-    Lab Fee:  ₹10,000
-    Exam Fee:  ₹5,000
-    Library:   ₹5,000
-```
+---
 
-### Step 3 — Generate Tracking Record
+### Payment Status Calculation
 
-```
-System creates entry in STUDENT FEE TRACKING:
-  Student:    John
-  Total Fee:  ₹50,000
-  Total Paid: ₹0
-  Balance:    ₹50,000
-  Status:     NOT_PAID  ← initial
-```
+The system automatically determines status:
 
-### Step 4 — First Payment
+- **Unpaid:** Paid amount = 0
+- **Partially Paid:** Paid amount > 0 but < Total
+- **Paid:** Paid amount >= Total
 
-```
-John pays ₹20,000
+This applies at every level:
+- Individual components (tuition, exam, etc.)
+- Semester totals
+- Academic year totals
+- Transport and hostel
+- Overall yearly total
 
-New record in PAYMENT TRANSACTIONS:
-  Transaction ID: TXN001
-  Student:        John
-  Amount:         ₹20,000
-  Date:           Jan 5, 2026
-  Receipt:        RCP001
-```
+---
 
-### Step 5 — Tracking Record Updated
+### Multi-Year Ledgers
 
-```
-STUDENT FEE TRACKING updated automatically:
-  Total Paid: ₹0       → ₹20,000
-  Balance:    ₹50,000  → ₹30,000
-  Status:     NOT_PAID → PARTIAL
-```
+Each student's tracking record contains separate entries for each academic year they'll be in the institution.
 
-### Step 6 — Final Payment
+**Example:** A student entering in 2024 for a 4-year BE program will have ledger entries for:
+- 2024-2025 (Year 1)
+- 2025-2026 (Year 2)
+- 2026-2027 (Year 3)
+- 2027-2028 (Year 4)
 
-```
-John pays another ₹30,000
+This allows:
+- Advance payment for future years
+- Clear visibility of total program cost
+- Accurate tracking across the student's entire journey
 
-New record in PAYMENT TRANSACTIONS:
-  Transaction ID: TXN002
-  Amount:         ₹30,000
-  Date:           Feb 10, 2026
-  Receipt:        RCP002
+---
 
-STUDENT FEE TRACKING updated:
-  Total Paid: ₹50,000
-  Balance:    ₹0
-  Status:     PAID  ✓
-```
+### Ledger Generation Rules
+
+**When ledgers are generated:**
+- Automatically when a new student is created
+- Manually when forced rebuild is triggered
+- Automatically when fee structures are updated
+
+**Important limitation:** 
+If a fee structure is missing for any year in the student's batch, generation stops at that point. This ensures students only have ledgers for years where official fees have been defined.
 
 ---
 
 ## Common Scenarios
 
-### Scenario 1 — Paying in Installments
+### Scenario 1: Student Pays Full Fee for One Semester
 
-| Payment | Amount | Paid So Far | Balance | Status |
-| --- | --- | --- | --- | --- |
-| Initial | — | ₹0 | ₹50,000 | `NOT_PAID` |
-| Payment 1 | ₹10,000 | ₹10,000 | ₹40,000 | `PARTIAL` |
-| Payment 2 | ₹20,000 | ₹30,000 | ₹20,000 | `PARTIAL` |
-| Payment 3 | ₹20,000 | ₹50,000 | ₹0 | `PAID` |
+**Situation:** Student pays complete semester 1 fees in one go.
 
-### Scenario 2 — Multiple Students, Same Fee Structure
-
-| Student | Total Fee | Paid | Balance | Status |
-| --- | --- | --- | --- | --- |
-| John | ₹50,000 | ₹50,000 | ₹0 | `PAID` |
-| Sarah | ₹50,000 | ₹20,000 | ₹30,000 | `PARTIAL` |
-| Mike | ₹50,000 | ₹0 | ₹50,000 | `NOT_PAID` |
-
-All three share the same Fee Structure but have independent tracking records and separate transaction histories.
+**Process:**
+1. Record transaction with breakdown for semester 1
+2. Update tracking: paid amounts equal total amounts for all semester 1 components
+3. Status for semester 1 components changes to "Paid"
+4. Semester total status changes to "Paid"
+5. Year total status changes to "Partially Paid" (since semester 2 is still pending)
 
 ---
 
-## Dashboard Views
+### Scenario 2: Student Pays Tuition Only
 
-**Fee Collection Dashboard:**
-- Total fees collected today / this month
-- Pending fees by department
-- Students with `NOT_PAID` or `PARTIAL` status
-- Overdue payments
+**Situation:** Student pays tuition fee but not other components.
 
-**Student Fee Detail:**
-- Search any student
-- View total fee, paid amount, and balance
-- Full payment history (all transactions)
-- Generate receipts
+**Process:**
+1. Record transaction with breakdown showing only tuition payment
+2. Update tracking: tuition paid equals tuition total
+3. Status for tuition changes to "Paid"
+4. Other components remain "Unpaid"
+5. Semester total status is "Partially Paid"
 
 ---
 
-## Key Rules Summary
+### Scenario 3: Fee Structure Increases Mid-Year
 
-| Rule | Detail |
-| --- | --- |
-| Balance formula | `Balance = Total Fee − Total Paid` |
-| Status on creation | Always `NOT_PAID` |
-| Fee Structure mutability | Never modified — new version created |
-| Transaction records | Append-only — never deleted or edited |
-| Tracking record | Updated automatically after each payment |
+**Situation:** Institution increases lab fees after some students have already paid.
+
+**Process:**
+1. Admin updates fee structure with new lab fee amount
+2. System rebuilds ledgers for all affected students
+3. Student A (hasn't paid lab fee):
+   - Lab total increases
+   - Outstanding increases
+4. Student B (already paid old lab fee):
+   - Lab total increases
+   - Lab shows as "Partially Paid"
+   - Can pay difference later or leave as credit
 
 ---
 
-*Document Version: 1.0 · Last Updated: February 16, 2026*
+### Scenario 4: Student Changes Transport Route
+
+**Situation:** Student switches to a different bus stop with different fees.
+
+**Process:**
+1. Admin updates student's transport details
+2. Manual rebuild triggered for this student
+3. Ledger regenerates with new transport fees
+4. Previous transport payments preserved
+5. If new route costs more: additional due created
+6. If new route costs less: overpayment shows (can be adjusted)
+
+---
+
+### Scenario 5: Payment for Multiple Years
+
+**Situation:** Student pays fees for both first and second year together.
+
+**Process:**
+1. Create one transaction with multiple breakdowns
+2. Breakdown 1: Specify academic year 2024-2025 with amounts
+3. Breakdown 2: Specify academic year 2025-2026 with amounts
+4. System updates both years' tracking records
+5. Both years show appropriate payment status
+
+---
+
+### Scenario 6: Checking All Students with Dues
+
+**Situation:** Admin wants to identify students who haven't paid complete fees.
+
+**Process:**
+1. System checks all student tracking records
+2. For each record, looks at current academic year
+3. Calculates: Outstanding = Total - Paid
+4. Lists all students where Outstanding > 0
+5. Can be filtered by department, sorted by amount
+
+---
+
+### Scenario 7: Student Gets Additional Scholarship
+
+**Situation:** Student receives new scholarship after ledger was created.
+
+**Process:**
+1. Admin updates student's enrollment concessions
+2. Manual rebuild triggered for this student
+3. Ledger regenerates with additional concession
+4. Previous payments preserved
+5. Outstanding amount decreases
+6. May show overpayment if already paid more than new total
+
+---
+
+## Summary
+
+The Fee Management System automates the complex task of managing student fees by:
+
+- Maintaining official fee structures
+- Creating personalized fee records for each student
+- Tracking payments and calculating balances automatically
+- Applying concessions correctly
+- Handling fee structure changes gracefully
+- Preserving complete payment history
+
+All calculations happen automatically, reducing errors and saving time. The system handles complex scenarios like partial payments, multi-year tracking, and mid-stream fee changes while maintaining data accuracy.
+
+---
+
+**Last Updated:** February 18, 2026  
+**Version:** 1.0.0
+ 
