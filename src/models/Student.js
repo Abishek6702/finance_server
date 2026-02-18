@@ -206,11 +206,11 @@ const enrollmentSchema = new mongoose.Schema(
     concessionAmount:{type:Number,default:0},
   },
 
-  specialFees:{
+  specialConcession:{
     isApplicable:{type:Boolean,default:false},
     transport:{type:Number,default:0},
     hostel:{type:Number,default:0},
-    tuitionFee:{type:Number,default:0},
+    tuition:{type:Number,default:0},
   },
 },
 {_id:false}
