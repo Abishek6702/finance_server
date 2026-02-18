@@ -1,7 +1,21 @@
 const mongoose=require("mongoose");
 
 
-// ---------- COMMON SUB SCHEMAS ----------
+// ---------- TOTAL FEE DETAILS ----------
+
+const feeSchema=new mongoose.Schema({
+  totalFee:{type:Number,min:0,default:0},
+  paidFee:{type:Number,min:0,default:0},
+  status:{
+    type:String,
+    enum:["Paid","Partially Paid","Unpaid"],
+    default:"Unpaid"
+  }
+},{_id:false});
+
+
+
+// ----------- SEMESTER WISE FEE DETAILS ----------
 
 const semesterWiseFeeSchema=new mongoose.Schema({
 
@@ -12,31 +26,21 @@ const semesterWiseFeeSchema=new mongoose.Schema({
     max:8
   },
 
-  tuitionFee:{type:Number,required:true,min:0},
-  examFee:{type:Number,required:true,min:0},
-  erpFee:{type:Number,required:true,min:0},
-  bookFee:{type:Number,required:true,min:0},
-  labFee:{type:Number,required:true,min:0},
+  tuition:feeSchema,
+  exam:feeSchema,
+  erp:feeSchema,
+  book:feeSchema,
+  lab:feeSchema,
 
-  totalFee:{type:Number,min:0},
-  
+  total:feeSchema,
+
   isActive:{type:Boolean,default:true}
 
 },{_id:false});
 
 
-// auto total calculation
-semesterWiseFeeSchema.pre("validate",function(next){
-  this.totalFee=
-    this.tuitionFee+
-    this.examFee+
-    this.erpFee+
-    this.bookFee+
-    this.labFee;
-  next();
-});
 
-
+// ---------- DEPARTMENT ----------
 
 const departmentWiseFeeSchema=new mongoose.Schema({
 
@@ -48,14 +52,19 @@ const departmentWiseFeeSchema=new mongoose.Schema({
   },
 
   semesters:{
-    type:[semesterWiseFeeSchema], 
+    type:[semesterWiseFeeSchema],
+    default:[]
   },
-  
+
+  total:feeSchema,
+
   isActive:{type:Boolean,default:true}
 
 },{_id:false});
 
 
+
+// ---------- ACADEMIC STRUCTURE ----------
 
 const academicFeeSchema=new mongoose.Schema({
 
@@ -77,9 +86,9 @@ const academicFeeSchema=new mongoose.Schema({
     required:true
   },
 
-  departments:{
-    type:[departmentWiseFeeSchema], 
-  },
+  departments:[departmentWiseFeeSchema],
+
+  total:feeSchema,
 
   isActive:{type:Boolean,default:true}
 
@@ -93,23 +102,11 @@ const transportSchema=new mongoose.Schema({
 
   route:{type:String,trim:true,default:""},
 
-  stopName:{
-    type:String,
-    required:true,
-    trim:true
-  },
+  stopName:{type:String,trim:true},
 
-  distanceKM:{
-    type:Number,
-    required:true,
-    min:0
-  },
+  distanceKM:{type:Number,min:0},
 
-  fee:{
-    type:Number,
-    required:true,
-    min:0
-  },
+  total:feeSchema,
 
   isActive:{type:Boolean,default:true}
 
@@ -121,12 +118,7 @@ const transportSchema=new mongoose.Schema({
 
 const hostelSchema=new mongoose.Schema({
 
-  block:{
-    type:String,
-    required:true,
-    trim:true,
-    uppercase:true
-  },
+  block:{type:String,trim:true,uppercase:true},
 
   roomType:{
     sharingType:{
@@ -137,22 +129,15 @@ const hostelSchema=new mongoose.Schema({
     isAttached:{type:Boolean,default:false}
   },
 
-  roomFee:{type:Number,default:0,min:0},
-  messFee:{type:Number,default:0,min:0},
-  maintenanceFee:{type:Number,default:0,min:0},
+  roomFee:feeSchema,
+  messFee:feeSchema,
+  maintenanceFee:feeSchema,
 
-  totalFee:{type:Number,min:0},
+  total:feeSchema,
 
   isActive:{type:Boolean,default:true}
 
 },{_id:false});
-
-
-// auto hostel total
-hostelSchema.pre("validate",function(next){
-  this.totalFee=this.roomFee+this.messFee+this.maintenanceFee;
-  next();
-});
 
 
 
@@ -173,21 +158,117 @@ const feeStructureMasterSchema=new mongoose.Schema({
 
   hostelStructures:[hostelSchema],
 
+  total:feeSchema,
+
   notes:{type:String,trim:true,maxlength:300},
 
-  
   isActive:{type:Boolean,default:true}
-
 
 },{timestamps:true});
 
 
-// ---------- INDEXES FOR PERFORMANCE ----------
 
-feeStructureMasterSchema.index({"tuitionStructures.degreeProgram":1});
-feeStructureMasterSchema.index({"tuitionStructures.departments.department":1});
-feeStructureMasterSchema.index({"transportStructures.stopName":1});
-feeStructureMasterSchema.index({"hostelStructures.block":1});
+/* =========================================================
+   ========== 🔽 CALCULATION UTILITIES (BOTTOM) 🔽 ==========
+   ========================================================= */
+
+// DRY total calculator
+function computeTotals(target,sources){
+  let totalFee=0;
+  let paidFee=0;
+
+  sources.forEach(src=>{
+    totalFee+=src?.totalFee||0;
+    paidFee+=src?.paidFee||0;
+  });
+
+  target.totalFee=totalFee;
+  target.paidFee=paidFee;
+
+  if(paidFee>=totalFee && totalFee>0){
+    target.status="Paid";
+  }
+  else if(paidFee>0){
+    target.status="Partially Paid";
+  }
+  else{
+    target.status="Unpaid";
+  }
+}
+
+
+
+/* =========================================================
+   ========== 🔽 MIDDLEWARE HOOKS (BOTTOM) 🔽 ==============
+   ========================================================= */
+
+
+// semester total
+semesterWiseFeeSchema.pre("validate",function(next){
+  computeTotals(this.total,[
+    this.tuition,
+    this.exam,
+    this.erp,
+    this.book,
+    this.lab
+  ]);
+  next();
+});
+
+
+// department total
+departmentWiseFeeSchema.pre("validate",function(next){
+  computeTotals(
+    this.total,
+    this.semesters.map(s=>s.total)
+  );
+  next();
+});
+
+
+// academic total
+academicFeeSchema.pre("validate",function(next){
+  computeTotals(
+    this.total,
+    this.departments.map(d=>d.total)
+  );
+  next();
+});
+
+
+// transport status update
+transportSchema.pre("validate",function(next){
+  computeTotals(this.total,[this.total]);
+  next();
+});
+
+
+// hostel total
+hostelSchema.pre("validate",function(next){
+  computeTotals(this.total,[
+    this.roomFee,
+    this.messFee,
+    this.maintenanceFee
+  ]);
+  next();
+});
+
+
+// institution total
+feeStructureMasterSchema.pre("validate",function(next){
+
+  const academicTotals=this.tuitionStructures.map(a=>a.total);
+  const transportTotals=this.transportStructures.map(t=>t.total);
+  const hostelTotals=this.hostelStructures.map(h=>h.total);
+
+  computeTotals(
+    this.total,
+    [...academicTotals,...transportTotals,...hostelTotals]
+  );
+
+  next();
+});
+
 
 
 module.exports=mongoose.model(
