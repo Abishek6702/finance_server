@@ -41,7 +41,13 @@ const academicSchema = new mongoose.Schema(
     educationType: { type: String, enum: ["UG", "PG"] },
     academicType: { type: String, enum: ["REG", "PART_TIME"] },
     isLateralEntry: { type: Boolean, default: false },
-    department: { type: String, trim: true },
+    departmentName: { type: String, trim: true },
+    degreeProgram:{
+     type:String,
+     enum:["BE","BTech","ME","MTech"],
+     required:true
+    },
+
     yearStudying: { type: Number, enum: [1, 2, 3, 4] },
     currentSem: { type: Number, enum: [1, 2, 3, 4, 5, 6, 7, 8] },
     section: {
@@ -51,12 +57,12 @@ const academicSchema = new mongoose.Schema(
       default: null,
     },
     batch: {
-      from: { type: Number, min: 1900, max: 2100 },
-      to: { type: Number, min: 1900, max: 2100 },
+      from: { type: Number  }, //yyyy of joining
+      to: { type: Number  },//yyyy of graduation
     },
     currentAcademicYear: {
-      from: { type: Number, min: 1900, max: 2100 },
-      to: { type: Number, min: 1900, max: 2100 },
+      from: { type: Number  },//yyyy of current academic year start
+      to: { type: Number  },//yyyy of current academic year end
     },
   },
   { _id: false },
