@@ -4,6 +4,74 @@
 
 ---
 
+## Folder Structure
+backend/
+│
+├─ src/
+│
+│   ├─ api/                        # All feature modules
+│   │
+│   │   ├─ auth/
+│   │   │   ├─ controller.js
+│   │   │   ├─ service.js
+│   │   │   ├─ routes.js
+│   │   │   └─ validation.js
+│   │   │
+│   │   ├─ students/
+│   │   │   ├─ controller.js
+│   │   │   ├─ service.js
+│   │   │   ├─ routes.js
+│   │   │   └─ validation.js
+│   │   │
+│   │   ├─ fees/
+│   │   │   ├─ controller.js
+│   │   │   ├─ service.js
+│   │   │   ├─ routes.js
+│   │   │   └─ validation.js
+│   │   │
+│   │   └─ transactions/
+│   │       ├─ controller.js
+│   │       ├─ service.js
+│   │       ├─ routes.js
+│   │       └─ validation.js
+│   │
+│   ├─ config/
+│   │   └─ db.js
+│   │
+│   ├─ middleware/
+│   │   ├─ corsMiddleware.js
+│   │   ├─ authMiddleware.js
+│   │   └─ errorHandler.js
+│   │
+│   ├─ models/
+│   │   ├─ ActivityLog.js
+│   │   ├─ FeeStructureMaster.js
+│   │   ├─ Student.js
+│   │   ├─ StudentFeeTracking.js
+│   │   ├─ StudentTransaction.js
+│   │   └─ User.js
+│   │
+│   ├─ utils/
+│   │   ├─ generateLedger.js
+│   │   ├─ generateToken.js
+│   │   ├─ rebuildLedgers.js
+│   │   ├─ sendMail.js
+│   │   ├─ templateHandler.js
+│   │   └─ mailTemplates/
+│   │       └─ forgotPassword.js
+│   │
+│   ├─ app.js
+│   └─ server.js
+│
+├─ Doc/
+│   └─ FeeManagementArchitecture.md
+│
+├─ .env
+├─ .gitignore
+└─ package.json
+
+---
+
 ## Overview
 
 Handles student fee collection end-to-end — stores fee structures, generates personalized ledgers for each student, records payments, and keeps balances accurate across all academic years.
