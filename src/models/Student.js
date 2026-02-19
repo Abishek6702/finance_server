@@ -171,16 +171,16 @@ studentSchema.pre("save",function(next){
 
 studentSchema.post("save",async function(doc){
   try{
-
-    // prevent regeneration on updates
     if(!doc.$locals?.wasNew) return;
-
     await generateLedger(doc);
-
   }catch(err){
     console.error("Ledger generation failed:",err.message);
   }
 });
 
+
+/* ======================================================
+   EXPORT
+====================================================== */
 
 module.exports=mongoose.model("Student",studentSchema);

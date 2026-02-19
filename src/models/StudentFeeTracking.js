@@ -1,5 +1,6 @@
 const mongoose=require("mongoose");
 
+
 /* ======================================================
    AMOUNT STRUCTURE
 ====================================================== */
@@ -21,16 +22,14 @@ const amountSchema=new mongoose.Schema({
 
 const semesterLedgerSchema=new mongoose.Schema({
   semesterNumber:{type:Number,min:1,max:8},
-
   tuition:{type:amountSchema,default:()=>({})},
   exam:{type:amountSchema,default:()=>({})},
   erp:{type:amountSchema,default:()=>({})},
   book:{type:amountSchema,default:()=>({})},
   lab:{type:amountSchema,default:()=>({})},
-
-  subTotal:{type:Number,default:0},          // before concession
-  specialConcession:{type:Number,default:0}, // semester concession
-  total:{type:amountSchema,default:()=>({})} // after concession
+  subTotal:{type:Number,default:0},
+  specialConcession:{type:Number,default:0},
+  total:{type:amountSchema,default:()=>({})}
 },{_id:false});
 
 
@@ -42,7 +41,6 @@ const transportLedgerSchema=new mongoose.Schema({
   route:String,
   stopName:String,
   distanceKM:Number,
-
   subTotal:{type:Number,default:0},
   specialConcession:{type:Number,default:0},
   total:{type:amountSchema,default:()=>({})}
@@ -59,11 +57,9 @@ const hostelLedgerSchema=new mongoose.Schema({
     sharingType:String,
     isAttached:Boolean
   },
-
   roomFee:{type:amountSchema,default:()=>({})},
   messFee:{type:amountSchema,default:()=>({})},
   maintenanceFee:{type:amountSchema,default:()=>({})},
-
   subTotal:{type:Number,default:0},
   specialConcession:{type:Number,default:0},
   total:{type:amountSchema,default:()=>({})}
@@ -94,21 +90,16 @@ const academicYearWiseRecordSchema=new mongoose.Schema({
     match:/^\d{4}-\d{4}$/,
     index:true
   },
-
   academic:{
     odd:semesterLedgerSchema,
     even:semesterLedgerSchema,
-    subTotal:{type:Number,default:0},  // sum before yearly concession
-    total:{type:amountSchema,default:()=>({})} // after yearly concession
+    subTotal:{type:Number,default:0},
+    total:{type:amountSchema,default:()=>({})}
   },
-
   transport:transportLedgerSchema,
   hostel:hostelLedgerSchema,
-
   concessions:concessionSchema,
-
-  total:{type:amountSchema,default:()=>({})} // final payable for year
-
+  total:{type:amountSchema,default:()=>({})}
 },{_id:false});
 
 
@@ -117,7 +108,6 @@ const academicYearWiseRecordSchema=new mongoose.Schema({
 ====================================================== */
 
 const studentFeeTrackingSchema=new mongoose.Schema({
-
   student:{
     type:mongoose.Schema.Types.ObjectId,
     ref:"Student",
@@ -125,11 +115,8 @@ const studentFeeTrackingSchema=new mongoose.Schema({
     unique:true,
     index:true
   },
-
   rollNo:{type:String,index:true},
-
   academicYearWiseRecord:[academicYearWiseRecordSchema]
-
 },{timestamps:true});
 
 
@@ -137,7 +124,4 @@ const studentFeeTrackingSchema=new mongoose.Schema({
    EXPORT
 ====================================================== */
 
-module.exports=mongoose.model(
-  "StudentFeeTracking",
-  studentFeeTrackingSchema
-);
+module.exports=mongoose.model("StudentFeeTracking",studentFeeTrackingSchema);

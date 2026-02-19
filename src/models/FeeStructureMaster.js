@@ -1,6 +1,7 @@
 const mongoose=require("mongoose");
 const enqueueLedgerRebuild=require("../utils/enqueueLedgerRebuild");
 
+
 /* ======================================================
    BASIC FEE
 ====================================================== */
@@ -115,109 +116,45 @@ function ensureTotal(obj){
 
 
 /* ======================================================
-   CALCULATIONS
+   AUTO TOTAL CALCULATIONS
 ====================================================== */
 
-// semester total
 semesterWiseFeeSchema.pre("validate",function(next){
   ensureTotal(this);
-
-  if(!this.isActive){
-    this.total.fee=0;
-    return next();
-  }
-
-  this.total.fee=sum([
-    this.tuition,
-    this.exam,
-    this.erp,
-    this.book,
-    this.lab
-  ]);
-
+  if(!this.isActive){ this.total.fee=0; return next(); }
+  this.total.fee=sum([this.tuition,this.exam,this.erp,this.book,this.lab]);
   next();
 });
 
-
-// department total
 departmentWiseFeeSchema.pre("validate",function(next){
   ensureTotal(this);
-
-  if(!this.isActive){
-    this.total.fee=0;
-    return next();
-  }
-
-  this.total.fee=sum(
-    this.semesters
-      .filter(s=>s.isActive)
-      .map(s=>s.total)
-  );
-
+  if(!this.isActive){ this.total.fee=0; return next(); }
+  this.total.fee=sum(this.semesters.filter(s=>s.isActive).map(s=>s.total));
   next();
 });
 
-
-// academic total
 academicFeeSchema.pre("validate",function(next){
   ensureTotal(this);
-
-  if(!this.isActive){
-    this.total.fee=0;
-    return next();
-  }
-
-  this.total.fee=sum(
-    this.departments
-      .filter(d=>d.isActive)
-      .map(d=>d.total)
-  );
-
+  if(!this.isActive){ this.total.fee=0; return next(); }
+  this.total.fee=sum(this.departments.filter(d=>d.isActive).map(d=>d.total));
   next();
 });
 
-
-// hostel total
 hostelSchema.pre("validate",function(next){
   ensureTotal(this);
-
-  if(!this.isActive){
-    this.total.fee=0;
-    return next();
-  }
-
-  this.total.fee=sum([
-    this.roomFee,
-    this.messFee,
-    this.maintenanceFee
-  ]);
-
+  if(!this.isActive){ this.total.fee=0; return next(); }
+  this.total.fee=sum([this.roomFee,this.messFee,this.maintenanceFee]);
   next();
 });
 
-
-// institution total
 feeStructureMasterSchema.pre("validate",function(next){
   ensureTotal(this);
 
-  const academicTotals=this.academicStructures
-    .filter(a=>a.isActive)
-    .map(a=>a.total);
+  const academicTotals =this.academicStructures.filter(a=>a.isActive).map(a=>a.total);
+  const transportTotals=this.transportStructures.filter(t=>t.isActive).map(t=>t.total);
+  const hostelTotals   =this.hostelStructures.filter(h=>h.isActive).map(h=>h.total);
 
-  const transportTotals=this.transportStructures
-    .filter(t=>t.isActive)
-    .map(t=>t.total);
-
-  const hostelTotals=this.hostelStructures
-    .filter(h=>h.isActive)
-    .map(h=>h.total);
-
-  this.total.fee=sum([
-    ...academicTotals,
-    ...transportTotals,
-    ...hostelTotals
-  ]);
-
+  this.total.fee=sum([...academicTotals,...transportTotals,...hostelTotals]);
   next();
 });
 
@@ -231,9 +168,7 @@ feeStructureMasterSchema.post("findOneAndUpdate",async function(doc){
 });
 
 feeStructureMasterSchema.post("save",async function(doc){
-  if(!doc.$locals?.skipRebuild){
-    enqueueLedgerRebuild(doc);
-  }
+  if(!doc.$locals?.skipRebuild) enqueueLedgerRebuild(doc);
 });
 
 
@@ -241,7 +176,4 @@ feeStructureMasterSchema.post("save",async function(doc){
    EXPORT
 ====================================================== */
 
-module.exports=mongoose.model(
-  "FeeStructureMaster",
-  feeStructureMasterSchema
-);
+module.exports=mongoose.model("FeeStructureMaster",feeStructureMasterSchema);

@@ -1,6 +1,7 @@
 const FeeStructure=require("../models/FeeStructureMaster");
 const StudentFeeTracking=require("../models/StudentFeeTracking");
 
+
 /* ======================================================
    HELPERS
 ====================================================== */
@@ -12,12 +13,10 @@ function nextAcademicYear(year){
 
 function getYearsToGenerate(student){
   const years=[];
-
   const currentYear=student.academic.currentAcademicYear;
   const batchEnd=parseInt(student.academic.batch.split("-")[1],10);
 
   let yr=currentYear;
-
   while(parseInt(yr.split("-")[0])<batchEnd){
     years.push(yr);
     yr=nextAcademicYear(yr);
@@ -35,9 +34,9 @@ function calcSemesterTotals(sem,concession=0){
     (sem.lab?.total||0);
 
   const total=Math.max(0,subTotal-concession);
-
   return {subTotal,total};
 }
+
 
 /* ======================================================
    GENERATE LEDGER
@@ -57,22 +56,14 @@ async function generateLedger(studentDoc,options={}){
   }
 
   const years=getYearsToGenerate(studentDoc);
+  const batchStart=parseInt(studentDoc.academic.batch.split("-")[0],10);
 
   for(const academicYear of years){
 
-    // skip if already exists
-    const exists=tracking.academicYearWiseRecord.find(
-      r=>r.academicYear===academicYear
-    );
-
+    const exists=tracking.academicYearWiseRecord.find(r=>r.academicYear===academicYear);
     if(exists && !force) continue;
 
-    const feeMaster=await FeeStructure.findOne({
-      academicYear,
-      isActive:true
-    });
-
-    // STOP if fee structure missing (strict requirement)
+    const feeMaster=await FeeStructure.findOne({academicYear,isActive:true});
     if(!feeMaster) break;
 
     /* ---------- ACADEMIC ---------- */
@@ -92,25 +83,26 @@ async function generateLedger(studentDoc,options={}){
     const semesterLedgers={};
 
     if(dept){
+      const yearStart=parseInt(academicYear.split("-")[0],10);
+      const studyYear=yearStart-batchStart+1;
+      const oddSemNo =studyYear*2-1;
+      const evenSemNo=studyYear*2;
+
       dept.semesters
-        .filter(s=>s.isActive)
+        .filter(s=>s.isActive && (s.semesterNumber===oddSemNo || s.semesterNumber===evenSemNo))
         .forEach(s=>{
 
           const tuition=s.tuition.fee||0;
-          const exam=s.exam.fee||0;
-          const erp=s.erp.fee||0;
-          const book=s.book.fee||0;
-          const lab=s.lab.fee||0;
-
+          const exam   =s.exam.fee||0;
+          const erp    =s.erp.fee||0;
+          const book   =s.book.fee||0;
+          const lab    =s.lab.fee||0;
           const special=studentDoc.enrollment.specialConcession.tuition||0;
 
-          const {subTotal,total}=calcSemesterTotals({
-            tuition:{total:tuition},
-            exam:{total:exam},
-            erp:{total:erp},
-            book:{total:book},
-            lab:{total:lab}
-          },special);
+          const {subTotal,total}=calcSemesterTotals(
+            {tuition:{total:tuition},exam:{total:exam},erp:{total:erp},book:{total:book},lab:{total:lab}},
+            special
+          );
 
           const ledger={
             semesterNumber:s.semesterNumber,
@@ -130,8 +122,8 @@ async function generateLedger(studentDoc,options={}){
     }
 
     const academicSubTotal=
-      (semesterLedgers.odd?.subTotal||0)+
-      (semesterLedgers.even?.subTotal||0);
+      (semesterLedgers.odd?.total?.total||0)+
+      (semesterLedgers.even?.total?.total||0);
 
     const yearlyConcession=
       (studentDoc.enrollment.firstGraduate.concessionAmount||0)+
@@ -147,15 +139,15 @@ async function generateLedger(studentDoc,options={}){
 
     if(studentDoc.transport?.isApplicable){
       const route=feeMaster.transportStructures.find(t=>
-        t.stopName?.toUpperCase()===
-        studentDoc.transport.stopName?.toUpperCase() &&
+        t.route===studentDoc.transport.route &&
+        t.stopName?.toUpperCase()===studentDoc.transport.stopName?.toUpperCase() &&
         t.isActive
       );
 
       if(route){
         const subTotal=route.total.fee||0;
-        const special=studentDoc.enrollment.specialConcession.transport||0;
-        const total=Math.max(0,subTotal-special);
+        const special =studentDoc.enrollment.specialConcession.transport||0;
+        const total   =Math.max(0,subTotal-special);
 
         transportLedger={
           route:route.route,
@@ -187,7 +179,7 @@ async function generateLedger(studentDoc,options={}){
           (hostel.maintenanceFee.fee||0);
 
         const special=studentDoc.enrollment.specialConcession.hostel||0;
-        const total=Math.max(0,subTotal-special);
+        const total  =Math.max(0,subTotal-special);
 
         hostelLedger={
           block:hostel.block,
@@ -202,7 +194,7 @@ async function generateLedger(studentDoc,options={}){
       }
     }
 
-    /* ---------- FINAL YEAR TOTAL ---------- */
+    /* ---------- YEAR RECORD ---------- */
 
     const yearTotal=
       academicTotal+
