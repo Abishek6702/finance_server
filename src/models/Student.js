@@ -164,9 +164,8 @@ const studentSchema=new mongoose.Schema({
    AUTO GENERATE FEE LEDGER
 ====================================================== */
 
-studentSchema.pre("save",function(next){
+studentSchema.pre("save",async function(){
   this.$locals.wasNew=this.isNew;
-  next();
 });
 
 studentSchema.post("save",async function(doc){

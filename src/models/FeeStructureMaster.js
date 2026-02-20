@@ -119,35 +119,31 @@ function ensureTotal(obj){
    AUTO TOTAL CALCULATIONS
 ====================================================== */
 
-semesterWiseFeeSchema.pre("validate",function(next){
+semesterWiseFeeSchema.pre("validate",async function(){
   ensureTotal(this);
-  if(!this.isActive){ this.total.fee=0; return next(); }
+  if(!this.isActive){ this.total.fee=0; return; }
   this.total.fee=sum([this.tuition,this.exam,this.erp,this.book,this.lab]);
-  next();
 });
 
-departmentWiseFeeSchema.pre("validate",function(next){
+departmentWiseFeeSchema.pre("validate",async function(){
   ensureTotal(this);
-  if(!this.isActive){ this.total.fee=0; return next(); }
+  if(!this.isActive){ this.total.fee=0; return; }
   this.total.fee=sum(this.semesters.filter(s=>s.isActive).map(s=>s.total));
-  next();
 });
 
-academicFeeSchema.pre("validate",function(next){
+academicFeeSchema.pre("validate",async function(){
   ensureTotal(this);
-  if(!this.isActive){ this.total.fee=0; return next(); }
+  if(!this.isActive){ this.total.fee=0; return; }
   this.total.fee=sum(this.departments.filter(d=>d.isActive).map(d=>d.total));
-  next();
 });
 
-hostelSchema.pre("validate",function(next){
+hostelSchema.pre("validate",async function(){
   ensureTotal(this);
-  if(!this.isActive){ this.total.fee=0; return next(); }
+  if(!this.isActive){ this.total.fee=0; return; }
   this.total.fee=sum([this.roomFee,this.messFee,this.maintenanceFee]);
-  next();
 });
 
-feeStructureMasterSchema.pre("validate",function(next){
+feeStructureMasterSchema.pre("validate",async function(){
   ensureTotal(this);
 
   const academicTotals =this.academicStructures.filter(a=>a.isActive).map(a=>a.total);
@@ -155,7 +151,6 @@ feeStructureMasterSchema.pre("validate",function(next){
   const hostelTotals   =this.hostelStructures.filter(h=>h.isActive).map(h=>h.total);
 
   this.total.fee=sum([...academicTotals,...transportTotals,...hostelTotals]);
-  next();
 });
 
 

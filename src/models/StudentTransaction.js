@@ -70,9 +70,8 @@ const studentTransactionSchema=new mongoose.Schema({
    AUTO TOTAL CALCULATIONS
 ====================================================== */
 
-paymentRecordSchema.pre("validate",function(next){
+paymentRecordSchema.pre("validate",async function(){
   this.totalAmount=this.breakdowns.reduce((sum,b)=>sum+(b.total||0),0);
-  next();
 });
 
 
