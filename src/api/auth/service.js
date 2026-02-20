@@ -4,17 +4,7 @@ const ActivityLog = require("../../models/ActivityLog.js");
 const sendMail = require("../../utils/sendMail");
 const generateToken = require("../../utils/generateToken.js");
 const renderTemplate = require("../../utils/templateHandler");
-
-exports.createAdmin = async (data) => {
-  const { name, email, password, role } = data;
-
-  const existingUser = await User.findOne({ email });
-  if (existingUser) throw new Error("User already exists");
-
-  const hashedPassword = await bcrypt.hash(password, 10);
-  return await User.create({ name, email, password: hashedPassword, role: role || "admin" });
-};
-
+ 
 exports.login = async (credentials, reqInfo) => {
   const { email, password } = credentials;
   const user = await User.findOne({ email });

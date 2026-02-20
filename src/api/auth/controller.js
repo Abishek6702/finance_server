@@ -1,14 +1,5 @@
 const authService = require("./service");
-
-exports.createAdmin = async (req, res) => {
-  try {
-    const user = await authService.createAdmin(req.body);
-    res.status(201).json({ message: "Admin created", user });
-  } catch (err) {
-    res.status(err.message === "User already exists" ? 400 : 500).json({ message: err.message });
-  }
-};
-
+ 
 exports.login = async (req, res) => {
   try {
     const reqInfo = { url: req.originalUrl, method: req.method };
