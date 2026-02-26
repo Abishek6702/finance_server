@@ -17,10 +17,7 @@ const UserSchema = new mongoose.Schema(
       enum: ["admin", "superadmin", "user"],
       default: "user",
     },
-    resetOtp: { type: String },
-    resetOtpExpiry: { type: Date },
   },
-  { timestamps: true },
 );
 
 module.exports = mongoose.model("User", UserSchema);

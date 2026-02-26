@@ -42,11 +42,24 @@ const seedUsers = async () => {
     }
 
     console.log("Seeding finished.");
-    process.exit(0);
+    // Only exit if running as main module, not when required by server
+    if (require.main === module) {
+      process.exit(0);
+    }
   } catch (error) {
     console.error("Error seeding users:", error);
-    process.exit(1);
+    if (require.main === module) {
+      process.exit(1);
+    }
   }
 };
 
-seedUsers();
+// Only run seed function if this file is executed directly
+if (require.main === module) {
+  seedUsers();
+} else {
+  // When required by server.js, return the seed function for manual execution
+  module.exports = seedUsers;
+  // Auto-run when required (but don't exit)
+  seedUsers();
+}

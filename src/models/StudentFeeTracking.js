@@ -28,7 +28,6 @@ const semesterLedgerSchema=new mongoose.Schema({
   book:{type:amountSchema,default:()=>({})},
   lab:{type:amountSchema,default:()=>({})},
   subTotal:{type:Number,default:0},
-  specialConcession:{type:Number,default:0},
   total:{type:amountSchema,default:()=>({})}
 },{_id:false});
 
@@ -38,11 +37,12 @@ const semesterLedgerSchema=new mongoose.Schema({
 ====================================================== */
 
 const transportLedgerSchema=new mongoose.Schema({
-  route:String,
-  stopName:String,
-  distanceKM:Number,
+  transport:{
+      type:mongoose.Schema.Types.ObjectId,
+      ref:"Transport"
+    },
   subTotal:{type:Number,default:0},
-  specialConcession:{type:Number,default:0},
+  transportSpecialConcession:{type:Number,default:0},
   total:{type:amountSchema,default:()=>({})}
 },{_id:false});
 
@@ -61,7 +61,7 @@ const hostelLedgerSchema=new mongoose.Schema({
   messFee:{type:amountSchema,default:()=>({})},
   maintenanceFee:{type:amountSchema,default:()=>({})},
   subTotal:{type:Number,default:0},
-  specialConcession:{type:Number,default:0},
+  hostelSpecialConcession:{type:Number,default:0},
   total:{type:amountSchema,default:()=>({})}
 },{_id:false});
 
@@ -93,6 +93,7 @@ const academicYearWiseRecordSchema=new mongoose.Schema({
   academic:{
     odd:semesterLedgerSchema,
     even:semesterLedgerSchema,
+    academicSpecialConcession:{type:Number,default:0},
     subTotal:{type:Number,default:0},
     total:{type:amountSchema,default:()=>({})}
   },
@@ -118,6 +119,38 @@ const studentFeeTrackingSchema=new mongoose.Schema({
   rollNo:{type:String,index:true},
   academicYearWiseRecord:[academicYearWiseRecordSchema]
 },{timestamps:true});
+
+
+/* ======================================================
+   PRE-SAVE MIDDLEWARE: ENFORCE ACADEMIC TOTAL CALCULATION
+====================================================== */
+studentFeeTrackingSchema.pre("save",function(next){
+
+  this.academicYearWiseRecord?.forEach(yearRecord=>{
+    const academic=yearRecord.academic;
+    if(!academic) return;
+
+    const subTotal=academic.subTotal||0;
+    const concession=academic.academicSpecialConcession||0;
+
+    const payable=Math.max(0,subTotal-concession);
+
+    academic.total=academic.total||{};
+    academic.total.total=payable;
+
+    // prevent overpayment
+    academic.total.paid=Math.min(academic.total.paid||0,payable);
+
+    const paid=academic.total.paid;
+
+    if(payable===0) academic.total.status="Paid";
+    else if(paid>=payable) academic.total.status="Paid";
+    else if(paid>0) academic.total.status="Partially Paid";
+    else academic.total.status="Unpaid";
+  });
+
+  next();
+});
 
 
 /* ======================================================

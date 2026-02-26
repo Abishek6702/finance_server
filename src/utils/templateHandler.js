@@ -1,8 +1,4 @@
-const forgotPassword = require("./mailTemplates/forgotPassword.js");
-
-const templates = {
-  forgotPassword,
-};
+const templates = {};
 
 function renderTemplate(templateName, data) {
   const templateFn = templates[templateName];

@@ -1,7 +1,4 @@
-const mongoose=require("mongoose");
-const generateLedger=require("../utils/generateLedger");
-
-
+const mongoose=require("mongoose"); 
 /* ======================================================
    PERSONAL
 ====================================================== */
@@ -32,12 +29,13 @@ const personalSchema=new mongoose.Schema({
 /* ======================================================
    ACADEMIC
 ====================================================== */
+const dpartments=["CSE","IT","AIML","AIDS","ECE","EEE","MECH","CIVIL"];
 
 const academicSchema=new mongoose.Schema({
   educationType:{type:String,enum:["UG","PG"]},
   academicType:{type:String,enum:["REG","PART_TIME"]},
   isLateralEntry:{type:Boolean,default:false},
-  departmentName:{type:String,trim:true,uppercase:true},
+  departmentName:{type:String,trim:true,enum:dpartments},
   degreeProgram:{type:String,enum:["BE","BTech","ME","MTech"],required:true},
   yearStudying:{type:Number,enum:[1,2,3,4]},
   currentSemesterNumber:{type:Number,enum:[1,2,3,4,5,6,7,8]},
@@ -124,11 +122,11 @@ const enrollmentSchema=new mongoose.Schema({
 
 const transportSchema=new mongoose.Schema({
   isApplicable:{type:Boolean,default:false},
-  route:{type:String,trim:true},
-  stopName:{type:String,trim:true},
-  distanceKM:{type:Number,min:0}
+  transport:{
+    type:mongoose.Schema.Types.ObjectId,
+    ref:"Transport"
+  }
 },{_id:false});
-
 
 /* ======================================================
    HOSTEL
@@ -158,24 +156,6 @@ const studentSchema=new mongoose.Schema({
   transport:transportSchema,
   hostel:hostelSchema
 },{timestamps:true});
-
-
-/* ======================================================
-   AUTO GENERATE FEE LEDGER
-====================================================== */
-
-studentSchema.pre("save",async function(){
-  this.$locals.wasNew=this.isNew;
-});
-
-studentSchema.post("save",async function(doc){
-  try{
-    if(!doc.$locals?.wasNew) return;
-    await generateLedger(doc);
-  }catch(err){
-    console.error("Ledger generation failed:",err.message);
-  }
-});
 
 
 /* ======================================================

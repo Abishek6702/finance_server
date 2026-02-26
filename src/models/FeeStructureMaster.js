@@ -1,7 +1,4 @@
-const mongoose=require("mongoose");
-const enqueueLedgerRebuild=require("../utils/enqueueLedgerRebuild");
-
-
+const mongoose=require("mongoose"); 
 /* ======================================================
    BASIC FEE
 ====================================================== */
@@ -30,10 +27,13 @@ const semesterWiseFeeSchema=new mongoose.Schema({
 /* ======================================================
    DEPARTMENT
 ====================================================== */
-
+const dpartments=["CSE","IT","AIML","AIDS","ECE","EEE","MECH","CIVIL"];
 const departmentWiseFeeSchema=new mongoose.Schema({
-  departmentName:{type:String,required:true,trim:true,uppercase:true},
-  semesters:{type:[semesterWiseFeeSchema],default:[]},
+  departmentName:{type:String,required:true,enum:dpartments},
+  semesters:{type:[semesterWiseFeeSchema],
+  validate:arr=>arr.length==8 ,
+  required:true
+},
   total:feeSchema,
   isActive:{type:Boolean,default:true}
 },{_id:false});
@@ -58,9 +58,10 @@ const academicFeeSchema=new mongoose.Schema({
 ====================================================== */
 
 const transportSchema=new mongoose.Schema({
-  route:{type:String,trim:true,default:null},
-  stopName:{type:String,trim:true},
-  distanceKM:{type:Number,min:0},
+  transport:{
+      type:mongoose.Schema.Types.ObjectId,
+      ref:"Transport"
+    },
   total:feeSchema,
   isActive:{type:Boolean,default:true}
 },{_id:false});
@@ -153,18 +154,6 @@ feeStructureMasterSchema.pre("validate",async function(){
   this.total.fee=sum([...academicTotals,...transportTotals,...hostelTotals]);
 });
 
-
-/* ======================================================
-   LEDGER REBUILD TRIGGERS
-====================================================== */
-
-feeStructureMasterSchema.post("findOneAndUpdate",async function(doc){
-  if(doc) enqueueLedgerRebuild(doc);
-});
-
-feeStructureMasterSchema.post("save",async function(doc){
-  if(!doc.$locals?.skipRebuild) enqueueLedgerRebuild(doc);
-});
 
 
 /* ======================================================
