@@ -3,6 +3,20 @@ const StudentFeeTracking = require("../../models/StudentFeeTracking");
 const Student = require("../../models/Student");
 const ActivityLog = require("../../models/ActivityLog");
 
+const normalizeMoney = (value) => {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0) return 0;
+  return Math.round(number * 100) / 100;
+};
+
+const setStatus = (target) => {
+  if (!target) return;
+  if (target.total === 0) target.status = "Paid";
+  else if (target.paid >= target.total) target.status = "Paid";
+  else if (target.paid > 0) target.status = "Partially Paid";
+  else target.status = "Unpaid";
+};
+
 const recordPayment = async (data) => {
   const { rollNo, receiptNo, paymentType, bankName, bankLocation, remarks, breakdowns } = data;
 
@@ -22,13 +36,28 @@ const recordPayment = async (data) => {
 
   // Calculate totals for breakdowns to save in transaction
   const mappedBreakdowns = breakdowns.map(bd => {
+    const academic = bd.academic || {};
     let academicTotal = 0;
-    if (bd.academic) {
-      academicTotal += (bd.academic.tuition || 0) + (bd.academic.exam || 0) + (bd.academic.erp || 0) + (bd.academic.book || 0) + (bd.academic.lab || 0);
-    }
-    const total = academicTotal + (bd.hostel || 0) + (bd.transport || 0);
+    academicTotal += normalizeMoney(academic.tuition || 0)
+      + normalizeMoney(academic.exam || 0)
+      + normalizeMoney(academic.erp || 0)
+      + normalizeMoney(academic.book || 0)
+      + normalizeMoney(academic.lab || 0);
+
+    const total = normalizeMoney(academicTotal + normalizeMoney(bd.hostel || 0) + normalizeMoney(bd.transport || 0));
+
     return {
-      ...bd,
+      academicYear: bd.academicYear,
+      academic: {
+        semesterNumber: academic.semesterNumber,
+        tuition: normalizeMoney(academic.tuition || 0),
+        exam: normalizeMoney(academic.exam || 0),
+        erp: normalizeMoney(academic.erp || 0),
+        book: normalizeMoney(academic.book || 0),
+        lab: normalizeMoney(academic.lab || 0)
+      },
+      hostel: normalizeMoney(bd.hostel || 0),
+      transport: normalizeMoney(bd.transport || 0),
       total
     };
   });
@@ -52,8 +81,12 @@ const recordPayment = async (data) => {
     // Helper to update amountSchema
     const addPayment = (target, amount) => {
       if (!target || !amount) return;
-      target.paid = (target.paid || 0) + amount;
-      target.status = target.paid >= target.total ? "Paid" : (target.paid > 0 ? "Partially Paid" : "Unpaid");
+
+      const increment = normalizeMoney(amount);
+      target.total = normalizeMoney(target.total || 0);
+      target.paid = normalizeMoney((target.paid || 0) + increment);
+      target.paid = Math.min(target.paid, target.total);
+      setStatus(target);
     };
 
     if (bd.academic && bd.academic.semesterNumber) {
@@ -66,15 +99,15 @@ const recordPayment = async (data) => {
          addPayment(sem.lab, bd.academic.lab);
 
          // Recalculate semester total paid
-         const semPaid = (sem.tuition?.paid || 0) + (sem.exam?.paid || 0) + (sem.erp?.paid || 0) + (sem.book?.paid || 0) + (sem.lab?.paid || 0);
-         sem.total.paid = semPaid;
-         sem.total.status = sem.total.paid >= sem.total.total ? "Paid" : (sem.total.paid > 0 ? "Partially Paid" : "Unpaid");
+        const semPaid = normalizeMoney((sem.tuition?.paid || 0) + (sem.exam?.paid || 0) + (sem.erp?.paid || 0) + (sem.book?.paid || 0) + (sem.lab?.paid || 0));
+        sem.total.paid = Math.min(semPaid, normalizeMoney(sem.total.total || 0));
+        setStatus(sem.total);
       }
       
       // Target yearRecord academic total paid
-      const termTotalPaid = ((yearRecord.academic.odd?.total?.paid || 0) + (yearRecord.academic.even?.total?.paid || 0));
-      yearRecord.academic.total.paid = termTotalPaid;
-      yearRecord.academic.total.status = yearRecord.academic.total.paid >= yearRecord.academic.total.total ? "Paid" : (yearRecord.academic.total.paid > 0 ? "Partially Paid" : "Unpaid");
+      const termTotalPaid = normalizeMoney((yearRecord.academic.odd?.total?.paid || 0) + (yearRecord.academic.even?.total?.paid || 0));
+      yearRecord.academic.total.paid = Math.min(termTotalPaid, normalizeMoney(yearRecord.academic.total.total || 0));
+      setStatus(yearRecord.academic.total);
     }
 
     if (bd.hostel && yearRecord.hostel) {
@@ -85,9 +118,9 @@ const recordPayment = async (data) => {
     }
 
     // Recalculate year total paid
-    const yearPaid = (yearRecord.academic.total?.paid || 0) + (yearRecord.hostel?.total?.paid || 0) + (yearRecord.transport?.total?.paid || 0);
-    yearRecord.total.paid = yearPaid;
-    yearRecord.total.status = yearRecord.total.paid >= yearRecord.total.total ? "Paid" : (yearRecord.total.paid > 0 ? "Partially Paid" : "Unpaid");
+    const yearPaid = normalizeMoney((yearRecord.academic.total?.paid || 0) + (yearRecord.hostel?.total?.paid || 0) + (yearRecord.transport?.total?.paid || 0));
+    yearRecord.total.paid = Math.min(yearPaid, normalizeMoney(yearRecord.total.total || 0));
+    setStatus(yearRecord.total);
   }
 
   tracking.markModified("academicYearWiseRecord");
@@ -331,9 +364,16 @@ const updateConcession = async (rollNo, academicYear, concessionData) => {
   if (!yearRecord) throw new Error("Academic year record not found");
 
   // Update concessions
+  const safeConcessions = {
+    firstGraduate: normalizeMoney(concessionData?.firstGraduate || 0),
+    scheme7point5: normalizeMoney(concessionData?.scheme7point5 || 0),
+    pmss: normalizeMoney(concessionData?.pmss || 0),
+    sakthi: normalizeMoney(concessionData?.sakthi || 0)
+  };
+
   yearRecord.concessions = {
     ...yearRecord.concessions,
-    ...concessionData
+    ...safeConcessions
   };
 
   // Recalculate total concession
@@ -343,7 +383,10 @@ const updateConcession = async (rollNo, academicYear, concessionData) => {
     (yearRecord.concessions.pmss || 0) +
     (yearRecord.concessions.sakthi || 0);
 
-  yearRecord.concessions.totalConcession = totalConcession;
+  yearRecord.concessions.totalConcession = normalizeMoney(totalConcession);
+
+  yearRecord.academic = yearRecord.academic || {};
+  yearRecord.academic.academicSpecialConcession = yearRecord.concessions.totalConcession;
 
   tracking.markModified("academicYearWiseRecord");
   await tracking.save();

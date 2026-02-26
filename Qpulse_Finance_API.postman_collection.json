@@ -11,13 +11,7 @@
           "name": "Login Superadmin",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{base_url}}/auth/login",
               "host": [
@@ -38,19 +32,32 @@
               }
             }
           },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login success', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "let data = {};",
+                  "try { data = pm.response.json(); } catch (e) {}",
+                  "if (data && data.token) {",
+                  "  pm.environment.set('token', data.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
           "response": []
         },
         {
           "name": "Login Admin",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{base_url}}/auth/login",
               "host": [
@@ -71,19 +78,32 @@
               }
             }
           },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login success', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "let data = {};",
+                  "try { data = pm.response.json(); } catch (e) {}",
+                  "if (data && data.token) {",
+                  "  pm.environment.set('token', data.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
           "response": []
         },
         {
           "name": "Logout",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{base_url}}/auth/logout",
               "host": [
@@ -93,15 +113,6 @@
                 "auth",
                 "logout"
               ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
             }
           },
           "response": []
@@ -115,13 +126,7 @@
           "name": "Create Fee Structure",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{base_url}}/feeStructureMaster/",
               "host": [
@@ -133,7 +138,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"academicYear\": \"2025-2026\",\n  \"academicStructures\": [\n    {\n      \"quota\": \"Government Quota\",\n      \"educationType\": \"UG\",\n      \"degreeProgram\": \"BE\",\n      \"departments\": [\n        {\n          \"departmentName\": \"CSE\",\n          \"semesters\": [\n            {\n              \"semesterNumber\": 1,\n              \"tuition\": {\n                \"fee\": 40000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 2,\n              \"tuition\": {\n                \"fee\": 41000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 3,\n              \"tuition\": {\n                \"fee\": 42000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 4,\n              \"tuition\": {\n                \"fee\": 43000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 5,\n              \"tuition\": {\n                \"fee\": 44000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 6,\n              \"tuition\": {\n                \"fee\": 45000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 7,\n              \"tuition\": {\n                \"fee\": 46000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 8,\n              \"tuition\": {\n                \"fee\": 47000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            }\n          ],\n          \"isActive\": true\n        },\n        {\n          \"departmentName\": \"ECE\",\n          \"semesters\": [\n            {\n              \"semesterNumber\": 1,\n              \"tuition\": {\n                \"fee\": 42000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 2,\n              \"tuition\": {\n                \"fee\": 43000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 3,\n              \"tuition\": {\n                \"fee\": 44000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 4,\n              \"tuition\": {\n                \"fee\": 45000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 5,\n              \"tuition\": {\n                \"fee\": 46000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 6,\n              \"tuition\": {\n                \"fee\": 47000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 7,\n              \"tuition\": {\n                \"fee\": 48000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 8,\n              \"tuition\": {\n                \"fee\": 49000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            }\n          ],\n          \"isActive\": true\n        }\n      ],\n      \"isActive\": true\n    },\n    {\n      \"quota\": \"Management Quota\",\n      \"educationType\": \"UG\",\n      \"degreeProgram\": \"BE\",\n      \"departments\": [\n        {\n          \"departmentName\": \"CSE\",\n          \"semesters\": [\n            {\n              \"semesterNumber\": 1,\n              \"tuition\": {\n                \"fee\": 80000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 2,\n              \"tuition\": {\n                \"fee\": 81000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 3,\n              \"tuition\": {\n                \"fee\": 82000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 4,\n              \"tuition\": {\n                \"fee\": 83000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 5,\n              \"tuition\": {\n                \"fee\": 84000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 6,\n              \"tuition\": {\n                \"fee\": 85000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 7,\n              \"tuition\": {\n                \"fee\": 86000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 8,\n              \"tuition\": {\n                \"fee\": 87000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            }\n          ],\n          \"isActive\": true\n        }\n      ],\n      \"isActive\": true\n    }\n  ],\n  \"transportStructures\": [\n    {\n      \"route\": \"Route 1 - Gandhipuram\",\n      \"stopName\": \"Gandhipuram Bus Stand\",\n      \"distanceKM\": 25,\n      \"isActive\": true\n    },\n    {\n      \"route\": \"Route 2 - Ukkadam\",\n      \"stopName\": \"Ukkadam Bus Stand\",\n      \"distanceKM\": 15,\n      \"isActive\": true\n    }\n  ],\n  \"hostelStructures\": [\n    {\n      \"block\": \"A-BLOCK\",\n      \"roomType\": {\n        \"sharingType\": \"Four\",\n        \"isAttached\": true\n      },\n      \"roomFee\": {\n        \"fee\": 25000\n      },\n      \"messFee\": {\n        \"fee\": 40000\n      },\n      \"maintenanceFee\": {\n        \"fee\": 5000\n      },\n      \"isActive\": true\n    },\n    {\n      \"block\": \"B-BLOCK\",\n      \"roomType\": {\n        \"sharingType\": \"Two\",\n        \"isAttached\": false\n      },\n      \"roomFee\": {\n        \"fee\": 30000\n      },\n      \"messFee\": {\n        \"fee\": 45000\n      },\n      \"maintenanceFee\": {\n        \"fee\": 6000\n      },\n      \"isActive\": true\n    }\n  ],\n  \"isActive\": true\n}",
+              "raw": "{\n  \"academicYear\": \"2025-2026\",\n  \"academicStructures\": [\n    {\n      \"quota\": \"Government Quota\",\n      \"educationType\": \"UG\",\n      \"degreeProgram\": \"BE\",\n      \"departments\": [\n        {\n          \"departmentName\": \"CSE\",\n          \"semesters\": [\n            { \"semesterNumber\": 1, \"tuition\": { \"fee\": 40000 }, \"exam\": { \"fee\": 2000 }, \"erp\": { \"fee\": 500 }, \"book\": { \"fee\": 1000 }, \"lab\": { \"fee\": 1500 }, \"total\": { \"fee\": 45000 }, \"isActive\": true },\n            { \"semesterNumber\": 2, \"tuition\": { \"fee\": 41000 }, \"exam\": { \"fee\": 2000 }, \"erp\": { \"fee\": 500 }, \"book\": { \"fee\": 1000 }, \"lab\": { \"fee\": 1500 }, \"total\": { \"fee\": 46000 }, \"isActive\": true },\n            { \"semesterNumber\": 3, \"tuition\": { \"fee\": 42000 }, \"exam\": { \"fee\": 2000 }, \"erp\": { \"fee\": 500 }, \"book\": { \"fee\": 1000 }, \"lab\": { \"fee\": 1500 }, \"total\": { \"fee\": 47000 }, \"isActive\": true },\n            { \"semesterNumber\": 4, \"tuition\": { \"fee\": 43000 }, \"exam\": { \"fee\": 2000 }, \"erp\": { \"fee\": 500 }, \"book\": { \"fee\": 1000 }, \"lab\": { \"fee\": 1500 }, \"total\": { \"fee\": 48000 }, \"isActive\": true },\n            { \"semesterNumber\": 5, \"tuition\": { \"fee\": 44000 }, \"exam\": { \"fee\": 2000 }, \"erp\": { \"fee\": 500 }, \"book\": { \"fee\": 1000 }, \"lab\": { \"fee\": 1500 }, \"total\": { \"fee\": 49000 }, \"isActive\": true },\n            { \"semesterNumber\": 6, \"tuition\": { \"fee\": 45000 }, \"exam\": { \"fee\": 2000 }, \"erp\": { \"fee\": 500 }, \"book\": { \"fee\": 1000 }, \"lab\": { \"fee\": 1500 }, \"total\": { \"fee\": 50000 }, \"isActive\": true },\n            { \"semesterNumber\": 7, \"tuition\": { \"fee\": 46000 }, \"exam\": { \"fee\": 2000 }, \"erp\": { \"fee\": 500 }, \"book\": { \"fee\": 1000 }, \"lab\": { \"fee\": 1500 }, \"total\": { \"fee\": 51000 }, \"isActive\": true },\n            { \"semesterNumber\": 8, \"tuition\": { \"fee\": 47000 }, \"exam\": { \"fee\": 2000 }, \"erp\": { \"fee\": 500 }, \"book\": { \"fee\": 1000 }, \"lab\": { \"fee\": 1500 }, \"total\": { \"fee\": 52000 }, \"isActive\": true }\n          ],\n          \"total\": { \"fee\": 388000 },\n          \"isActive\": true\n        }\n      ],\n      \"total\": { \"fee\": 388000 },\n      \"isActive\": true\n    }\n  ],\n  \"transportStructures\": [\n    {\n      \"transport\": \"{{transport_object_id_1}}\",\n      \"total\": { \"fee\": 12000 },\n      \"isActive\": true\n    }\n  ],\n  \"hostelStructures\": [\n    {\n      \"block\": \"A-BLOCK\",\n      \"roomType\": { \"sharingType\": \"Three\", \"isAttached\": true },\n      \"roomFee\": { \"fee\": 30000 },\n      \"messFee\": { \"fee\": 18000 },\n      \"maintenanceFee\": { \"fee\": 5000 },\n      \"total\": { \"fee\": 53000 },\n      \"isActive\": true\n    }\n  ],\n  \"total\": { \"fee\": 453000 },\n  \"isActive\": true\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -147,13 +152,7 @@
           "name": "Get All Fee Structures",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{base_url}}/feeStructureMaster/",
               "host": [
@@ -170,13 +169,7 @@
           "name": "Get Fee Structure By Year",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{base_url}}/feeStructureMaster/2025-2026",
               "host": [
@@ -194,13 +187,7 @@
           "name": "Update Fee Structure",
           "request": {
             "method": "PUT",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{base_url}}/feeStructureMaster/2025-2026",
               "host": [
@@ -213,7 +200,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"academicYear\": \"2025-2026\",\n  \"academicStructures\": [\n    {\n      \"quota\": \"Government Quota\",\n      \"educationType\": \"UG\",\n      \"degreeProgram\": \"BE\",\n      \"departments\": [\n        {\n          \"departmentName\": \"CSE\",\n          \"semesters\": [\n            {\n              \"semesterNumber\": 1,\n              \"tuition\": {\n                \"fee\": 40000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 2,\n              \"tuition\": {\n                \"fee\": 41000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 3,\n              \"tuition\": {\n                \"fee\": 42000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 4,\n              \"tuition\": {\n                \"fee\": 43000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 5,\n              \"tuition\": {\n                \"fee\": 44000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 6,\n              \"tuition\": {\n                \"fee\": 45000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 7,\n              \"tuition\": {\n                \"fee\": 46000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 8,\n              \"tuition\": {\n                \"fee\": 47000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            }\n          ],\n          \"isActive\": true\n        },\n        {\n          \"departmentName\": \"ECE\",\n          \"semesters\": [\n            {\n              \"semesterNumber\": 1,\n              \"tuition\": {\n                \"fee\": 42000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 2,\n              \"tuition\": {\n                \"fee\": 43000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 3,\n              \"tuition\": {\n                \"fee\": 44000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 4,\n              \"tuition\": {\n                \"fee\": 45000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 5,\n              \"tuition\": {\n                \"fee\": 46000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 6,\n              \"tuition\": {\n                \"fee\": 47000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 7,\n              \"tuition\": {\n                \"fee\": 48000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 8,\n              \"tuition\": {\n                \"fee\": 49000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            }\n          ],\n          \"isActive\": true\n        }\n      ],\n      \"isActive\": true\n    },\n    {\n      \"quota\": \"Management Quota\",\n      \"educationType\": \"UG\",\n      \"degreeProgram\": \"BE\",\n      \"departments\": [\n        {\n          \"departmentName\": \"CSE\",\n          \"semesters\": [\n            {\n              \"semesterNumber\": 1,\n              \"tuition\": {\n                \"fee\": 80000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 2,\n              \"tuition\": {\n                \"fee\": 81000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 3,\n              \"tuition\": {\n                \"fee\": 82000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 4,\n              \"tuition\": {\n                \"fee\": 83000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 5,\n              \"tuition\": {\n                \"fee\": 84000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 6,\n              \"tuition\": {\n                \"fee\": 85000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 7,\n              \"tuition\": {\n                \"fee\": 86000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 8,\n              \"tuition\": {\n                \"fee\": 87000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            }\n          ],\n          \"isActive\": true\n        }\n      ],\n      \"isActive\": true\n    }\n  ],\n  \"transportStructures\": [\n    {\n      \"route\": \"Route 1 - Gandhipuram\",\n      \"stopName\": \"Gandhipuram Bus Stand\",\n      \"distanceKM\": 25,\n      \"isActive\": true\n    },\n    {\n      \"route\": \"Route 2 - Ukkadam\",\n      \"stopName\": \"Ukkadam Bus Stand\",\n      \"distanceKM\": 15,\n      \"isActive\": true\n    }\n  ],\n  \"hostelStructures\": [\n    {\n      \"block\": \"A-BLOCK\",\n      \"roomType\": {\n        \"sharingType\": \"Four\",\n        \"isAttached\": true\n      },\n      \"roomFee\": {\n        \"fee\": 25000\n      },\n      \"messFee\": {\n        \"fee\": 40000\n      },\n      \"maintenanceFee\": {\n        \"fee\": 5000\n      },\n      \"isActive\": true\n    },\n    {\n      \"block\": \"B-BLOCK\",\n      \"roomType\": {\n        \"sharingType\": \"Two\",\n        \"isAttached\": false\n      },\n      \"roomFee\": {\n        \"fee\": 30000\n      },\n      \"messFee\": {\n        \"fee\": 45000\n      },\n      \"maintenanceFee\": {\n        \"fee\": 6000\n      },\n      \"isActive\": true\n    }\n  ],\n  \"isActive\": true\n}",
+              "raw": "{\n  \"academicYear\": \"2025-2026\",\n  \"academicStructures\": [\n    {\n      \"quota\": \"Government Quota\",\n      \"educationType\": \"UG\",\n      \"degreeProgram\": \"BE\",\n      \"departments\": [\n        {\n          \"departmentName\": \"CSE\",\n          \"semesters\": [\n            { \"semesterNumber\": 1, \"tuition\": { \"fee\": 40500 }, \"exam\": { \"fee\": 2000 }, \"erp\": { \"fee\": 500 }, \"book\": { \"fee\": 1000 }, \"lab\": { \"fee\": 1500 }, \"total\": { \"fee\": 45500 }, \"isActive\": true },\n            { \"semesterNumber\": 2, \"tuition\": { \"fee\": 41000 }, \"exam\": { \"fee\": 2000 }, \"erp\": { \"fee\": 500 }, \"book\": { \"fee\": 1000 }, \"lab\": { \"fee\": 1500 }, \"total\": { \"fee\": 46000 }, \"isActive\": true },\n            { \"semesterNumber\": 3, \"tuition\": { \"fee\": 42000 }, \"exam\": { \"fee\": 2000 }, \"erp\": { \"fee\": 500 }, \"book\": { \"fee\": 1000 }, \"lab\": { \"fee\": 1500 }, \"total\": { \"fee\": 47000 }, \"isActive\": true },\n            { \"semesterNumber\": 4, \"tuition\": { \"fee\": 43000 }, \"exam\": { \"fee\": 2000 }, \"erp\": { \"fee\": 500 }, \"book\": { \"fee\": 1000 }, \"lab\": { \"fee\": 1500 }, \"total\": { \"fee\": 48000 }, \"isActive\": true },\n            { \"semesterNumber\": 5, \"tuition\": { \"fee\": 44000 }, \"exam\": { \"fee\": 2000 }, \"erp\": { \"fee\": 500 }, \"book\": { \"fee\": 1000 }, \"lab\": { \"fee\": 1500 }, \"total\": { \"fee\": 49000 }, \"isActive\": true },\n            { \"semesterNumber\": 6, \"tuition\": { \"fee\": 45000 }, \"exam\": { \"fee\": 2000 }, \"erp\": { \"fee\": 500 }, \"book\": { \"fee\": 1000 }, \"lab\": { \"fee\": 1500 }, \"total\": { \"fee\": 50000 }, \"isActive\": true },\n            { \"semesterNumber\": 7, \"tuition\": { \"fee\": 46000 }, \"exam\": { \"fee\": 2000 }, \"erp\": { \"fee\": 500 }, \"book\": { \"fee\": 1000 }, \"lab\": { \"fee\": 1500 }, \"total\": { \"fee\": 51000 }, \"isActive\": true },\n            { \"semesterNumber\": 8, \"tuition\": { \"fee\": 47000 }, \"exam\": { \"fee\": 2000 }, \"erp\": { \"fee\": 500 }, \"book\": { \"fee\": 1000 }, \"lab\": { \"fee\": 1500 }, \"total\": { \"fee\": 52000 }, \"isActive\": true }\n          ],\n          \"total\": { \"fee\": 388500 },\n          \"isActive\": true\n        }\n      ],\n      \"total\": { \"fee\": 388500 },\n      \"isActive\": true\n    }\n  ],\n  \"transportStructures\": [\n    {\n      \"transport\": \"{{transport_object_id_1}}\",\n      \"total\": { \"fee\": 12000 },\n      \"isActive\": true\n    }\n  ],\n  \"hostelStructures\": [\n    {\n      \"block\": \"A-BLOCK\",\n      \"roomType\": { \"sharingType\": \"Three\", \"isAttached\": true },\n      \"roomFee\": { \"fee\": 30000 },\n      \"messFee\": { \"fee\": 18000 },\n      \"maintenanceFee\": { \"fee\": 5000 },\n      \"total\": { \"fee\": 53000 },\n      \"isActive\": true\n    }\n  ],\n  \"total\": { \"fee\": 453500 },\n  \"isActive\": true\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -227,13 +214,7 @@
           "name": "Delete Fee Structure",
           "request": {
             "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{base_url}}/feeStructureMaster/2025-2026",
               "host": [
@@ -256,13 +237,7 @@
           "name": "Create Student",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{base_url}}/studentsManagement/",
               "host": [
@@ -274,7 +249,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"personal\": {\n    \"rollNo\": \"25CS101\",\n    \"studentName\": \"John Doe\",\n    \"gender\": \"Male\",\n    \"dob\": \"2005-08-15T00:00:00.000Z\",\n    \"bloodGroup\": \"O+\",\n    \"aadharNo\": \"123456789012\",\n    \"emisNo\": \"98765432101234\",\n    \"religion\": \"Hindu\",\n    \"community\": \"BC\",\n    \"casteName\": \"Kongu Vellalar\",\n    \"nationality\": \"Indian\"\n  },\n  \"academic\": {\n    \"educationType\": \"UG\",\n    \"academicType\": \"REG\",\n    \"isLateralEntry\": false,\n    \"departmentName\": \"CSE\",\n    \"degreeProgram\": \"BE\",\n    \"yearStudying\": 1,\n    \"currentSemesterNumber\": 1,\n    \"section\": \"A\",\n    \"batch\": \"2025-2029\",\n    \"currentAcademicYear\": \"2025-2026\"\n  },\n  \"contact\": {\n    \"selfMobileNo\": \"9876543210\",\n    \"selfEmail\": \"johndoe@example.com\",\n    \"officialEmail\": \"25cs101@sece.ac.in\"\n  },\n  \"family\": {\n    \"father\": {\n      \"name\": \"Richard Doe\",\n      \"mobile\": \"9988776655\",\n      \"workType\": \"Business\",\n      \"qualification\": \"B.Sc\"\n    },\n    \"mother\": {\n      \"name\": \"Jane Doe\",\n      \"mobile\": \"9988776644\",\n      \"workType\": \"Homemaker\",\n      \"qualification\": \"B.A\"\n    },\n    \"guardian\": {\n      \"name\": \"\",\n      \"mobile\": \"\"\n    },\n    \"familyIncomeAsPerCertificate\": 200000,\n    \"communityCertificateNo\": \"CC123456789\"\n  },\n  \"address\": {\n    \"permanent\": {\n      \"doorNo\": \"12/3\",\n      \"street\": \"Main Street\",\n      \"taluk\": \"Coimbatore North\",\n      \"district\": \"Coimbatore\",\n      \"state\": \"Tamil Nadu\",\n      \"pincode\": \"641001\"\n    },\n    \"communication\": {\n      \"doorNo\": \"12/3\",\n      \"street\": \"Main Street\",\n      \"taluk\": \"Coimbatore North\",\n      \"district\": \"Coimbatore\",\n      \"state\": \"Tamil Nadu\",\n      \"pincode\": \"641001\"\n    }\n  },\n  \"enrollment\": {\n    \"quota\": \"Government Quota\",\n    \"firstGraduate\": {\n      \"isApplicable\": true,\n      \"concessionAmount\": 25000\n    },\n    \"scheme7point5\": {\n      \"isApplicable\": false,\n      \"concessionAmount\": 0\n    },\n    \"pmssScheme\": {\n      \"isApplicable\": false,\n      \"concessionAmount\": 0\n    },\n    \"sakthiScheme\": {\n      \"isApplicable\": false,\n      \"concessionAmount\": 0\n    },\n    \"specialConcession\": {\n      \"isApplicable\": false,\n      \"transport\": 0,\n      \"hostel\": 0,\n      \"tuition\": 0\n    }\n  },\n  \"transport\": {\n    \"isApplicable\": true,\n    \"route\": \"Route 1 - Gandhipuram\",\n    \"stopName\": \"Gandhipuram Bus Stand\",\n    \"distanceKM\": 25\n  },\n  \"hostel\": {\n    \"isApplicable\": false,\n    \"block\": \"\",\n    \"roomType\": {\n      \"sharingType\": \"Two\",\n      \"isAttached\": false\n    }\n  }\n}",
+              "raw": "{\n  \"personal\": {\n    \"rollNo\": \"{{student_roll_no}}\",\n    \"studentName\": \"John Doe\",\n    \"gender\": \"Male\",\n    \"dob\": \"2005-08-15T00:00:00.000Z\",\n    \"bloodGroup\": \"O+\",\n    \"aadharNo\": \"123456789012\",\n    \"emisNo\": \"98765432101234\",\n    \"religion\": \"Hindu\",\n    \"community\": \"BC\",\n    \"casteName\": \"Kongu Vellalar\",\n    \"nationality\": \"Indian\",\n    \"studentPhoto\": \"https://example.com/student-photo.jpg\"\n  },\n  \"academic\": {\n    \"educationType\": \"UG\",\n    \"academicType\": \"REG\",\n    \"isLateralEntry\": false,\n    \"departmentName\": \"CSE\",\n    \"degreeProgram\": \"BE\",\n    \"yearStudying\": 1,\n    \"currentSemesterNumber\": 1,\n    \"section\": \"A\",\n    \"batch\": \"2025-2029\",\n    \"currentAcademicYear\": \"2025-2026\"\n  },\n  \"contact\": {\n    \"selfMobileNo\": \"9876543210\",\n    \"selfEmail\": \"johndoe@example.com\",\n    \"officialEmail\": \"25cs101@sece.ac.in\"\n  },\n  \"family\": {\n    \"father\": { \"name\": \"Richard Doe\", \"mobile\": \"9988776655\", \"workType\": \"Business\", \"qualification\": \"B.Sc\" },\n    \"mother\": { \"name\": \"Jane Doe\", \"mobile\": \"9988776644\", \"workType\": \"Homemaker\", \"qualification\": \"B.A\" },\n    \"guardian\": { \"name\": \"Robert Doe\", \"mobile\": \"9988776633\" },\n    \"familyIncomeAsPerCertificate\": 200000,\n    \"communityCertificateNo\": \"CC123456789\"\n  },\n  \"address\": {\n    \"permanent\": { \"doorNo\": \"12/3\", \"street\": \"Main Street\", \"taluk\": \"Coimbatore North\", \"district\": \"Coimbatore\", \"state\": \"Tamil Nadu\", \"pincode\": \"641001\" },\n    \"communication\": { \"doorNo\": \"12/3\", \"street\": \"Main Street\", \"taluk\": \"Coimbatore North\", \"district\": \"Coimbatore\", \"state\": \"Tamil Nadu\", \"pincode\": \"641001\" }\n  },\n  \"enrollment\": {\n    \"quota\": \"Government Quota\",\n    \"firstGraduate\": { \"isApplicable\": true, \"concessionAmount\": 25000 },\n    \"scheme7point5\": { \"isApplicable\": false, \"concessionAmount\": 0 },\n    \"pmssScheme\": { \"isApplicable\": false, \"concessionAmount\": 0 },\n    \"sakthiScheme\": { \"isApplicable\": false, \"concessionAmount\": 0 },\n    \"specialConcession\": { \"isApplicable\": false, \"transport\": 0, \"hostel\": 0, \"tuition\": 0 }\n  },\n  \"transport\": {\n    \"isApplicable\": true,\n    \"route\": \"Bharathiyar University\",\n    \"stopName\": \"Vadavalli\"\n  },\n  \"hostel\": {\n    \"isApplicable\": false,\n    \"block\": \"A-BLOCK\",\n    \"roomType\": { \"sharingType\": \"Three\", \"isAttached\": true }\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -282,19 +257,32 @@
               }
             }
           },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let reqBody = {};",
+                  "try { reqBody = JSON.parse(pm.request.body.raw || '{}'); } catch (e) {}",
+                  "const requestRollNo = reqBody?.personal?.rollNo;",
+                  "if (requestRollNo) pm.environment.set('student_roll_no', requestRollNo);",
+                  "",
+                  "let resBody = {};",
+                  "try { resBody = pm.response.json(); } catch (e) {}",
+                  "const responseRollNo = resBody?.data?.personal?.rollNo;",
+                  "if (responseRollNo) pm.environment.set('student_roll_no', responseRollNo);"
+                ]
+              }
+            }
+          ],
           "response": []
         },
         {
           "name": "Get All Students",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{base_url}}/studentsManagement/",
               "host": [
@@ -311,21 +299,15 @@
           "name": "Get Student by Roll No",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
-              "raw": "{{base_url}}/studentsManagement/25CS101",
+              "raw": "{{base_url}}/studentsManagement/{{student_roll_no}}",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "studentsManagement",
-                "25CS101"
+                "{{student_roll_no}}"
               ]
             }
           },
@@ -335,26 +317,20 @@
           "name": "Update Student",
           "request": {
             "method": "PUT",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
-              "raw": "{{base_url}}/studentsManagement/25CS101",
+              "raw": "{{base_url}}/studentsManagement/{{student_roll_no}}",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "studentsManagement",
-                "25CS101"
+                "{{student_roll_no}}"
               ]
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"personal\": {\n    \"rollNo\": \"25CS101\",\n    \"studentName\": \"John Doe\",\n    \"gender\": \"Male\",\n    \"dob\": \"2005-08-15T00:00:00.000Z\",\n    \"bloodGroup\": \"O+\",\n    \"aadharNo\": \"123456789012\",\n    \"emisNo\": \"98765432101234\",\n    \"religion\": \"Hindu\",\n    \"community\": \"BC\",\n    \"casteName\": \"Kongu Vellalar\",\n    \"nationality\": \"Indian\"\n  },\n  \"academic\": {\n    \"educationType\": \"UG\",\n    \"academicType\": \"REG\",\n    \"isLateralEntry\": false,\n    \"departmentName\": \"CSE\",\n    \"degreeProgram\": \"BE\",\n    \"yearStudying\": 1,\n    \"currentSemesterNumber\": 1,\n    \"section\": \"A\",\n    \"batch\": \"2025-2029\",\n    \"currentAcademicYear\": \"2025-2026\"\n  },\n  \"contact\": {\n    \"selfMobileNo\": \"9876543210\",\n    \"selfEmail\": \"johndoe@example.com\",\n    \"officialEmail\": \"25cs101@sece.ac.in\"\n  },\n  \"family\": {\n    \"father\": {\n      \"name\": \"Richard Doe\",\n      \"mobile\": \"9988776655\",\n      \"workType\": \"Business\",\n      \"qualification\": \"B.Sc\"\n    },\n    \"mother\": {\n      \"name\": \"Jane Doe\",\n      \"mobile\": \"9988776644\",\n      \"workType\": \"Homemaker\",\n      \"qualification\": \"B.A\"\n    },\n    \"guardian\": {\n      \"name\": \"\",\n      \"mobile\": \"\"\n    },\n    \"familyIncomeAsPerCertificate\": 200000,\n    \"communityCertificateNo\": \"CC123456789\"\n  },\n  \"address\": {\n    \"permanent\": {\n      \"doorNo\": \"12/3\",\n      \"street\": \"Main Street\",\n      \"taluk\": \"Coimbatore North\",\n      \"district\": \"Coimbatore\",\n      \"state\": \"Tamil Nadu\",\n      \"pincode\": \"641001\"\n    },\n    \"communication\": {\n      \"doorNo\": \"12/3\",\n      \"street\": \"Main Street\",\n      \"taluk\": \"Coimbatore North\",\n      \"district\": \"Coimbatore\",\n      \"state\": \"Tamil Nadu\",\n      \"pincode\": \"641001\"\n    }\n  },\n  \"enrollment\": {\n    \"quota\": \"Government Quota\",\n    \"firstGraduate\": {\n      \"isApplicable\": true,\n      \"concessionAmount\": 25000\n    },\n    \"scheme7point5\": {\n      \"isApplicable\": false,\n      \"concessionAmount\": 0\n    },\n    \"pmssScheme\": {\n      \"isApplicable\": false,\n      \"concessionAmount\": 0\n    },\n    \"sakthiScheme\": {\n      \"isApplicable\": false,\n      \"concessionAmount\": 0\n    },\n    \"specialConcession\": {\n      \"isApplicable\": false,\n      \"transport\": 0,\n      \"hostel\": 0,\n      \"tuition\": 0\n    }\n  },\n  \"transport\": {\n    \"isApplicable\": true,\n    \"route\": \"Route 1 - Gandhipuram\",\n    \"stopName\": \"Gandhipuram Bus Stand\",\n    \"distanceKM\": 25\n  },\n  \"hostel\": {\n    \"isApplicable\": false,\n    \"block\": \"\",\n    \"roomType\": {\n      \"sharingType\": \"Two\",\n      \"isAttached\": false\n    }\n  }\n}",
+              "raw": "{\n  \"personal\": {\n    \"rollNo\": \"{{student_roll_no}}\",\n    \"studentName\": \"John Doe Updated\",\n    \"gender\": \"Male\",\n    \"dob\": \"2005-08-15T00:00:00.000Z\",\n    \"bloodGroup\": \"O+\",\n    \"aadharNo\": \"123456789012\",\n    \"emisNo\": \"98765432101234\",\n    \"religion\": \"Hindu\",\n    \"community\": \"BC\",\n    \"casteName\": \"Kongu Vellalar\",\n    \"nationality\": \"Indian\",\n    \"studentPhoto\": \"https://example.com/student-photo.jpg\"\n  },\n  \"academic\": {\n    \"educationType\": \"UG\",\n    \"academicType\": \"REG\",\n    \"isLateralEntry\": false,\n    \"departmentName\": \"CSE\",\n    \"degreeProgram\": \"BE\",\n    \"yearStudying\": 1,\n    \"currentSemesterNumber\": 1,\n    \"section\": \"A\",\n    \"batch\": \"2025-2029\",\n    \"currentAcademicYear\": \"2025-2026\"\n  },\n  \"contact\": {\n    \"selfMobileNo\": \"9876543210\",\n    \"selfEmail\": \"johndoe@example.com\",\n    \"officialEmail\": \"25cs101@sece.ac.in\"\n  },\n  \"family\": {\n    \"father\": { \"name\": \"Richard Doe\", \"mobile\": \"9988776655\", \"workType\": \"Business\", \"qualification\": \"B.Sc\" },\n    \"mother\": { \"name\": \"Jane Doe\", \"mobile\": \"9988776644\", \"workType\": \"Homemaker\", \"qualification\": \"B.A\" },\n    \"guardian\": { \"name\": \"Robert Doe\", \"mobile\": \"9988776633\" },\n    \"familyIncomeAsPerCertificate\": 200000,\n    \"communityCertificateNo\": \"CC123456789\"\n  },\n  \"address\": {\n    \"permanent\": { \"doorNo\": \"12/3\", \"street\": \"Main Street\", \"taluk\": \"Coimbatore North\", \"district\": \"Coimbatore\", \"state\": \"Tamil Nadu\", \"pincode\": \"641001\" },\n    \"communication\": { \"doorNo\": \"12/3\", \"street\": \"Main Street\", \"taluk\": \"Coimbatore North\", \"district\": \"Coimbatore\", \"state\": \"Tamil Nadu\", \"pincode\": \"641001\" }\n  },\n  \"enrollment\": {\n    \"quota\": \"Government Quota\",\n    \"firstGraduate\": { \"isApplicable\": true, \"concessionAmount\": 25000 },\n    \"scheme7point5\": { \"isApplicable\": false, \"concessionAmount\": 0 },\n    \"pmssScheme\": { \"isApplicable\": false, \"concessionAmount\": 0 },\n    \"sakthiScheme\": { \"isApplicable\": false, \"concessionAmount\": 0 },\n    \"specialConcession\": { \"isApplicable\": false, \"transport\": 0, \"hostel\": 0, \"tuition\": 0 }\n  },\n  \"transport\": {\n    \"isApplicable\": true,\n    \"route\": \"Bharathiyar University\",\n    \"stopName\": \"Vadavalli\"\n  },\n  \"hostel\": {\n    \"isApplicable\": false,\n    \"block\": \"A-BLOCK\",\n    \"roomType\": { \"sharingType\": \"Three\", \"isAttached\": true }\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -368,21 +344,15 @@
           "name": "Delete Student",
           "request": {
             "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
-              "raw": "{{base_url}}/studentsManagement/25CS101",
+              "raw": "{{base_url}}/studentsManagement/{{student_roll_no}}",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "studentsManagement",
-                "25CS101"
+                "{{student_roll_no}}"
               ]
             }
           },
@@ -392,13 +362,7 @@
           "name": "Bulk Upload Students",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -430,13 +394,7 @@
           "name": "Record Payment (Pay)",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{base_url}}/feePayment/pay",
               "host": [
@@ -449,7 +407,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"rollNo\": \"25CS101\",\n  \"receiptNo\": \"REC-2025-001\",\n  \"paymentType\": \"Cash\",\n  \"bankName\": \"\",\n  \"bankLocation\": \"\",\n  \"remarks\": \"First semester fee payment\",\n  \"breakdowns\": [\n    {\n      \"academicYear\": \"2025-2026\",\n      \"academic\": {\n        \"semesterNumber\": 1,\n        \"tuition\": 40000,\n        \"exam\": 2000,\n        \"erp\": 500,\n        \"book\": 1000,\n        \"lab\": 1500\n      },\n      \"hostel\": 0,\n      \"transport\": 5000,\n      \"total\": 50000\n    }\n  ]\n}",
+              "raw": "{\n  \"rollNo\": \"{{student_roll_no}}\",\n  \"receiptNo\": \"{{receipt_no}}\",\n  \"paymentType\": \"Cash\",\n  \"bankName\": \"Indian Bank\",\n  \"bankLocation\": \"Kinathukadavu\",\n  \"remarks\": \"First semester fee payment\",\n  \"breakdowns\": [\n    {\n      \"academicYear\": \"2025-2026\",\n      \"academic\": {\n        \"semesterNumber\": 1,\n        \"tuition\": 5000,\n        \"exam\": 500,\n        \"erp\": 100,\n        \"book\": 200,\n        \"lab\": 200\n      },\n      \"hostel\": 0,\n      \"transport\": 1000\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -457,19 +415,34 @@
               }
             }
           },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let reqBody = {};",
+                  "try { reqBody = JSON.parse(pm.request.body.raw || '{}'); } catch (e) {}",
+                  "const requestReceiptNo = reqBody?.receiptNo;",
+                  "if (requestReceiptNo) pm.environment.set('receipt_no', requestReceiptNo);",
+                  "const requestRollNo = reqBody?.rollNo;",
+                  "if (requestRollNo) pm.environment.set('student_roll_no', requestRollNo);",
+                  "",
+                  "let resBody = {};",
+                  "try { resBody = pm.response.json(); } catch (e) {}",
+                  "const responseReceiptNo = resBody?.data?.transactions?.slice(-1)?.[0]?.receiptNo;",
+                  "if (responseReceiptNo) pm.environment.set('receipt_no', responseReceiptNo);"
+                ]
+              }
+            }
+          ],
           "response": []
         },
         {
           "name": "Get Recent Payments",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{base_url}}/feePayment/recent?year=2025-2026&department=CSE",
               "host": [
@@ -477,7 +450,17 @@
               ],
               "path": [
                 "feePayment",
-                "recent?year=2025-2026&department=CSE"
+                "recent"
+              ],
+              "query": [
+                {
+                  "key": "year",
+                  "value": "2025-2026"
+                },
+                {
+                  "key": "department",
+                  "value": "CSE"
+                }
               ]
             }
           },
@@ -487,13 +470,7 @@
           "name": "Get Fees Summary",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{base_url}}/feePayment/summary?year=2025-2026",
               "host": [
@@ -501,7 +478,13 @@
               ],
               "path": [
                 "feePayment",
-                "summary?year=2025-2026"
+                "summary"
+              ],
+              "query": [
+                {
+                  "key": "year",
+                  "value": "2025-2026"
+                }
               ]
             }
           },
@@ -511,22 +494,16 @@
           "name": "Get Student Fee Summary",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
-              "raw": "{{base_url}}/feePayment/summary/25CS101",
+              "raw": "{{base_url}}/feePayment/summary/{{student_roll_no}}",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "feePayment",
                 "summary",
-                "25CS101"
+                "{{student_roll_no}}"
               ]
             }
           },
@@ -536,13 +513,7 @@
           "name": "Get Students For Filter",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{base_url}}/feePayment/students?department=CSE",
               "host": [
@@ -550,7 +521,13 @@
               ],
               "path": [
                 "feePayment",
-                "students?department=CSE"
+                "students"
+              ],
+              "query": [
+                {
+                  "key": "department",
+                  "value": "CSE"
+                }
               ]
             }
           },
@@ -560,27 +537,21 @@
           "name": "Update Receipt Remarks",
           "request": {
             "method": "PUT",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
-              "raw": "{{base_url}}/feePayment/receipt/REC-2025-001",
+              "raw": "{{base_url}}/feePayment/receipt/{{receipt_no}}",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "feePayment",
                 "receipt",
-                "REC-2025-001"
+                "{{receipt_no}}"
               ]
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"remarks\": \"Updated remark\"\n}",
+              "raw": "{\n  \"paymentType\": \"UPI\",\n  \"bankName\": \"SBI\",\n  \"bankLocation\": \"Coimbatore\",\n  \"remarks\": \"Updated remark\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -594,28 +565,22 @@
           "name": "Update Student Concession",
           "request": {
             "method": "PUT",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
-              "raw": "{{base_url}}/feePayment/concession/25CS101/2025-2026",
+              "raw": "{{base_url}}/feePayment/concession/{{student_roll_no}}/2025-2026",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "feePayment",
                 "concession",
-                "25CS101",
+                "{{student_roll_no}}",
                 "2025-2026"
               ]
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"concessions\": {\n    \"firstGraduate\": 25000,\n    \"scheme7point5\": 0,\n    \"pmss\": 0,\n    \"sakthi\": 0,\n    \"academic\": {\n      \"odd\": 0,\n      \"even\": 0\n    },\n    \"transport\": {\n      \"odd\": 0,\n      \"even\": 0\n    },\n    \"hostel\": {\n      \"odd\": 0,\n      \"even\": 0\n    }\n  }\n}",
+              "raw": "{\n  \"concessions\": {\n    \"firstGraduate\": 25000,\n    \"scheme7point5\": 0,\n    \"pmss\": 0,\n    \"sakthi\": 0\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -629,27 +594,35 @@
           "name": "Get Student Transactions",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
-              "raw": "{{base_url}}/feePayment/25CS101",
+              "raw": "{{base_url}}/feePayment/{{student_roll_no}}",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "feePayment",
-                "25CS101"
+                "{{student_roll_no}}"
               ]
             }
           },
           "response": []
         }
       ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const token = pm.environment.get('token');",
+          "if (token) {",
+          "  pm.request.headers.upsert({ key: 'Authorization', value: `Bearer ${token}` });",
+          "}"
+        ]
+      }
     }
   ]
 }

@@ -1,7 +1,7 @@
-dotenv.config();
 const express=require("express");
 const cookieParser=require("cookie-parser");
 const dotenv=require("dotenv");
+dotenv.config();
 const connectDB=require("./config/db");
 const authRoutes=require("./api/auth/routes");
 const feeStructureRoutes=require("./api/feeStructureMaster/routes");

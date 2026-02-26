@@ -1,6 +1,12 @@
 const StudentFeeTracking=require("../../models/StudentFeeTracking");
 const FeeStructureMaster=require("../../models/FeeStructureMaster");
 
+function normalizeMoney(value){
+  const number=Number(value);
+  if(!Number.isFinite(number)||number<0) return 0;
+  return Math.round(number*100)/100;
+}
+
 function nextAcademicYear(year){
   const [start,end]=year.split("-").map(Number);
   return `${end}-${end+1}`;
@@ -30,10 +36,12 @@ function calcSemesterTotals(sem,concession=0){
   const total=Math.max(0,subTotal-concession);
   return {subTotal,total};
 }
-async function generateLedger(studentDoc){
+async function generateLedger(studentDoc,options={}){
+
+  const session=options.session;
 
   // prevent duplicate ledger
-  const existing=await StudentFeeTracking.findOne({student:studentDoc._id});
+  const existing=await StudentFeeTracking.findOne({student:studentDoc._id}).session(session||null);
   if(existing) return;
 
   const tracking=new StudentFeeTracking({
@@ -45,9 +53,16 @@ async function generateLedger(studentDoc){
   const years=getYearsToGenerate(studentDoc);
   const batchStart=parseInt(studentDoc.academic.batch.split("-")[0],10);
 
+  const masters=await FeeStructureMaster.find({
+    academicYear:{$in:years},
+    isActive:true
+  }).session(session||null);
+
+  const feeMasterMap=new Map(masters.map(m=>[m.academicYear,m]));
+
   for(const academicYear of years){
 
-    const feeMaster=await FeeStructureMaster.findOne({academicYear,isActive:true});
+    const feeMaster=feeMasterMap.get(academicYear);
     if(!feeMaster) throw new Error(`Fee structure missing for ${academicYear}`);
 
     /* ---------- ACADEMIC ---------- */
@@ -59,65 +74,77 @@ async function generateLedger(studentDoc){
       a.isActive
     );
 
+    if(!academicStruct){
+      throw new Error(`Fee configuration missing for quota/educationType/degreeProgram in ${academicYear}`);
+    }
+
     const dept=academicStruct?.departments.find(d=>
       d.departmentName===studentDoc.academic.departmentName && d.isActive
     );
 
+    if(!dept){
+      throw new Error(`Department fee configuration missing or inactive for ${studentDoc.academic.departmentName} in ${academicYear}`);
+    }
+
     const semesterLedgers={};
 
-    if(dept){
-      const yearStart=parseInt(academicYear.split("-")[0],10);
-      const studyYear=yearStart-batchStart+1;
-      const oddSemNo=studyYear*2-1;
-      const evenSemNo=studyYear*2;
+    const yearStart=parseInt(academicYear.split("-")[0],10);
+    const studyYear=yearStart-batchStart+1;
+    const oddSemNo=studyYear*2-1;
+    const evenSemNo=studyYear*2;
 
-      dept.semesters
-        .filter(s=>s.isActive&&(s.semesterNumber===oddSemNo||s.semesterNumber===evenSemNo))
-        .forEach(s=>{
+    const oddSemester=dept.semesters.find(s=>s.isActive&&s.semesterNumber===oddSemNo);
+    const evenSemester=dept.semesters.find(s=>s.isActive&&s.semesterNumber===evenSemNo);
 
-          const tuition=s.tuition?.fee||0;
-          const exam=s.exam?.fee||0;
-          const erp=s.erp?.fee||0;
-          const book=s.book?.fee||0;
-          const lab=s.lab?.fee||0;
-
-          const special=studentDoc.enrollment?.specialConcession?.tuition||0;
-
-          const {subTotal,total}=calcSemesterTotals({
-            tuition:{total:tuition},
-            exam:{total:exam},
-            erp:{total:erp},
-            book:{total:book},
-            lab:{total:lab}
-          },special);
-
-          const ledger={
-            semesterNumber:s.semesterNumber,
-            tuition:{total:tuition},
-            exam:{total:exam},
-            erp:{total:erp},
-            book:{total:book},
-            lab:{total:lab},
-            subTotal,
-            total:{total}
-          };
-
-          if(s.semesterNumber%2===1) semesterLedgers.odd=ledger;
-          else semesterLedgers.even=ledger;
-        });
+    if(!oddSemester||!evenSemester){
+      throw new Error(`Semester fee configuration missing or inactive for semesters ${oddSemNo}/${evenSemNo} in ${academicYear}`);
     }
+
+    [oddSemester,evenSemester].forEach(s=>{
+
+      const tuition=normalizeMoney(s.tuition?.fee||0);
+      const exam=normalizeMoney(s.exam?.fee||0);
+      const erp=normalizeMoney(s.erp?.fee||0);
+      const book=normalizeMoney(s.book?.fee||0);
+      const lab=normalizeMoney(s.lab?.fee||0);
+
+      const special=normalizeMoney(studentDoc.enrollment?.specialConcession?.tuition||0);
+
+      const {subTotal,total}=calcSemesterTotals({
+        tuition:{total:tuition},
+        exam:{total:exam},
+        erp:{total:erp},
+        book:{total:book},
+        lab:{total:lab}
+      },special);
+
+      const ledger={
+        semesterNumber:s.semesterNumber,
+        tuition:{total:tuition},
+        exam:{total:exam},
+        erp:{total:erp},
+        book:{total:book},
+        lab:{total:lab},
+        subTotal:normalizeMoney(subTotal),
+        total:{total:normalizeMoney(total)}
+      };
+
+      if(s.semesterNumber%2===1) semesterLedgers.odd=ledger;
+      else semesterLedgers.even=ledger;
+    });
 
     const academicSubTotal=
       (semesterLedgers.odd?.total?.total||0)+
       (semesterLedgers.even?.total?.total||0);
 
-    const yearlyConcession=
+    const yearlyConcession=normalizeMoney(
       (studentDoc.enrollment?.firstGraduate?.concessionAmount||0)+
       (studentDoc.enrollment?.scheme7point5?.concessionAmount||0)+
       (studentDoc.enrollment?.pmssScheme?.concessionAmount||0)+
-      (studentDoc.enrollment?.sakthiScheme?.concessionAmount||0);
+      (studentDoc.enrollment?.sakthiScheme?.concessionAmount||0)
+    );
 
-    const academicTotal=Math.max(0,academicSubTotal-yearlyConcession);
+    const academicTotal=normalizeMoney(Math.max(0,academicSubTotal-yearlyConcession));
 
     /* ---------- TRANSPORT ---------- */
 
@@ -129,16 +156,20 @@ async function generateLedger(studentDoc){
       );
 
       if(route){
-        const subTotal=route.total?.fee||0;
-        const special=studentDoc.enrollment?.specialConcession?.transport||0;
+        const subTotal=normalizeMoney(route.total?.fee||0);
+        const special=normalizeMoney(studentDoc.enrollment?.specialConcession?.transport||0);
 
         transportLedger={
           transport:studentDoc.transport.transport,
           subTotal,
           transportSpecialConcession:special,
-          total:{total:Math.max(0,subTotal-special)}
+          total:{total:normalizeMoney(Math.max(0,subTotal-special))}
         };
+      }else{
+        console.warn(`Transport fee mapping missing for student ${studentDoc.personal.rollNo} in ${academicYear}`);
       }
+    }else if(studentDoc.transport?.isApplicable){
+      console.warn(`Transport applicable but transport reference missing for student ${studentDoc.personal.rollNo} in ${academicYear}`);
     }
 
     /* ---------- HOSTEL ---------- */
@@ -155,22 +186,24 @@ async function generateLedger(studentDoc){
 
       if(hostel){
         const subTotal=
-          (hostel.roomFee?.fee||0)+
-          (hostel.messFee?.fee||0)+
-          (hostel.maintenanceFee?.fee||0);
+          normalizeMoney(hostel.roomFee?.fee||0)+
+          normalizeMoney(hostel.messFee?.fee||0)+
+          normalizeMoney(hostel.maintenanceFee?.fee||0);
 
-        const special=studentDoc.enrollment?.specialConcession?.hostel||0;
+        const special=normalizeMoney(studentDoc.enrollment?.specialConcession?.hostel||0);
 
         hostelLedger={
           block:hostel.block,
           roomType:hostel.roomType,
-          roomFee:{total:hostel.roomFee?.fee||0},
-          messFee:{total:hostel.messFee?.fee||0},
-          maintenanceFee:{total:hostel.maintenanceFee?.fee||0},
-          subTotal,
+          roomFee:{total:normalizeMoney(hostel.roomFee?.fee||0)},
+          messFee:{total:normalizeMoney(hostel.messFee?.fee||0)},
+          maintenanceFee:{total:normalizeMoney(hostel.maintenanceFee?.fee||0)},
+          subTotal:normalizeMoney(subTotal),
           hostelSpecialConcession:special,
-          total:{total:Math.max(0,subTotal-special)}
+          total:{total:normalizeMoney(Math.max(0,subTotal-special))}
         };
+      }else{
+        console.warn(`Hostel fee mapping missing for student ${studentDoc.personal.rollNo} in ${academicYear}`);
       }
     }
 
@@ -183,23 +216,24 @@ async function generateLedger(studentDoc){
       academicYear,
       academic:{
         ...semesterLedgers,
-        subTotal:academicSubTotal,
+        academicSpecialConcession:yearlyConcession,
+        subTotal:normalizeMoney(academicSubTotal),
         total:{total:academicTotal}
       },
       transport:transportLedger,
       hostel:hostelLedger,
       concessions:{
-        firstGraduate:studentDoc.enrollment?.firstGraduate?.concessionAmount||0,
-        scheme7point5:studentDoc.enrollment?.scheme7point5?.concessionAmount||0,
-        pmss:studentDoc.enrollment?.pmssScheme?.concessionAmount||0,
-        sakthi:studentDoc.enrollment?.sakthiScheme?.concessionAmount||0,
+        firstGraduate:normalizeMoney(studentDoc.enrollment?.firstGraduate?.concessionAmount||0),
+        scheme7point5:normalizeMoney(studentDoc.enrollment?.scheme7point5?.concessionAmount||0),
+        pmss:normalizeMoney(studentDoc.enrollment?.pmssScheme?.concessionAmount||0),
+        sakthi:normalizeMoney(studentDoc.enrollment?.sakthiScheme?.concessionAmount||0),
         totalConcession:yearlyConcession
       },
-      total:{total:yearTotal}
+      total:{total:normalizeMoney(yearTotal)}
     });
   }
 
-  await tracking.save();
+  await tracking.save({session});
 }
 
 module.exports={generateLedger};

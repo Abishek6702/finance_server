@@ -2,7 +2,7 @@
  * ============================================================
  * BLACKBOX API TEST SUITE
  * ============================================================
- * Run:  npm test   (server must be running separately)
+ * Run:  npm test
  * Env:  .env  (PORT, MONGO_URI, JWT_SECRET, NODE_ENV)
  *
  * OPEN-CLOSED PRINCIPLE:
@@ -24,7 +24,226 @@ const ctx = {
   adminToken:      null,
   testRollNo:      `99TS${TS.slice(-3)}`,           // e.g. 99TS123
   testAcademicYear:`${2900 + parseInt(TS.slice(-3), 10)}-${2901 + parseInt(TS.slice(-3), 10)}`,
+  studentBatch:    "2025-2029",
+  studentCurrentAcademicYear: "2025-2026",
+  studentFeeYears: ["2025-2026", "2026-2027", "2027-2028", "2028-2029"],
+  createdFeeYears: [],
 };
+
+function buildSemesterFee(semesterNumber, baseTuition) {
+  const examFee = 2000;
+  const erpFee = 500;
+  const bookFee = 1000;
+  const labFee = 1500;
+  const totalFee = baseTuition + examFee + erpFee + bookFee + labFee;
+
+  return {
+    semesterNumber,
+    tuition: { fee: baseTuition },
+    exam: { fee: examFee },
+    erp: { fee: erpFee },
+    book: { fee: bookFee },
+    lab: { fee: labFee },
+    total: { fee: totalFee },
+    isActive: true,
+  };
+}
+
+function buildFeeStructurePayload(academicYear) {
+  const semesters = Array.from({ length: 8 }, (_, idx) => buildSemesterFee(idx + 1, 40000 + (idx * 1000)));
+  const academicDepartmentTotal = semesters.reduce((sum, sem) => sum + (sem.total?.fee || 0), 0);
+
+  const transportTotalFee = 12000;
+  const hostelRoomFee = 30000;
+  const hostelMessFee = 18000;
+  const hostelMaintenanceFee = 5000;
+  const hostelTotalFee = hostelRoomFee + hostelMessFee + hostelMaintenanceFee;
+
+  const grandTotal = academicDepartmentTotal + transportTotalFee + hostelTotalFee;
+
+  return {
+    academicYear,
+    academicStructures: [{
+      quota: "Government Quota",
+      educationType: "UG",
+      degreeProgram: "BE",
+      departments: [{
+        departmentName: "CSE",
+        semesters,
+        total: { fee: academicDepartmentTotal },
+        isActive: true,
+      }],
+      total: { fee: academicDepartmentTotal },
+      isActive: true,
+    }],
+    transportStructures: [{
+      total: { fee: transportTotalFee },
+      isActive: true,
+    }],
+    hostelStructures: [{
+      block: "A-BLOCK",
+      roomType: {
+        sharingType: "Three",
+        isAttached: true,
+      },
+      roomFee: { fee: hostelRoomFee },
+      messFee: { fee: hostelMessFee },
+      maintenanceFee: { fee: hostelMaintenanceFee },
+      total: { fee: hostelTotalFee },
+      isActive: true,
+    }],
+    total: { fee: grandTotal },
+    isActive: true,
+  };
+}
+
+function buildStudentPayload(rollNo) {
+  return {
+    personal: {
+      rollNo,
+      studentName: "Blackbox Tester",
+      gender: "Male",
+      dob: "2007-05-15",
+      bloodGroup: "O+",
+      aadharNo: `9999${TS.slice(-8)}`,
+      emisNo: `EMIS${TS.slice(-6)}`,
+      religion: "Hindu",
+      community: "BC",
+      casteName: "Kongu Vellalar",
+      nationality: "Indian",
+      studentPhoto: "https://example.com/student-photo.jpg",
+    },
+    academic: {
+      educationType: "UG",
+      academicType: "REG",
+      isLateralEntry: false,
+      degreeProgram: "BE",
+      departmentName: "CSE",
+      yearStudying: 1,
+      currentSemesterNumber: 1,
+      section: "A",
+      batch: ctx.studentBatch,
+      currentAcademicYear: ctx.studentCurrentAcademicYear,
+    },
+    contact: {
+      selfMobileNo: "9876543210",
+      selfEmail: `student${TS.slice(-6)}@mail.com`,
+      officialEmail: `student${TS.slice(-6)}@sece.ac.in`,
+    },
+    family: {
+      father: {
+        name: "Tester Father",
+        mobile: "9876500001",
+        workType: "Farmer",
+        qualification: "Diploma",
+      },
+      mother: {
+        name: "Tester Mother",
+        mobile: "9876500002",
+        workType: "Homemaker",
+        qualification: "HSC",
+      },
+      guardian: {
+        name: "Tester Guardian",
+        mobile: "9876500003",
+      },
+      familyIncomeAsPerCertificate: 180000,
+      communityCertificateNo: `CC${TS.slice(-8)}`,
+    },
+    address: {
+      permanent: {
+        doorNo: "12/4",
+        street: "Main Road",
+        taluk: "Pollachi",
+        district: "Coimbatore",
+        state: "Tamil Nadu",
+        pincode: "641001",
+      },
+      communication: {
+        doorNo: "12/4",
+        street: "Main Road",
+        taluk: "Pollachi",
+        district: "Coimbatore",
+        state: "Tamil Nadu",
+        pincode: "641001",
+      },
+    },
+    enrollment: {
+      quota: "Government Quota",
+      firstGraduate: {
+        isApplicable: false,
+        concessionAmount: 0,
+      },
+      scheme7point5: {
+        isApplicable: false,
+        concessionAmount: 0,
+      },
+      pmssScheme: {
+        isApplicable: false,
+        concessionAmount: 0,
+      },
+      sakthiScheme: {
+        isApplicable: false,
+        concessionAmount: 0,
+      },
+      specialConcession: {
+        isApplicable: false,
+        transport: 0,
+        hostel: 0,
+        tuition: 0,
+      },
+    },
+    transport: {
+      isApplicable: false,
+    },
+    hostel: {
+      isApplicable: false,
+      block: "A-BLOCK",
+      roomType: {
+        sharingType: "Three",
+        isAttached: true,
+      },
+    },
+  };
+}
+
+function buildPaymentPayload(overrides = {}) {
+  return {
+    rollNo: ctx.testRollNo,
+    receiptNo: `REC${TS.slice(-6)}`,
+    paymentType: "Cash",
+    bankName: "Indian Bank",
+    bankLocation: "Kinathukadavu",
+    remarks: "Blackbox validation payload",
+    breakdowns: [{
+      academicYear: ctx.studentCurrentAcademicYear,
+      academic: {
+        semesterNumber: 1,
+        tuition: 0,
+        exam: 0,
+        erp: 0,
+        book: 0,
+        lab: 0,
+      },
+      hostel: 0,
+      transport: 0,
+    }],
+    ...overrides,
+  };
+}
+
+async function ensureFeeStructures(years, token) {
+  for (const year of years) {
+    const payload = buildFeeStructurePayload(year);
+    const r = await request("POST", "/feeStructureMaster", payload, token);
+    if (r.status === 201) {
+      ctx.createdFeeYears.push(year);
+      continue;
+    }
+    if (r.status === 400) continue;
+    throw new Error(`Unable to ensure fee structure for ${year}. status=${r.status} body=${JSON.stringify(r.body)}`);
+  }
+}
 
 // ─── HTTP Helper ─────────────────────────────────────────────
 function request(method, path, body = null, token = null) {
@@ -211,31 +430,13 @@ const suiteFeeMaster = {
     }
 
     await runTest(`POST /feeStructureMaster  →  create ${year}`, async () => {
-      const r = await request("POST", "/feeStructureMaster", {
-        academicYear: year,
-        academicStructures: [{
-          quota:          "Government Quota",
-          educationType:  "UG",
-          degreeProgram:  "BE",
-          departments: [{
-            departmentName: "CSE",
-            semesters: [{
-              semesterNumber: 1,
-              tuition: { fee: 40000 }, exam: { fee: 2000 },
-              erp:     { fee: 500  }, book: { fee: 500  }, lab: { fee: 1000 },
-            }],
-          }],
-        }],
-        transportStructures: [],
-        hostelStructures:    [],
-      }, ctx.superadminToken);
+      const r = await request("POST", "/feeStructureMaster", buildFeeStructurePayload(year), ctx.superadminToken);
       if (r.status !== 201) throw new Error(`status=${r.status} body=${JSON.stringify(r.body)}`);
       expect(r.body?.success, "isTrue", null, "success");
     });
 
     await runTest("POST /feeStructureMaster  →  duplicate year → 400", async () => {
-      const r = await request("POST", "/feeStructureMaster",
-        { academicYear: year }, ctx.superadminToken);
+      const r = await request("POST", "/feeStructureMaster", buildFeeStructurePayload(year), ctx.superadminToken);
       expect(r.status, "eq", 400, "status");
     });
 
@@ -257,11 +458,11 @@ const suiteFeeMaster = {
     });
 
     await runTest(`PUT /feeStructureMaster/:year  →  update succeeds`, async () => {
+      const payload = buildFeeStructurePayload(year);
+      payload.academicStructures[0].departments[0].semesters[0].tuition.fee = 40500;
+
       const r = await request("PUT", `/feeStructureMaster/${year}`, {
-        academicYear:        year,
-        academicStructures:  [],
-        transportStructures: [],
-        hostelStructures:    [],
+        ...payload,
       }, ctx.superadminToken);
       expect(r.status,        "eq",     200,  "status");
       expect(r.body?.success, "isTrue", null, "success");
@@ -302,29 +503,7 @@ const suiteStudents = {
     const rollNo = ctx.testRollNo;
     const ROUTE  = "/studentsManagement";
 
-    const testStudent = {
-      personal: {
-        rollNo,
-        studentName: "Blackbox Tester",
-        gender:      "Male",
-        community:   "BC",
-        nationality: "Indian",
-      },
-      academic: {
-        educationType:         "UG",
-        academicType:          "REG",
-        degreeProgram:         "BE",
-        departmentName:        "CSE",
-        yearStudying:          1,
-        currentSemesterNumber: 1,
-        batch:                 "2025-2029",
-        currentAcademicYear:   "2025-2026",
-      },
-      contact:    {},
-      enrollment: { quota: "Government Quota" },
-      transport:  { isApplicable: false },
-      hostel:     { isApplicable: false },
-    };
+    const testStudent = buildStudentPayload(rollNo);
 
     // Pre-cleanup
     try {
@@ -332,6 +511,10 @@ const suiteStudents = {
     } catch (err) {
       // Silently ignore cleanup errors (e.g., record doesn't exist or server not running)
     }
+
+    await runTest("Prepare required fee structures for student batch years", async () => {
+      await ensureFeeStructures(ctx.studentFeeYears, ctx.superadminToken);
+    });
 
     await runTest(`POST ${ROUTE}  →  create ${rollNo}`, async () => {
       const r = await request("POST", ROUTE, testStudent, ctx.superadminToken);
@@ -346,8 +529,11 @@ const suiteStudents = {
     });
 
     await runTest(`POST ${ROUTE}  →  missing rollNo → 400`, async () => {
+      const invalidStudent = buildStudentPayload(rollNo);
+      delete invalidStudent.personal.rollNo;
+
       const r = await request("POST", ROUTE,
-        { ...testStudent, personal: { studentName: "No Roll" } },
+        invalidStudent,
         ctx.superadminToken
       );
       expect(r.status, "eq", 400, "status");
@@ -400,6 +586,16 @@ const suiteStudents = {
     await runTest(`DELETE ${ROUTE}/:rollNo  →  unknown → 404`, async () => {
       const r = await request("DELETE", `${ROUTE}/00MISSING`, null, ctx.superadminToken);
       expect(r.status, "eq", 404, "status");
+    });
+
+    await runTest("Cleanup fee structures created only by this test run", async () => {
+      for (const year of ctx.createdFeeYears) {
+        const r = await request("DELETE", `/feeStructureMaster/${year}`, null, ctx.superadminToken);
+        if (r.status !== 200 && r.status !== 404) {
+          throw new Error(`Cleanup failed for ${year}. status=${r.status} body=${JSON.stringify(r.body)}`);
+        }
+      }
+      ctx.createdFeeYears = [];
     });
   },
 };
@@ -472,33 +668,38 @@ const suiteFeePayment = {
     });
 
     await runTest("PUT /feePayment/receipt/:receiptNo  →  update receipt non-existent → 400 or 404", async () => {
-      const r = await request("PUT", "/feePayment/receipt/00MISSING000", { remarks: "Updated remark" }, ctx.adminToken);
+      const r = await request("PUT", "/feePayment/receipt/00MISSING000", {
+        paymentType: "UPI",
+        bankName: "SBI",
+        bankLocation: "Coimbatore",
+        remarks: "Updated remark",
+      }, ctx.adminToken);
       expect(r.status, "eq", 400, "status"); // because transaction is not found
     });
 
     await runTest("PUT /feePayment/concession/:rollNo/:academicYear  →  non-existent → 400", async () => {
       const r = await request("PUT", `/feePayment/concession/00MISSING000/${ctx.testAcademicYear}`, {
-        concessions: { pmss: 1000 }
+        concessions: {
+          firstGraduate: 1000,
+          scheme7point5: 500,
+          pmss: 1000,
+          sakthi: 250,
+        }
       }, ctx.adminToken);
       expect(r.status, "eq", 400, "status");
     });
 
     await runTest("POST /feePayment/pay  →  missing rollNo → 400", async () => {
-      const r = await request("POST", "/feePayment/pay", {
-        receiptNo:   "REC001",
-        paymentType: "Cash",
-        breakdowns:  [{ academicYear: "2025-2026" }],
-      }, ctx.adminToken);
+      const payload = buildPaymentPayload();
+      delete payload.rollNo;
+      const r = await request("POST", "/feePayment/pay", payload, ctx.adminToken);
       expect(r.status, "eq", 400, "status");
     });
 
     await runTest("POST /feePayment/pay  →  invalid paymentType → 400", async () => {
-      const r = await request("POST", "/feePayment/pay", {
-        rollNo:      "21CS001",
-        receiptNo:   "REC001",
+      const r = await request("POST", "/feePayment/pay", buildPaymentPayload({
         paymentType: "Bitcoin",
-        breakdowns:  [{ academicYear: "2025-2026" }],
-      }, ctx.adminToken);
+      }), ctx.adminToken);
       expect(r.status, "eq", 400, "status");
     });
 

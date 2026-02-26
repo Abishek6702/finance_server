@@ -2,18 +2,23 @@ const Student=require("../../models/Student");
 const Transport=require("../../models/Transport");
 const StudentFeeTracking=require("../../models/StudentFeeTracking");
 const generateLedger = require("./utils").generateLedger;
- 
-const createStudent=async(data)=>{
+const mongoose=require("mongoose");
 
-  const existing=await Student.findOne({"personal.rollNo":data.personal?.rollNo});
-  if(existing) throw new Error("Student already exists");
+const isTransactionUnsupported=(error)=>{
+  const message=String(error?.message||"").toLowerCase();
+  return message.includes("replica set member")||message.includes("mongos");
+};
 
-  /* Transport mapping */
+const mapTransport=async(data,session=null)=>{
   if(data.transport?.isApplicable && data.transport.route && data.transport.stopName){
-    const transportDoc=await Transport.findOne({
+    const query=Transport.findOne({
       route:data.transport.route,
       stop:data.transport.stopName
     });
+
+    if(session) query.session(session);
+
+    const transportDoc=await query;
 
     if(!transportDoc) throw new Error("Transport route/stop not found");
 
@@ -22,16 +27,63 @@ const createStudent=async(data)=>{
       transport:transportDoc._id
     };
   }
+};
+
+const createStudentWithoutTransaction=async(data)=>{
+  const existing=await Student.findOne({"personal.rollNo":data.personal?.rollNo});
+  if(existing) throw new Error("Student already exists");
+
+  await mapTransport(data);
 
   const student=await Student.create(data);
 
-  /* populate transport for ledger */
   const populatedStudent=await Student.findById(student._id)
     .populate("transport.transport");
 
   await generateLedger(populatedStudent);
-
   return student;
+};
+ 
+const createStudent=async(data)=>{
+  const session=await mongoose.startSession();
+  let createdStudent=null;
+  let sessionEnded=false;
+
+  try{
+    await session.withTransaction(async()=>{
+
+      const existing=await Student.findOne({"personal.rollNo":data.personal?.rollNo}).session(session);
+      if(existing) throw new Error("Student already exists");
+
+      await mapTransport(data,session);
+
+      const students=await Student.create([data],{session});
+      createdStudent=students[0];
+
+      /* populate transport for ledger */
+      const populatedStudent=await Student.findById(createdStudent._id)
+        .session(session)
+        .populate("transport.transport");
+
+      await generateLedger(populatedStudent,{session});
+    });
+  }catch(error){
+    if(isTransactionUnsupported(error)){
+      await session.endSession();
+      sessionEnded=true;
+      return await createStudentWithoutTransaction(data);
+    }
+    throw error;
+  }finally{
+    if(!sessionEnded && session.inTransaction()){
+      await session.abortTransaction();
+    }
+    if(!sessionEnded){
+      await session.endSession();
+    }
+  }
+
+  return createdStudent;
 };
 
 const getStudents = async () => {

@@ -159,11 +159,17 @@ const seedTransport=async()=>{
     });
   });
 
-  await Transport.deleteMany({});
+  if(!docs.length) return;
 
-  await Transport.insertMany(docs,{
-    ordered:false    
-  });
+  const ops=docs.map(doc=>({
+    updateOne:{
+      filter:{route:doc.route,busNo:doc.busNo,stop:doc.stop},
+      update:{$set:{route:doc.route,busNo:doc.busNo,stop:doc.stop}},
+      upsert:true
+    }
+  }));
+
+  await Transport.bulkWrite(ops,{ordered:false});
  
 };
 

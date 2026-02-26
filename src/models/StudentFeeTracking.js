@@ -1,5 +1,26 @@
 const mongoose=require("mongoose");
 
+function normalizeMoney(value){
+  const number=Number(value);
+  if(!Number.isFinite(number)||number<0) return 0;
+  return Math.round(number*100)/100;
+}
+
+function normalizeAmountSchema(amount){
+  const target=amount||{};
+
+  target.total=normalizeMoney(target.total);
+  target.paid=normalizeMoney(target.paid);
+  target.paid=Math.min(target.paid,target.total);
+
+  if(target.total===0) target.status="Paid";
+  else if(target.paid>=target.total) target.status="Paid";
+  else if(target.paid>0) target.status="Partially Paid";
+  else target.status="Unpaid";
+
+  return target;
+}
+
 
 /* ======================================================
    AMOUNT STRUCTURE
@@ -124,32 +145,139 @@ const studentFeeTrackingSchema=new mongoose.Schema({
 /* ======================================================
    PRE-SAVE MIDDLEWARE: ENFORCE ACADEMIC TOTAL CALCULATION
 ====================================================== */
-studentFeeTrackingSchema.pre("save",function(next){
+studentFeeTrackingSchema.pre("save",function(){
 
   this.academicYearWiseRecord?.forEach(yearRecord=>{
     const academic=yearRecord.academic;
-    if(!academic) return;
+    if(!academic){
+      yearRecord.total=normalizeAmountSchema(yearRecord.total||{});
+      return;
+    }
 
-    const subTotal=academic.subTotal||0;
-    const concession=academic.academicSpecialConcession||0;
+    const odd=academic.odd;
+    const even=academic.even;
 
-    const payable=Math.max(0,subTotal-concession);
+    [odd,even].forEach(sem=>{
+      if(!sem) return;
 
-    academic.total=academic.total||{};
+      sem.tuition=normalizeAmountSchema(sem.tuition||{});
+      sem.exam=normalizeAmountSchema(sem.exam||{});
+      sem.erp=normalizeAmountSchema(sem.erp||{});
+      sem.book=normalizeAmountSchema(sem.book||{});
+      sem.lab=normalizeAmountSchema(sem.lab||{});
+
+      sem.subTotal=normalizeMoney(
+        (sem.tuition?.total||0)+
+        (sem.exam?.total||0)+
+        (sem.erp?.total||0)+
+        (sem.book?.total||0)+
+        (sem.lab?.total||0)
+      );
+
+      sem.total=normalizeAmountSchema(sem.total||{});
+
+      const semesterPaid=normalizeMoney(
+        (sem.tuition?.paid||0)+
+        (sem.exam?.paid||0)+
+        (sem.erp?.paid||0)+
+        (sem.book?.paid||0)+
+        (sem.lab?.paid||0)
+      );
+
+      sem.total.paid=Math.min(semesterPaid,sem.total.total);
+      if(sem.total.total===0) sem.total.status="Paid";
+      else if(sem.total.paid>=sem.total.total) sem.total.status="Paid";
+      else if(sem.total.paid>0) sem.total.status="Partially Paid";
+      else sem.total.status="Unpaid";
+    });
+
+    academic.subTotal=normalizeMoney(
+      (odd?.total?.total||0)+
+      (even?.total?.total||0)
+    );
+
+    academic.academicSpecialConcession=normalizeMoney(academic.academicSpecialConcession||0);
+
+    const payable=normalizeMoney(Math.max(0,academic.subTotal-academic.academicSpecialConcession));
+
+    academic.total=normalizeAmountSchema(academic.total||{});
     academic.total.total=payable;
 
-    // prevent overpayment
-    academic.total.paid=Math.min(academic.total.paid||0,payable);
-
-    const paid=academic.total.paid;
+    const academicPaid=normalizeMoney((odd?.total?.paid||0)+(even?.total?.paid||0));
+    academic.total.paid=Math.min(academicPaid,payable);
 
     if(payable===0) academic.total.status="Paid";
-    else if(paid>=payable) academic.total.status="Paid";
-    else if(paid>0) academic.total.status="Partially Paid";
+    else if(academic.total.paid>=payable) academic.total.status="Paid";
+    else if(academic.total.paid>0) academic.total.status="Partially Paid";
     else academic.total.status="Unpaid";
+
+    if(yearRecord.transport){
+      yearRecord.transport.subTotal=normalizeMoney(yearRecord.transport.subTotal||0);
+      yearRecord.transport.transportSpecialConcession=normalizeMoney(yearRecord.transport.transportSpecialConcession||0);
+      yearRecord.transport.total=normalizeAmountSchema(yearRecord.transport.total||{});
+      yearRecord.transport.total.total=normalizeMoney(
+        Math.max(0,yearRecord.transport.subTotal-yearRecord.transport.transportSpecialConcession)
+      );
+      yearRecord.transport.total.paid=Math.min(
+        normalizeMoney(yearRecord.transport.total.paid||0),
+        yearRecord.transport.total.total
+      );
+      yearRecord.transport.total=normalizeAmountSchema(yearRecord.transport.total);
+    }
+
+    if(yearRecord.hostel){
+      yearRecord.hostel.roomFee=normalizeAmountSchema(yearRecord.hostel.roomFee||{});
+      yearRecord.hostel.messFee=normalizeAmountSchema(yearRecord.hostel.messFee||{});
+      yearRecord.hostel.maintenanceFee=normalizeAmountSchema(yearRecord.hostel.maintenanceFee||{});
+
+      yearRecord.hostel.subTotal=normalizeMoney(
+        (yearRecord.hostel.roomFee?.total||0)+
+        (yearRecord.hostel.messFee?.total||0)+
+        (yearRecord.hostel.maintenanceFee?.total||0)
+      );
+      yearRecord.hostel.hostelSpecialConcession=normalizeMoney(yearRecord.hostel.hostelSpecialConcession||0);
+      yearRecord.hostel.total=normalizeAmountSchema(yearRecord.hostel.total||{});
+      yearRecord.hostel.total.total=normalizeMoney(
+        Math.max(0,yearRecord.hostel.subTotal-yearRecord.hostel.hostelSpecialConcession)
+      );
+      yearRecord.hostel.total.paid=Math.min(
+        normalizeMoney(yearRecord.hostel.total.paid||0),
+        yearRecord.hostel.total.total
+      );
+      yearRecord.hostel.total=normalizeAmountSchema(yearRecord.hostel.total);
+    }
+
+    if(yearRecord.concessions){
+      yearRecord.concessions.firstGraduate=normalizeMoney(yearRecord.concessions.firstGraduate||0);
+      yearRecord.concessions.scheme7point5=normalizeMoney(yearRecord.concessions.scheme7point5||0);
+      yearRecord.concessions.pmss=normalizeMoney(yearRecord.concessions.pmss||0);
+      yearRecord.concessions.sakthi=normalizeMoney(yearRecord.concessions.sakthi||0);
+      yearRecord.concessions.totalConcession=normalizeMoney(
+        (yearRecord.concessions.firstGraduate||0)+
+        (yearRecord.concessions.scheme7point5||0)+
+        (yearRecord.concessions.pmss||0)+
+        (yearRecord.concessions.sakthi||0)
+      );
+    }
+
+    const recalculatedYearTotal=normalizeMoney(
+      (academic.total?.total||0)+
+      (yearRecord.transport?.total?.total||0)+
+      (yearRecord.hostel?.total?.total||0)
+    );
+
+    yearRecord.total=normalizeAmountSchema(yearRecord.total||{});
+    yearRecord.total.total=recalculatedYearTotal;
+
+    const recalculatedYearPaid=normalizeMoney(
+      (academic.total?.paid||0)+
+      (yearRecord.transport?.total?.paid||0)+
+      (yearRecord.hostel?.total?.paid||0)
+    );
+    yearRecord.total.paid=Math.min(recalculatedYearPaid,recalculatedYearTotal);
+    yearRecord.total=normalizeAmountSchema(yearRecord.total);
   });
 
-  next();
 });
 
 
