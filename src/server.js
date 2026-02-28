@@ -1,18 +1,23 @@
 const express=require("express");
 const cookieParser=require("cookie-parser");
 const dotenv=require("dotenv");
+const mongoose=require("mongoose");
 dotenv.config();
 const connectDB=require("./config/db");
-const authRoutes=require("./api/auth/routes");
-const feeStructureRoutes=require("./api/feeStructureMaster/routes");
-const studentsManagementRoutes=require("./api/studentsManagement/routes");
-const feePaymentRoutes=require("./api/feePayment/routes");
-const transportRoutes=require("./api/transport/routes");
+const authRoutes=require("./api/auth/routes.auth");
+const feeStructureRoutes=require("./api/feeStructure/routes.feeStructure");
+const studentsManagementRoutes=require("./api/students/routes.students");
+const paymentTransactionRoutes=require("./api/transaction/routes.transaction");
+const studentFeeTrackingRoutes=require("./api/studentFeeTracking/routes.studentFeeTracking");
+const transportRoutes=require("./api/transport/routes.transport");
 const corsMiddleware=require("./middleware/corsMiddleware");
-const {seedTransport}=require("./models/Transport");
+const {seedTransport}=require("./api/transport/model.transport");
+const {seedHostel}=require("./api/hostel/model.hostel");
+const seedUsers=require("./seed");
+const { notFoundHandler, errorHandler } = require("./middleware/errorHandler");
 
- require("./seed");
 const app=express();
+let server=null;
   
 app.use(express.json());
 app.use(cookieParser());
@@ -22,20 +27,51 @@ app.use(corsMiddleware);
 app.use("/api/auth",authRoutes);
 app.use("/api/feeStructureMaster",feeStructureRoutes);
 app.use("/api/studentsManagement",studentsManagementRoutes);
-app.use("/api/feePayment",feePaymentRoutes);
+app.use("/api/feePayment",studentFeeTrackingRoutes);
+app.use("/api/feePayment",paymentTransactionRoutes);
+app.use("/api/studentFeeTracking",studentFeeTrackingRoutes);
 app.use("/api/transport",transportRoutes);
  
 app.use("/assets",express.static("public/assets"));
  
-app.use((req,res)=>{
-  res.status(404).json({message:"Route not found"});
-});
+app.use(notFoundHandler);
+app.use(errorHandler);
  
 const PORT= 5010;
 
-connectDB().then(()=>{
-  app.listen(PORT,()=>{
+const startServer=async()=>{
+  if(server) return server;
+
+  await connectDB();
+  await seedUsers({ ensureDbConnection: false });
+
+  server=app.listen(PORT,()=>{
     console.log(`Server running on port ${PORT}`);
-    seedTransport();  
-  }); 
-});
+    seedTransport();
+    seedHostel();
+  });
+
+  return server;
+};
+
+const stopServer=async()=>{
+  if(server){
+    await new Promise((resolve,reject)=>{
+      server.close((error)=>{
+        if(error) return reject(error);
+        resolve();
+      });
+    });
+    server=null;
+  }
+
+  if(mongoose.connection.readyState!==0){
+    await mongoose.connection.close();
+  }
+};
+
+if(require.main===module){
+  startServer();
+}
+
+module.exports={app,startServer,stopServer};

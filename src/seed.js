@@ -2,13 +2,15 @@ const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const bcrypt = require("bcrypt");
 const connectDB = require("./config/db");
-const User = require("./models/User");
+const User = require("./api/auth/model.user.js");
 
 dotenv.config();
 
-const seedUsers = async () => {
+const seedUsers = async ({ ensureDbConnection = true } = {}) => {
   try {
-    await connectDB();
+    if (ensureDbConnection) {
+      await connectDB();
+    }
 
     const users = [
       {
@@ -54,12 +56,8 @@ const seedUsers = async () => {
   }
 };
 
-// Only run seed function if this file is executed directly
+module.exports = seedUsers;
+
 if (require.main === module) {
-  seedUsers();
-} else {
-  // When required by server.js, return the seed function for manual execution
-  module.exports = seedUsers;
-  // Auto-run when required (but don't exit)
   seedUsers();
 }
