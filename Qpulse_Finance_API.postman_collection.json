@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Qpulse Finance API",
-    "description": "Updated collection aligned with current backend routes, validations, and realistic body payloads.",
+    "description": "Complete collection aligned with all backend routes, validations, and realistic body payloads. Covers Auth, Fee Structure, Students, Fee Payment & Tracking, Hostel, and Transport modules.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "event": [
@@ -120,7 +120,9 @@
                 "exec": [
                   "pm.test('Login admin success', function () {",
                   "  pm.response.to.have.status(200);",
-                  "});"
+                  "});",
+                  "const data = pm.response.json();",
+                  "if (data.token) pm.environment.set('token', data.token);"
                 ]
               }
             }
@@ -320,99 +322,61 @@
           "response": []
         },
         {
-          "name": "Create Student (Hostel)",
+          "name": "Bulk Create Students (CSV/Excel)",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [],
             "url": {
-              "raw": "{{base_url}}/studentsManagement",
+              "raw": "{{base_url}}/studentsManagement/bulk",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
-                "studentsManagement"
+                "studentsManagement",
+                "bulk"
               ]
             },
             "body": {
-              "mode": "raw",
-              "raw": "{\n  \"personal\": {\n    \"rollNo\": \"{{student_roll_no}}\",\n    \"studentName\": \"Arun Prakash\",\n    \"gender\": \"Male\",\n    \"dob\": \"2006-08-15\",\n    \"bloodGroup\": \"O+\",\n    \"aadharNo\": \"987654321012\",\n    \"emisNo\": \"98765432101234\",\n    \"religion\": \"Hindu\",\n    \"community\": \"BC\",\n    \"casteName\": \"Kongu Vellalar\",\n    \"nationality\": \"Indian\",\n    \"studentPhoto\": \"https://example.com/student-photo.jpg\"\n  },\n  \"academic\": {\n    \"educationType\": \"UG\",\n    \"academicType\": \"REG\",\n    \"isLateralEntry\": false,\n    \"departmentName\": \"CSE\",\n    \"degreeProgram\": \"BE\",\n    \"yearStudying\": 1,\n    \"currentSemesterNumber\": 1,\n    \"section\": \"A\",\n    \"batch\": \"{{batch_year}}\",\n    \"currentAcademicYear\": \"{{academic_year}}\"\n  },\n  \"contact\": {\n    \"selfMobileNo\": \"9876543210\",\n    \"selfEmail\": \"arun.prakash@example.com\",\n    \"officialEmail\": \"{{student_roll_no}}@sece.ac.in\"\n  },\n  \"family\": {\n    \"father\": {\n      \"name\": \"Prakash\",\n      \"mobile\": \"9988776655\",\n      \"workType\": \"Business\",\n      \"qualification\": \"B.Sc\"\n    },\n    \"mother\": {\n      \"name\": \"Kavitha\",\n      \"mobile\": \"9988776644\",\n      \"workType\": \"Homemaker\",\n      \"qualification\": \"B.A\"\n    },\n    \"guardian\": {\n      \"name\": \"Ramesh\",\n      \"mobile\": \"9988776633\"\n    },\n    \"familyIncomeAsPerCertificate\": 200000,\n    \"communityCertificateNo\": \"CC123456789\"\n  },\n  \"address\": {\n    \"permanent\": {\n      \"doorNo\": \"12/3\",\n      \"street\": \"Main Street\",\n      \"taluk\": \"Coimbatore North\",\n      \"district\": \"Coimbatore\",\n      \"state\": \"Tamil Nadu\",\n      \"pincode\": \"641001\"\n    },\n    \"communication\": {\n      \"doorNo\": \"12/3\",\n      \"street\": \"Main Street\",\n      \"taluk\": \"Coimbatore North\",\n      \"district\": \"Coimbatore\",\n      \"state\": \"Tamil Nadu\",\n      \"pincode\": \"641001\"\n    }\n  },\n  \"enrollment\": {\n    \"quota\": \"Government Quota\",\n    \"firstGraduate\": {\n      \"isApplicable\": true,\n      \"concessionAmount\": 25000\n    },\n    \"scheme7point5\": {\n      \"isApplicable\": false,\n      \"concessionAmount\": 0\n    },\n    \"pmssScheme\": {\n      \"isApplicable\": false,\n      \"concessionAmount\": 0\n    },\n    \"sakthiScheme\": {\n      \"isApplicable\": false,\n      \"concessionAmount\": 0\n    },\n    \"specialConcession\": {\n      \"isApplicable\": false,\n      \"transport\": 0,\n      \"hostel\": 0,\n      \"tuition\": 0\n    }\n  },\n  \"transport\": {\n    \"isApplicable\": true,\n    \"route\": \"Bharathiyar University\",\n    \"stopName\": \"Vadavalli\"\n  },\n  \"hostel\": {\n    \"isApplicable\": true,\n    \"block\": \"A\",\n    \"sharing\": 3,\n    \"isAttached\": true,\n    \"roomType\": {\n      \"sharingType\": 3,\n      \"isAttached\": true\n    }\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "CSV or Excel file (.csv, .xls, .xlsx) with student data. Max 10 MB."
                 }
-              }
+              ]
             }
           },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "let reqBody = {};",
-                  "try { reqBody = JSON.parse(pm.request.body.raw || '{}'); } catch (e) {}",
-                  "if (reqBody?.personal?.rollNo) pm.environment.set('student_roll_no', reqBody.personal.rollNo);",
-                  "",
-                  "let resBody = {};",
-                  "try { resBody = pm.response.json(); } catch (e) {}",
-                  "if (resBody?.data?.personal?.rollNo) pm.environment.set('student_roll_no', resBody.data.personal.rollNo);"
-                ]
-              }
-            }
-          ],
           "response": []
         },
         {
-          "name": "Create Student (Hostel)",
+          "name": "Bulk Update Students (CSV/Excel)",
           "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "method": "PUT",
+            "header": [],
             "url": {
-              "raw": "{{base_url}}/studentsManagement",
+              "raw": "{{base_url}}/studentsManagement/bulk",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
-                "studentsManagement"
+                "studentsManagement",
+                "bulk"
               ]
             },
             "body": {
-              "mode": "raw",
-              "raw": "{\n  \"personal\": {\n    \"rollNo\": \"{{student_roll_no}}\",\n    \"studentName\": \"Arun Prakash\",\n    \"gender\": \"Male\",\n    \"dob\": \"2006-08-15\",\n    \"bloodGroup\": \"O+\",\n    \"aadharNo\": \"987654321012\",\n    \"emisNo\": \"98765432101234\",\n    \"religion\": \"Hindu\",\n    \"community\": \"BC\",\n    \"casteName\": \"Kongu Vellalar\",\n    \"nationality\": \"Indian\",\n    \"studentPhoto\": \"https://example.com/student-photo.jpg\"\n  },\n  \"academic\": {\n    \"educationType\": \"UG\",\n    \"academicType\": \"REG\",\n    \"isLateralEntry\": false,\n    \"departmentName\": \"CSE\",\n    \"degreeProgram\": \"BE\",\n    \"yearStudying\": 1,\n    \"currentSemesterNumber\": 1,\n    \"section\": \"A\",\n    \"batch\": \"{{batch_year}}\",\n    \"currentAcademicYear\": \"{{academic_year}}\"\n  },\n  \"contact\": {\n    \"selfMobileNo\": \"9876543210\",\n    \"selfEmail\": \"arun.prakash@example.com\",\n    \"officialEmail\": \"{{student_roll_no}}@sece.ac.in\"\n  },\n  \"family\": {\n    \"father\": {\n      \"name\": \"Prakash\",\n      \"mobile\": \"9988776655\",\n      \"workType\": \"Business\",\n      \"qualification\": \"B.Sc\"\n    },\n    \"mother\": {\n      \"name\": \"Kavitha\",\n      \"mobile\": \"9988776644\",\n      \"workType\": \"Homemaker\",\n      \"qualification\": \"B.A\"\n    },\n    \"guardian\": {\n      \"name\": \"Ramesh\",\n      \"mobile\": \"9988776633\"\n    },\n    \"familyIncomeAsPerCertificate\": 200000,\n    \"communityCertificateNo\": \"CC123456789\"\n  },\n  \"address\": {\n    \"permanent\": {\n      \"doorNo\": \"12/3\",\n      \"street\": \"Main Street\",\n      \"taluk\": \"Coimbatore North\",\n      \"district\": \"Coimbatore\",\n      \"state\": \"Tamil Nadu\",\n      \"pincode\": \"641001\"\n    },\n    \"communication\": {\n      \"doorNo\": \"12/3\",\n      \"street\": \"Main Street\",\n      \"taluk\": \"Coimbatore North\",\n      \"district\": \"Coimbatore\",\n      \"state\": \"Tamil Nadu\",\n      \"pincode\": \"641001\"\n    }\n  },\n  \"enrollment\": {\n    \"quota\": \"Government Quota\",\n    \"firstGraduate\": {\n      \"isApplicable\": true,\n      \"concessionAmount\": 25000\n    },\n    \"scheme7point5\": {\n      \"isApplicable\": false,\n      \"concessionAmount\": 0\n    },\n    \"pmssScheme\": {\n      \"isApplicable\": false,\n      \"concessionAmount\": 0\n    },\n    \"sakthiScheme\": {\n      \"isApplicable\": false,\n      \"concessionAmount\": 0\n    },\n    \"specialConcession\": {\n      \"isApplicable\": false,\n      \"transport\": 0,\n      \"hostel\": 0,\n      \"tuition\": 0\n    }\n  },\n  \"transport\": {\n    \"isApplicable\": true,\n    \"route\": \"Bharathiyar University\",\n    \"stopName\": \"Vadavalli\"\n  },\n  \"hostel\": {\n    \"isApplicable\": true,\n    \"block\": \"A\",\n    \"sharing\": 3,\n    \"isAttached\": true,\n    \"roomType\": {\n      \"sharingType\": 3,\n      \"isAttached\": true\n    }\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "CSV or Excel file (.csv, .xls, .xlsx) with student data to update (matched by rollNo). Max 10 MB."
                 }
-              }
+              ]
             }
           },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "let reqBody = {};",
-                  "try { reqBody = JSON.parse(pm.request.body.raw || '{}'); } catch (e) {}",
-                  "if (reqBody?.personal?.rollNo) pm.environment.set('student_roll_no', reqBody.personal.rollNo);",
-                  "",
-                  "let resBody = {};",
-                  "try { resBody = pm.response.json(); } catch (e) {}",
-                  "if (resBody?.data?.personal?.rollNo) pm.environment.set('student_roll_no', resBody.data.personal.rollNo);"
-                ]
-              }
-            }
-          ],
           "response": []
         },
         {
@@ -556,7 +520,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/feePayment/recent?year={{academic_year}}&department=CSE",
+              "raw": "{{base_url}}/feePayment/recent",
               "host": [
                 "{{base_url}}"
               ],
@@ -567,11 +531,55 @@
               "query": [
                 {
                   "key": "year",
-                  "value": "{{academic_year}}"
+                  "value": "{{academic_year}}",
+                  "description": "Filter by academic year (YYYY-YYYY)"
                 },
                 {
                   "key": "department",
-                  "value": "CSE"
+                  "value": "CSE",
+                  "description": "Filter by department (CSE, IT, AIML, AIDS, ECE, EEE, MECH, CIVIL)"
+                },
+                {
+                  "key": "name",
+                  "value": "Arun",
+                  "description": "Filter by student name (partial match)",
+                  "disabled": true
+                },
+                {
+                  "key": "rollNo",
+                  "value": "{{student_roll_no}}",
+                  "description": "Filter by exact roll number",
+                  "disabled": true
+                },
+                {
+                  "key": "paymentMode",
+                  "value": "Cash",
+                  "description": "Filter by payment mode (Cash, Card, UPI, NetBanking, Cheque, DD)",
+                  "disabled": true
+                },
+                {
+                  "key": "feeHead",
+                  "value": "tuition",
+                  "description": "Filter by fee head (tuition, exam, erp, book, lab, hostel, transport)",
+                  "disabled": true
+                },
+                {
+                  "key": "fromDate",
+                  "value": "2025-01-01",
+                  "description": "Filter from date (YYYY-MM-DD)",
+                  "disabled": true
+                },
+                {
+                  "key": "toDate",
+                  "value": "2026-12-31",
+                  "description": "Filter to date (YYYY-MM-DD)",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "description": "Max results to return (default: 50)",
+                  "disabled": true
                 }
               ]
             }
@@ -584,7 +592,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/feePayment/summary?year={{academic_year}}",
+              "raw": "{{base_url}}/feePayment/summary",
               "host": [
                 "{{base_url}}"
               ],
@@ -595,7 +603,38 @@
               "query": [
                 {
                   "key": "year",
-                  "value": "{{academic_year}}"
+                  "value": "{{academic_year}}",
+                  "description": "Academic year (YYYY-YYYY). Defaults to 2025-2026"
+                },
+                {
+                  "key": "rollNo",
+                  "value": "{{student_roll_no}}",
+                  "description": "Filter by exact roll number",
+                  "disabled": true
+                },
+                {
+                  "key": "name",
+                  "value": "Arun",
+                  "description": "Filter by student name (partial match)",
+                  "disabled": true
+                },
+                {
+                  "key": "department",
+                  "value": "CSE",
+                  "description": "Filter by department",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "Unpaid",
+                  "description": "Filter by status (Paid, Partially Paid, Unpaid)",
+                  "disabled": true
+                },
+                {
+                  "key": "studentType",
+                  "value": "hosteler",
+                  "description": "Filter by student type (hosteler, dayscholar, transport)",
+                  "disabled": true
                 }
               ]
             }
@@ -627,7 +666,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/feePayment/students?department=CSE&year=1",
+              "raw": "{{base_url}}/feePayment/students",
               "host": [
                 "{{base_url}}"
               ],
@@ -638,11 +677,25 @@
               "query": [
                 {
                   "key": "department",
-                  "value": "CSE"
+                  "value": "CSE",
+                  "description": "Filter by department (CSE, IT, AIML, AIDS, ECE, EEE, MECH, CIVIL)"
                 },
                 {
                   "key": "year",
-                  "value": "1"
+                  "value": "1",
+                  "description": "Filter by year of study (1-4)"
+                },
+                {
+                  "key": "name",
+                  "value": "Arun",
+                  "description": "Filter by student name (partial match)",
+                  "disabled": true
+                },
+                {
+                  "key": "rollNo",
+                  "value": "{{student_roll_no}}",
+                  "description": "Filter by roll number (partial match)",
+                  "disabled": true
                 }
               ]
             }
@@ -730,6 +783,292 @@
                 "feePayment",
                 "{{student_roll_no}}"
               ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Student Report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/feePayment/reports/student/{{student_roll_no}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feePayment",
+                "reports",
+                "student",
+                "{{student_roll_no}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Datewise Report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/feePayment/reports/datewise",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feePayment",
+                "reports",
+                "datewise"
+              ],
+              "query": [
+                {
+                  "key": "academicYear",
+                  "value": "{{academic_year}}",
+                  "description": "Filter by academic year (YYYY-YYYY)",
+                  "disabled": true
+                },
+                {
+                  "key": "fromDate",
+                  "value": "2025-01-01",
+                  "description": "Start date (YYYY-MM-DD)",
+                  "disabled": true
+                },
+                {
+                  "key": "toDate",
+                  "value": "2026-12-31",
+                  "description": "End date (YYYY-MM-DD)",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "100",
+                  "description": "Max results to return (default: 100)",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Hostel",
+      "item": [
+        {
+          "name": "Get Full Mapping",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/hostel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "hostel"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Blocks",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/hostel/blocks",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "hostel",
+                "blocks"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sharing\": 3,\n  \"isAttached\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Room Types",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/hostel/roomTypes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "hostel",
+                "roomTypes"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"block\": \"A-BLOCK\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Fees",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/hostel/fees",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "hostel",
+                "fees"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"block\": \"A-BLOCK\",\n  \"sharing\": 3,\n  \"isAttached\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Hostel",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/hostel/add",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "hostel",
+                "add"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"block\": \"B-BLOCK\",\n  \"sharing\": 2,\n  \"isAttached\": false,\n  \"fee\": 45000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Bulk Add Hostel",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/hostel/bulk",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "hostel",
+                "bulk"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"records\": [\n    {\n      \"block\": \"C-BLOCK\",\n      \"sharing\": 4,\n      \"isAttached\": false,\n      \"fee\": 35000\n    },\n    {\n      \"block\": \"C-BLOCK\",\n      \"sharing\": 3,\n      \"isAttached\": true,\n      \"fee\": 42000\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Hostel",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/hostel/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "hostel",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "HOSTEL_RECORD_ID_HERE",
+                  "description": "MongoDB ObjectId of the hostel record to update"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fee\": 48000,\n  \"sharing\": 2,\n  \"isAttached\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           },
           "response": []
@@ -843,6 +1182,109 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"busNo\": \"1\",\n  \"stop\": \"Vadavalli\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Transport",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/transport/add",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "transport",
+                "add"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"route\": \"Gandhipuram\",\n  \"busNo\": \"10\",\n  \"stop\": \"Peelamedu\",\n  \"fee\": 15000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Bulk Add Transport",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/transport/bulk",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "transport",
+                "bulk"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"records\": [\n    {\n      \"route\": \"Gandhipuram\",\n      \"busNo\": \"10\",\n      \"stop\": \"Singanallur\",\n      \"fee\": 12000\n    },\n    {\n      \"route\": \"Gandhipuram\",\n      \"busNo\": \"10\",\n      \"stop\": \"Ukkadam\",\n      \"fee\": 14000\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Transport",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/transport/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "transport",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "TRANSPORT_RECORD_ID_HERE",
+                  "description": "MongoDB ObjectId of the transport record to update"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fee\": 16000,\n  \"stop\": \"Peelamedu Junction\"\n}",
               "options": {
                 "raw": {
                   "language": "json"

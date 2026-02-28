@@ -1,3 +1,5 @@
+const AppError = require("../../utils/AppError");
+
 const MONEY_MAX = 1e12;
 
 const isValidMoney = (value) => {
@@ -13,11 +15,11 @@ const toMoney = (value) => Math.round(value * 100) / 100;
 const validateUpdateReceipt = (req, res, next) => {
   const { paymentType, bankName, bankLocation, remarks } = req.body;
   if (!paymentType && !bankName && !bankLocation && !remarks) {
-    return res.status(400).json({ success: false, message: "No valid fields provided for update" });
+    return next(new AppError("No valid fields provided for update", 400));
   }
   const validPaymentTypes = ["Cash", "Card", "UPI", "NetBanking", "Cheque", "DD"];
   if (paymentType && !validPaymentTypes.includes(paymentType)) {
-    return res.status(400).json({ success: false, message: "Valid paymentType is required" });
+    return next(new AppError("Valid paymentType is required", 400));
   }
   next();
 };
@@ -25,7 +27,7 @@ const validateUpdateReceipt = (req, res, next) => {
 const validateUpdateConcession = (req, res, next) => {
   const { concessions } = req.body;
   if (!concessions || typeof concessions !== "object") {
-    return res.status(400).json({ success: false, message: "concessions object is required" });
+    return next(new AppError("concessions object is required", 400));
   }
 
   const allowed = ["firstGraduate", "scheme7point5", "pmss", "sakthi"];
@@ -34,7 +36,7 @@ const validateUpdateConcession = (req, res, next) => {
   for (const key of allowed) {
     if (concessions[key] === undefined) continue;
     if (!isValidMoney(concessions[key])) {
-      return res.status(400).json({ success: false, message: `${key} must be a non-negative number with up to 2 decimals` });
+      return next(new AppError(`${key} must be a non-negative number with up to 2 decimals`, 400));
     }
     sanitized[key] = toMoney(concessions[key]);
   }

@@ -125,7 +125,11 @@ const transportSchema=new mongoose.Schema({
   transport:{
     type:mongoose.Schema.Types.ObjectId,
     ref:"Transport"
-  }
+  },
+  route:{type:String,trim:true},
+  busNo:{type:String,trim:true},
+  stop:{type:String,trim:true},
+  fee:{type:Number,min:0}
 },{_id:false});
 
 /* ======================================================
@@ -137,7 +141,11 @@ const hostelSchema=new mongoose.Schema({
   hostel:{
     type:mongoose.Schema.Types.ObjectId,
     ref:"Hostel"
-  }
+  },
+  block:{type:String,trim:true,uppercase:true},
+  sharing:{type:Number},
+  isAttached:{type:Boolean},
+  fee:{type:Number,min:0}
 },{_id:false});
 
 

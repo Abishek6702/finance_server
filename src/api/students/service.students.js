@@ -47,7 +47,11 @@ const mapTransport=async(data,session=null)=>{
 
     data.transport={
       isApplicable:true,
-      transport:transportDoc._id
+      transport:transportDoc._id,
+      route:transportDoc.route,
+      busNo:transportDoc.busNo,
+      stop:transportDoc.stop,
+      fee:transportDoc.fee
     };
   }
 };
@@ -68,7 +72,11 @@ const mapHostel=async(data,session=null)=>{
 
     data.hostel={
       isApplicable:true,
-      hostel:hostelDoc._id
+      hostel:hostelDoc._id,
+      block:hostelDoc.block,
+      sharing:hostelDoc.sharing,
+      isAttached:hostelDoc.isAttached,
+      fee:hostelDoc.fee
     };
   }
 };
@@ -82,11 +90,7 @@ const createStudentWithoutTransaction=async(data)=>{
 
   const student=await Student.create(data);
 
-  const populatedStudent=await Student.findById(student._id)
-    .populate("transport.transport")
-    .populate("hostel.hostel");
-
-  await generateLedger(populatedStudent);
+  await generateLedger(student);
   return student;
 };
  
@@ -107,13 +111,7 @@ const createStudent=async(data)=>{
       const students=await Student.create([data],{session});
       createdStudent=students[0];
 
-      /* populate transport for ledger */
-      const populatedStudent=await Student.findById(createdStudent._id)
-        .session(session)
-        .populate("transport.transport")
-        .populate("hostel.hostel");
-
-      await generateLedger(populatedStudent,{session});
+      await generateLedger(createdStudent,{session});
     });
   }catch(error){
     if(isTransactionUnsupported(error)){
@@ -136,21 +134,17 @@ const createStudent=async(data)=>{
 
 const getStudents = async () => {
   return await Student.find()
-    .populate('transport.transport')
-    .populate('hostel.hostel')
     .sort({ createdAt: -1 });
 };
 
 const getStudentByRollNo = async (rollNo) => {
-  const student = await Student.findOne({ "personal.rollNo": rollNo })
-    .populate('transport.transport')
-    .populate('hostel.hostel');
+  const student = await Student.findOne({ "personal.rollNo": rollNo });
   if (!student) throw new AppError("Student not found",404);
   return student;
 };
 
 const updateStudent = async (rollNo, data) => {
-  // Handle transport data - convert route/stopName to Transport ID
+  // Handle transport data - convert route/stopName to Transport ID + embed data
   if (data.transport?.isApplicable && data.transport.route && data.transport.stopName) {
     const transportDoc = await Transport.findOne({
       route: data.transport.route,
@@ -163,11 +157,15 @@ const updateStudent = async (rollNo, data) => {
     
     data.transport = {
       isApplicable: true,
-      transport: transportDoc._id
+      transport: transportDoc._id,
+      route: transportDoc.route,
+      busNo: transportDoc.busNo,
+      stop: transportDoc.stop,
+      fee: transportDoc.fee
     };
   }
 
-  // Handle hostel data
+  // Handle hostel data - embed full data
   if(data.hostel?.isApplicable && data.hostel.block && data.hostel.sharing && data.hostel.isAttached !== undefined){
     const hostelDoc=await Hostel.findOne({
       block:data.hostel.block,
@@ -181,7 +179,11 @@ const updateStudent = async (rollNo, data) => {
 
     data.hostel={
       isApplicable:true,
-      hostel:hostelDoc._id
+      hostel:hostelDoc._id,
+      block:hostelDoc.block,
+      sharing:hostelDoc.sharing,
+      isAttached:hostelDoc.isAttached,
+      fee:hostelDoc.fee
     };
   }
   
@@ -191,16 +193,14 @@ const updateStudent = async (rollNo, data) => {
     { "personal.rollNo": rollNo }, 
     { $set: updatePayload }, 
     { new: true, runValidators: true }
-  ).populate('transport.transport').populate('hostel.hostel');
+  );
   
   if (!updated) throw new AppError("Student not found",404);
   return updated;
 };
 
 const deleteStudentByRollNo = async (rollNo) => {
-  const student = await Student.findOne({ "personal.rollNo": rollNo })
-    .populate('transport.transport')
-    .populate('hostel.hostel');
+  const student = await Student.findOne({ "personal.rollNo": rollNo });
   if (!student) throw new AppError("Student not found",404);
   
   // Clean up fee tracking too
@@ -211,11 +211,74 @@ const deleteStudentByRollNo = async (rollNo) => {
 };
  
 
+/* -------------------------------------------------------
+   BULK CREATE  – process each row independently so a single
+   bad row does not abort the whole batch.
+------------------------------------------------------- */
+const bulkCreateStudents = async (rows) => {
+  const created = [];
+  const failed  = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const row      = rows[i];
+    const rollNo   = row?.personal?.rollNo ?? `row-${i + 2}`; // +2 because header is row 1
+    try {
+      const student = await createStudent(row);
+      created.push({ rollNo, id: student._id });
+    } catch (err) {
+      failed.push({
+        row:    i + 2,            // 1-indexed, 1 = header
+        rollNo,
+        reason: err.message,
+      });
+    }
+  }
+
+  return { created, failed };
+};
+
+/* -------------------------------------------------------
+   BULK UPDATE  – only updates fields present in the row,
+   identified by personal.rollNo.
+------------------------------------------------------- */
+const bulkUpdateStudents = async (rows) => {
+  const updated = [];
+  const failed  = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const row    = rows[i];
+    const rollNo = row?.personal?.rollNo;
+
+    if (!rollNo) {
+      failed.push({ row: i + 2, rollNo: null, reason: "rollNo is required for update" });
+      continue;
+    }
+
+    // Strip rollNo from the update payload (it's the lookup key, not a field to change)
+    const { personal, ...rest } = row;
+    const { rollNo: _omit, ...personalRest } = personal ?? {};
+    const updatePayload = Object.keys(personalRest).length
+      ? { personal: personalRest, ...rest }
+      : rest;
+
+    try {
+      const student = await updateStudent(rollNo, updatePayload);
+      updated.push({ rollNo, id: student._id });
+    } catch (err) {
+      failed.push({ row: i + 2, rollNo, reason: err.message });
+    }
+  }
+
+  return { updated, failed };
+};
+
 module.exports = {
   createStudent,
   getStudents,
   getStudentByRollNo,
   updateStudent,
-  deleteStudentByRollNo, 
+  deleteStudentByRollNo,
+  bulkCreateStudents,
+  bulkUpdateStudents,
 };
 

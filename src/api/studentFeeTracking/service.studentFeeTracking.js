@@ -2,6 +2,7 @@ const StudentFeeTracking = require("./model.studentFeeTracking");
 const StudentTransaction = require("../transaction/model.studentTransaction");
 const Student = require("../students/model.student");
 const ActivityLog = require("../../models/ActivityLog");
+const AppError = require("../../utils/AppError");
 
 const normalizeMoney = (value) => {
   const number = Number(value);
@@ -13,10 +14,14 @@ const getFeesSummary = async (query = {}) => {
   const year = query.year || "2025-2026";
   const filter = { "academicYearWiseRecord.academicYear": year };
 
+  if (query.rollNo) {
+    filter.rollNo = { $regex: new RegExp(`^${query.rollNo}$`, "i") };
+  }
+
   const records = await StudentFeeTracking.find(filter)
     .populate({
       path: "student",
-      select: "personal.studentName personal.studentPhoto academic.departmentName academic.yearStudying enrollment.quota transport.isApplicable hostel.isApplicable"
+      select: "personal.studentName personal.studentPhoto personal.community academic.departmentName academic.yearStudying enrollment.quota transport.isApplicable hostel.isApplicable"
     })
     .lean();
 
@@ -62,8 +67,29 @@ const getFeesSummary = async (query = {}) => {
     };
   }).filter(Boolean);
 
+  // Apply post-query filters
+  let filtered = data;
+  if (query.name) {
+    const nameRe = new RegExp(query.name, "i");
+    filtered = filtered.filter(r => nameRe.test(r.studentDetails.name));
+  }
+  if (query.department) {
+    const deptRe = new RegExp(`^${query.department}$`, "i");
+    filtered = filtered.filter(r => deptRe.test(r.studentDetails.department));
+  }
+  if (query.status) {
+    const statusRe = new RegExp(`^${query.status}$`, "i");
+    filtered = filtered.filter(r => statusRe.test(r.status));
+  }
+  if (query.studentType) {
+    const st = query.studentType.toLowerCase();
+    if (st === "hosteler") filtered = filtered.filter(r => r.studentType.isHosteler);
+    else if (st === "dayscholar") filtered = filtered.filter(r => r.studentType.isDayScholar);
+    else if (st === "transport") filtered = filtered.filter(r => r.studentType.usesTransport);
+  }
+
   return {
-    records: data,
+    records: filtered,
     aggregate: {
       totalCollection: normalizeMoney(totalCollection),
       totalDue: normalizeMoney(totalDue)
@@ -76,7 +102,9 @@ const getStudentFeeSummary = async (rollNo) => {
     .populate("student")
     .lean();
 
-  if (!record) throw new Error("Fee tracking not found for this student");
+  if (!record) throw new AppError("Fee tracking not found for this student", 404);
+
+  let demandTotal = 0, concessionTotal = 0, paidTotal = 0, fineTotal = 0;
 
   const yearsSummary = record.academicYearWiseRecord.map(yearRecord => {
     const demand = yearRecord.total?.total || 0;
@@ -84,6 +112,13 @@ const getStudentFeeSummary = async (rollNo) => {
     const concession = yearRecord.concessions?.totalConcession || 0;
     const overdue = Math.max(0, demand - paid);
     const status = yearRecord.total?.status || "Unpaid";
+
+    demandTotal += demand;
+    concessionTotal += concession;
+    paidTotal += paid;
+
+    const hasHostel = (yearRecord.hostel?.total?.total || 0) > 0;
+    const hasTransport = (yearRecord.transport?.total?.total || 0) > 0;
 
     return {
       academicYear: yearRecord.academicYear,
@@ -93,13 +128,32 @@ const getStudentFeeSummary = async (rollNo) => {
       overdue,
       status,
       fine: 0,
+      studentType: {
+        isHosteler: hasHostel,
+        usesTransport: hasTransport,
+        isDayScholar: !hasHostel
+      },
       yearRecordDetails: yearRecord
     };
   });
 
+  const overallOverdue = Math.max(0, demandTotal - paidTotal);
+  const overallStatus = paidTotal >= demandTotal ? "Paid"
+    : paidTotal > 0 ? "Partially Paid" : "Unpaid";
+
+  const profile = record.student || {};
+
   return {
-    studentProfile: record.student,
-    feeSummaryRecords: yearsSummary
+    studentProfile: profile,
+    feeSummaryRecords: yearsSummary,
+    overallTotals: {
+      demand: normalizeMoney(demandTotal),
+      concession: normalizeMoney(concessionTotal),
+      paid: normalizeMoney(paidTotal),
+      fine: normalizeMoney(fineTotal),
+      overdue: normalizeMoney(overallOverdue),
+      status: overallStatus
+    }
   };
 };
 
@@ -114,6 +168,9 @@ const getStudentsForFilter = async (query = {}) => {
   }
   if (query.name) {
     search["personal.studentName"] = { $regex: new RegExp(query.name, "i") };
+  }
+  if (query.rollNo) {
+    search["personal.rollNo"] = { $regex: new RegExp(query.rollNo, "i") };
   }
 
   const students = await Student.find(search)
@@ -131,10 +188,10 @@ const getStudentsForFilter = async (query = {}) => {
 
 const updateReceipt = async (receiptNo, data, user) => {
   const transactionDoc = await StudentTransaction.findOne({ "transactions.receiptNo": receiptNo });
-  if (!transactionDoc) throw new Error("Transaction not found");
+  if (!transactionDoc) throw new AppError("Transaction not found", 404);
 
   const transactionIndex = transactionDoc.transactions.findIndex(t => t.receiptNo === receiptNo);
-  if (transactionIndex === -1) throw new Error("Transaction not found");
+  if (transactionIndex === -1) throw new AppError("Transaction not found", 404);
 
   const oldTransaction = transactionDoc.transactions[transactionIndex];
 
@@ -175,10 +232,10 @@ const updateReceipt = async (receiptNo, data, user) => {
 
 const updateConcession = async (rollNo, academicYear, concessionData) => {
   const tracking = await StudentFeeTracking.findOne({ rollNo });
-  if (!tracking) throw new Error("Fee tracking not found for this student");
+  if (!tracking) throw new AppError("Fee tracking not found for this student", 404);
 
   const yearRecord = tracking.academicYearWiseRecord.find(r => r.academicYear === academicYear);
-  if (!yearRecord) throw new Error("Academic year record not found");
+  if (!yearRecord) throw new AppError("Academic year record not found", 404);
 
   const safeConcessions = {
     firstGraduate: normalizeMoney(concessionData?.firstGraduate || 0),

@@ -58,13 +58,25 @@ async function generateLedger(studentDoc,options={}){
   let transportDoc=null;
   if(studentDoc.transport?.isApplicable && studentDoc.transport.transport){
     const transportId=studentDoc.transport.transport?._id || studentDoc.transport.transport;
-    if(studentDoc.transport.transport?.fee!==undefined){
+    // Use embedded data from student document (no populate needed)
+    if(studentDoc.transport.fee!==undefined){
       transportDoc={
         _id:transportId,
+        route:studentDoc.transport.route,
+        busNo:studentDoc.transport.busNo,
+        stop:studentDoc.transport.stop,
+        fee:studentDoc.transport.fee
+      };
+    }else if(studentDoc.transport.transport?.fee!==undefined){
+      transportDoc={
+        _id:transportId,
+        route:studentDoc.transport.transport.route,
+        busNo:studentDoc.transport.transport.busNo,
+        stop:studentDoc.transport.transport.stop,
         fee:studentDoc.transport.transport.fee
       };
     }else{
-      const query=Transport.findById(transportId).select("_id fee");
+      const query=Transport.findById(transportId).select("_id route busNo stop fee");
       if(session) query.session(session);
       transportDoc=await query;
 
@@ -77,7 +89,16 @@ async function generateLedger(studentDoc,options={}){
   let hostelDoc=null;
   if(studentDoc.hostel?.isApplicable && studentDoc.hostel.hostel){
     const hostelId=studentDoc.hostel.hostel?._id || studentDoc.hostel.hostel;
-    if(studentDoc.hostel.hostel?.fee!==undefined){
+    // Use embedded data from student document (no populate needed)
+    if(studentDoc.hostel.fee!==undefined){
+      hostelDoc={
+        _id:hostelId,
+        block:studentDoc.hostel.block,
+        sharing:studentDoc.hostel.sharing,
+        isAttached:studentDoc.hostel.isAttached,
+        fee:studentDoc.hostel.fee
+      };
+    }else if(studentDoc.hostel.hostel?.fee!==undefined){
       hostelDoc={
         _id:hostelId,
         fee:studentDoc.hostel.hostel.fee,
@@ -206,6 +227,10 @@ async function generateLedger(studentDoc,options={}){
 
         transportLedger={
           transport:transportDoc._id,
+          route:transportDoc.route,
+          busNo:transportDoc.busNo,
+          stop:transportDoc.stop,
+          fee:transportDoc.fee,
           subTotal,
           transportSpecialConcession:special,
           total:{total:normalizeMoney(Math.max(0,subTotal-special))}
@@ -226,6 +251,10 @@ async function generateLedger(studentDoc,options={}){
 
         hostelLedger={
           hostel:hostelDoc._id,
+          block:hostelDoc.block,
+          sharing:hostelDoc.sharing,
+          isAttached:hostelDoc.isAttached,
+          fee:hostelDoc.fee,
           subTotal,
           hostelSpecialConcession:special,
           total:{total:normalizeMoney(Math.max(0,subTotal-special))}

@@ -1,4 +1,13 @@
+const mongoose = require("mongoose");
 const { Transport } = require("../transport/model.transport");
+const StudentFeeTracking = require("../studentFeeTracking/model.studentFeeTracking");
+const AppError = require("../../utils/AppError");
+
+const normalizeMoney = (value) => {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0) return 0;
+  return Math.round(number * 100) / 100;
+};
 
 /**
  * API 1 - Get full transport mapping
@@ -110,9 +119,97 @@ const getFees = async (filters) => {
   return transports;
 };
 
+/**
+ * Add a single transport record
+ */
+const addTransport = async (data) => {
+  const existing = await Transport.findOne({ route: data.route, busNo: data.busNo, stop: data.stop });
+  if (existing) throw new AppError(`Transport record already exists for route: ${data.route}, busNo: ${data.busNo}, stop: ${data.stop}`, 409);
+  return await Transport.create(data);
+};
+
+/**
+ * Bulk add transport records
+ */
+const bulkAddTransport = async (records) => {
+  const created = [];
+  const failed = [];
+
+  for (let i = 0; i < records.length; i++) {
+    try {
+      const existing = await Transport.findOne({ route: records[i].route, busNo: records[i].busNo, stop: records[i].stop });
+      if (existing) throw new AppError('Duplicate: record already exists', 409);
+      const doc = await Transport.create(records[i]);
+      created.push({ index: i, id: doc._id, route: doc.route, busNo: doc.busNo, stop: doc.stop });
+    } catch (err) {
+      failed.push({ index: i, route: records[i].route, busNo: records[i].busNo, stop: records[i].stop, reason: err.message });
+    }
+  }
+
+  return { created, failed };
+};
+
+/**
+ * Propagate transport fee change to all student tracking records
+ */
+const propagateTransportFeeUpdate = async (transportId, newFee) => {
+  const objectId = new mongoose.Types.ObjectId(transportId);
+  const trackingRecords = await StudentFeeTracking.find({
+    "academicYearWiseRecord.transport.transport": objectId
+  });
+
+  let updatedCount = 0;
+  for (const tracking of trackingRecords) {
+    let modified = false;
+    for (const yearRecord of tracking.academicYearWiseRecord) {
+      if (yearRecord.transport &&
+          yearRecord.transport.transport &&
+          yearRecord.transport.transport.toString() === transportId.toString()) {
+        yearRecord.transport.subTotal = normalizeMoney(newFee);
+        modified = true;
+      }
+    }
+    if (modified) {
+      tracking.markModified("academicYearWiseRecord");
+      await tracking.save();
+      updatedCount++;
+    }
+  }
+  return updatedCount;
+};
+
+/**
+ * Update a transport record by ID and propagate fee changes to tracking
+ */
+const updateTransport = async (id, data) => {
+  const existing = await Transport.findById(id);
+  if (!existing) throw new AppError('Transport record not found', 404);
+
+  const oldFee = existing.fee;
+  const updateFields = {};
+  if (data.route !== undefined) updateFields.route = data.route;
+  if (data.busNo !== undefined) updateFields.busNo = data.busNo;
+  if (data.stop !== undefined) updateFields.stop = data.stop;
+  if (data.fee !== undefined) updateFields.fee = data.fee;
+
+  const updated = await Transport.findByIdAndUpdate(id, updateFields, { new: true, runValidators: true });
+  if (!updated) throw new AppError('Transport record not found', 404);
+
+  // Propagate fee change to student tracking if fee changed
+  let trackingUpdated = 0;
+  if (data.fee !== undefined && data.fee !== oldFee) {
+    trackingUpdated = await propagateTransportFeeUpdate(id, data.fee);
+  }
+
+  return { transport: updated, trackingRecordsUpdated: trackingUpdated };
+};
+
 module.exports = {
   getFullMapping,
   getStops,
   getBuses,
-  getFees
+  getFees,
+  addTransport,
+  bulkAddTransport,
+  updateTransport
 };

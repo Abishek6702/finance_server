@@ -8,6 +8,8 @@ router.use(protect, admin);
 
 router.post("/pay", validatePayment, controller.recordPayment);
 router.get("/recent", controller.getRecentPayments);
+router.get("/reports/datewise", controller.getDatewiseReport);
+router.get("/reports/student/:rollNo", controller.getStudentReport);
 router.get("/:rollNo", controller.getStudentTransactions);
 
 module.exports = router;

@@ -1,11 +1,18 @@
 const FeeStructureMaster = require("../feeStructure/model.feeStructureMaster");
- 
+const StudentFeeTracking = require("../studentFeeTracking/model.studentFeeTracking");
+const Student = require("../students/model.student");
+const AppError = require("../../utils/AppError");
+
+const normalizeMoney = (value) => {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0) return 0;
+  return Math.round(number * 100) / 100;
+};
+
 const createFeeStructure = async (data) => {
   const existing = await FeeStructureMaster.findOne({ academicYear: data.academicYear });
-  if (existing) throw new Error("Fee structure for this academic year already exists");
+  if (existing) throw new AppError("Fee structure for this academic year already exists", 409);
   const feeStructure = await FeeStructureMaster.create(data);
-  
- 
   return feeStructure;
 };
 
@@ -15,19 +22,107 @@ const getFeeStructures = async () => {
 
 const getFeeStructureByYear = async (academicYear) => {
   const feeStructure = await FeeStructureMaster.findOne({ academicYear });
-  if (!feeStructure) throw new Error("Fee structure not found");
+  if (!feeStructure) throw new AppError("Fee structure not found", 404);
   return feeStructure;
+};
+
+/**
+ * Propagate fee structure changes to all student tracking records for the given academic year.
+ * Updates individual fee component totals (tuition, exam, erp, book, lab) while preserving paid amounts.
+ * The pre-save hook on StudentFeeTracking handles cascading total recalculations and status updates.
+ */
+const propagateFeeStructureUpdate = async (academicYear, updatedFeeStructure) => {
+  const trackingRecords = await StudentFeeTracking.find({
+    "academicYearWiseRecord.academicYear": academicYear
+  });
+
+  let updatedCount = 0;
+
+  for (const tracking of trackingRecords) {
+    const student = await Student.findById(tracking.student);
+    if (!student) continue;
+
+    const yearRecord = tracking.academicYearWiseRecord.find(r => r.academicYear === academicYear);
+    if (!yearRecord || !yearRecord.academic) continue;
+
+    // Find matching academic structure for this student
+    const academicStruct = updatedFeeStructure.academicStructures?.find(a =>
+      a.quota === student.enrollment?.quota &&
+      a.educationType === student.academic?.educationType &&
+      a.degreeProgram === student.academic?.degreeProgram &&
+      a.isActive
+    );
+
+    if (!academicStruct) continue;
+
+    const dept = academicStruct.departments?.find(d =>
+      d.departmentName === student.academic?.departmentName && d.isActive
+    );
+    if (!dept) continue;
+
+    // Calculate which semesters map to this academic year
+    const batchStart = parseInt(student.academic.batch.split("-")[0], 10);
+    const yearStart = parseInt(academicYear.split("-")[0], 10);
+    const studyYear = yearStart - batchStart + 1;
+    const oddSemNo = studyYear * 2 - 1;
+    const evenSemNo = studyYear * 2;
+
+    const specialTuitionConcession = normalizeMoney(student.enrollment?.specialConcession?.tuition || 0);
+
+    // Update odd semester fees
+    const oddSemFee = dept.semesters?.find(s => s.isActive && s.semesterNumber === oddSemNo);
+    if (yearRecord.academic.odd && oddSemFee) {
+      yearRecord.academic.odd.tuition.total = normalizeMoney(oddSemFee.tuition?.fee || 0);
+      yearRecord.academic.odd.exam.total = normalizeMoney(oddSemFee.exam?.fee || 0);
+      yearRecord.academic.odd.erp.total = normalizeMoney(oddSemFee.erp?.fee || 0);
+      yearRecord.academic.odd.book.total = normalizeMoney(oddSemFee.book?.fee || 0);
+      yearRecord.academic.odd.lab.total = normalizeMoney(oddSemFee.lab?.fee || 0);
+
+      const newSubTotal = normalizeMoney(
+        (oddSemFee.tuition?.fee || 0) + (oddSemFee.exam?.fee || 0) +
+        (oddSemFee.erp?.fee || 0) + (oddSemFee.book?.fee || 0) + (oddSemFee.lab?.fee || 0)
+      );
+      yearRecord.academic.odd.total.total = normalizeMoney(Math.max(0, newSubTotal - specialTuitionConcession));
+    }
+
+    // Update even semester fees
+    const evenSemFee = dept.semesters?.find(s => s.isActive && s.semesterNumber === evenSemNo);
+    if (yearRecord.academic.even && evenSemFee) {
+      yearRecord.academic.even.tuition.total = normalizeMoney(evenSemFee.tuition?.fee || 0);
+      yearRecord.academic.even.exam.total = normalizeMoney(evenSemFee.exam?.fee || 0);
+      yearRecord.academic.even.erp.total = normalizeMoney(evenSemFee.erp?.fee || 0);
+      yearRecord.academic.even.book.total = normalizeMoney(evenSemFee.book?.fee || 0);
+      yearRecord.academic.even.lab.total = normalizeMoney(evenSemFee.lab?.fee || 0);
+
+      const newSubTotal = normalizeMoney(
+        (evenSemFee.tuition?.fee || 0) + (evenSemFee.exam?.fee || 0) +
+        (evenSemFee.erp?.fee || 0) + (evenSemFee.book?.fee || 0) + (evenSemFee.lab?.fee || 0)
+      );
+      yearRecord.academic.even.total.total = normalizeMoney(Math.max(0, newSubTotal - specialTuitionConcession));
+    }
+
+    // Pre-save hook handles: academic.subTotal, academic.total.total, year total, all statuses
+    tracking.markModified("academicYearWiseRecord");
+    await tracking.save();
+    updatedCount++;
+  }
+
+  return updatedCount;
 };
 
 const updateFeeStructure = async (academicYear, data) => {
   const updated = await FeeStructureMaster.findOneAndUpdate({ academicYear }, data, { new: true, runValidators: true });
-  if (!updated) throw new Error("Fee structure not found"); 
-  return updated;
+  if (!updated) throw new AppError("Fee structure not found", 404);
+
+  // Propagate fee changes to all student tracking records for this academic year
+  const trackingUpdated = await propagateFeeStructureUpdate(academicYear, updated);
+  
+  return { feeStructure: updated, trackingRecordsUpdated: trackingUpdated };
 };
 
 const deleteFeeStructure = async (academicYear) => {
   const deleted = await FeeStructureMaster.findOneAndDelete({ academicYear });
-  if (!deleted) throw new Error("Fee structure not found");
+  if (!deleted) throw new AppError("Fee structure not found", 404);
   return deleted;
 };
 

@@ -3,15 +3,16 @@ const User = require("../auth/model.user.js");
 const ActivityLog = require("../../models/ActivityLog.js");
 const sendMail = require("../../utils/sendMail");
 const generateToken = require("../../utils/generateToken.js");
+const AppError = require("../../utils/AppError");
  
 exports.login = async (credentials, reqInfo) => {
   const { email, password } = credentials;
   if (!email || !password) {
-    throw new Error("Email and password are required");
+    throw new AppError("Email and password are required", 400);
   }
 
   const user = await User.findOne({ email });
-  if (!user) throw new Error("User not found");
+  if (!user) throw new AppError("User not found", 404);
 
   const isPasswordValid = await bcrypt.compare(password, user.password);
    
@@ -22,7 +23,7 @@ exports.login = async (credentials, reqInfo) => {
 
   if (!isPasswordValid) {
     await log("FAILED", "LOGIN FAILED - wrong password");
-    throw new Error("Invalid password");
+    throw new AppError("Invalid password", 401);
   }
 
   await log("SUCCESS", "LOGIN SUCCESS");

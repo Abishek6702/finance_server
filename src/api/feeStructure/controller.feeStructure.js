@@ -1,50 +1,34 @@
 const feeStructureService = require("./service.feeStructure");
+const asyncHandler = require("../../utils/asyncHandler");
 
-const createFeeStructure = async (req, res) => {
-  try {
-    const feeStructure = await feeStructureService.createFeeStructure(req.body);
-    res.status(201).json({ success: true, data: feeStructure });
-  } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
-  }
-};
+const createFeeStructure = asyncHandler(async (req, res) => {
+  const data = await feeStructureService.createFeeStructure(req.body);
+  res.status(201).json({ success: true, data, message: "Fee structure created successfully" });
+});
 
-const getFeeStructures = async (req, res) => {
-  try {
-    const feeStructures = await feeStructureService.getFeeStructures();
-    res.status(200).json({ success: true, data: feeStructures });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+const getFeeStructures = asyncHandler(async (req, res) => {
+  const data = await feeStructureService.getFeeStructures();
+  res.status(200).json({ success: true, data, message: "Fee structures fetched successfully" });
+});
 
-const getFeeStructureByYear = async (req, res) => {
-  try {
-    const feeStructure = await feeStructureService.getFeeStructureByYear(req.params.academicYear);
-    res.status(200).json({ success: true, data: feeStructure });
-  } catch (error) {
-    res.status(404).json({ success: false, message: error.message });
-  }
-};
+const getFeeStructureByYear = asyncHandler(async (req, res) => {
+  const data = await feeStructureService.getFeeStructureByYear(req.params.academicYear);
+  res.status(200).json({ success: true, data, message: "Fee structure fetched successfully" });
+});
 
-const updateFeeStructure = async (req, res) => {
-  try {
-    const feeStructure = await feeStructureService.updateFeeStructure(req.params.academicYear, req.body);
-    res.status(200).json({ success: true, data: feeStructure });
-  } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
-  }
-};
+const updateFeeStructure = asyncHandler(async (req, res) => {
+  const result = await feeStructureService.updateFeeStructure(req.params.academicYear, req.body);
+  res.status(200).json({
+    success: true,
+    data: { feeStructure: result.feeStructure, trackingRecordsUpdated: result.trackingRecordsUpdated },
+    message: "Fee structure updated successfully"
+  });
+});
 
-const deleteFeeStructure = async (req, res) => {
-  try {
-    await feeStructureService.deleteFeeStructure(req.params.academicYear);
-    res.status(200).json({ success: true, message: "Fee structure deleted successfully" });
-  } catch (error) {
-    res.status(404).json({ success: false, message: error.message });
-  }
-};
-
+const deleteFeeStructure = asyncHandler(async (req, res) => {
+  await feeStructureService.deleteFeeStructure(req.params.academicYear);
+  res.status(200).json({ success: true, data: null, message: "Fee structure deleted successfully" });
+});
 
 module.exports = {
   createFeeStructure,

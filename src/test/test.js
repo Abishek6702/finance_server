@@ -23,6 +23,9 @@ const testCtx = {
   studentRollCrud: `12CS${TS.slice(-3)}`,
   studentRollFinance: `13CS${TS.slice(-3)}`,
   studentRollHostel: `16CS${TS.slice(-3)}`,
+  bulkRollA: `17CS${TS.slice(-3)}`,
+  bulkRollB: `18CS${TS.slice(-3)}`,
+  bulkRollC: `19CS${TS.slice(-3)}`,
   receiptOne: `REC${TS.slice(-6)}A`,
   receiptTwo: `REC${TS.slice(-6)}B`,
 };
@@ -168,9 +171,10 @@ describe("QPulse API integration (full coverage)", () => {
   });
 
   afterAll(async () => {
-    await StudentTransaction.deleteMany({ rollNo: { $in: [testCtx.studentRollCrud, testCtx.studentRollFinance, testCtx.studentRollHostel] } });
-    await StudentFeeTracking.deleteMany({ rollNo: { $in: [testCtx.studentRollCrud, testCtx.studentRollFinance, testCtx.studentRollHostel] } });
-    await Student.deleteMany({ "personal.rollNo": { $in: [testCtx.studentRollCrud, testCtx.studentRollFinance, testCtx.studentRollHostel] } });
+    const allRolls = [testCtx.studentRollCrud, testCtx.studentRollFinance, testCtx.studentRollHostel, testCtx.bulkRollA, testCtx.bulkRollB, testCtx.bulkRollC];
+    await StudentTransaction.deleteMany({ rollNo: { $in: allRolls } });
+    await StudentFeeTracking.deleteMany({ rollNo: { $in: allRolls } });
+    await Student.deleteMany({ "personal.rollNo": { $in: allRolls } });
     await FeeStructureMaster.deleteMany({
       academicYear: { $in: [testCtx.academicYearPrimary, testCtx.academicYearSecondary] },
     });
@@ -538,6 +542,344 @@ describe("QPulse API integration (full coverage)", () => {
       const trackingDoc = await StudentFeeTracking.findOne({ rollNo: testCtx.studentRollCrud });
       expect(studentDoc).toBeNull();
       expect(trackingDoc).toBeNull();
+    });
+  });
+
+  /* =====================================================
+     BULK IMPORT / UPDATE  (CSV & XLSX)
+  ===================================================== */
+  describe("Students Bulk Import / Update API", () => {
+    const xlsx = require("xlsx");
+    const path = require("path");
+
+    /**
+     * Helper: build a CSV buffer from an array of flat row objects.
+     * Column order follows the data.csv header convention.
+     */
+    const CSV_HEADERS = [
+      "rollNo","studentName","gender","dob","bloodGroup","aadharNo","emisNo",
+      "religion","community","casteName","nationality","studentPhoto",
+      "educationType","academicType","isLateralEntry","departmentName",
+      "degreeProgram","yearStudying","currentSemesterNumber","section",
+      "batch","currentAcademicYear",
+      "selfMobileNo","selfEmail","officialEmail",
+      "fatherName","fatherMobile","fatherWorkType","fatherQualification",
+      "motherName","motherMobile","motherWorkType","motherQualification",
+      "guardianName","guardianMobile",
+      "familyIncomeAsPerCertificate","communityCertificateNo",
+      "permDoorNo","permStreet","permTaluk","permDistrict","permState","permPincode",
+      "commDoorNo","commStreet","commTaluk","commDistrict","commState","commPincode",
+      "quota",
+      "firstGraduateApplicable","firstGraduateConcession",
+      "scheme7point5Applicable","scheme7point5Concession",
+      "pmssApplicable","pmssConcession",
+      "sakthiApplicable","sakthiConcession",
+      "specialApplicable","specialTransport","specialHostel","specialTuition",
+      "transportApplicable","transportRoute","transportStop",
+      "hostelApplicable","hostelBlock","hostelSharing","hostelAttached",
+    ];
+
+    const buildFlatRow = (rollNo, overrides = {}) => ({
+      rollNo,
+      studentName: `Bulk ${rollNo}`,
+      gender: "Male",
+      dob: "15-06-2005",
+      bloodGroup: "A+",
+      aadharNo: "123456789012",
+      emisNo: `EMIS${rollNo}`,
+      religion: "Hindu",
+      community: "BC",
+      casteName: "TestCaste",
+      nationality: "Indian",
+      studentPhoto: "photo.jpg",
+      educationType: "UG",
+      academicType: "REG",
+      isLateralEntry: "FALSE",
+      departmentName: "CSE",
+      degreeProgram: "BE",
+      yearStudying: 1,
+      currentSemesterNumber: 1,
+      section: "A",
+      batch: testCtx.academicYearPrimary,
+      currentAcademicYear: testCtx.academicYearPrimary,
+      selfMobileNo: "9876543210",
+      selfEmail: `${rollNo.toLowerCase()}@gmail.com`,
+      officialEmail: `${rollNo.toLowerCase()}@sece.ac.in`,
+      fatherName: "Father",
+      fatherMobile: "9876500001",
+      fatherWorkType: "Farmer",
+      fatherQualification: "10th",
+      motherName: "Mother",
+      motherMobile: "9876500002",
+      motherWorkType: "Homemaker",
+      motherQualification: "12th",
+      guardianName: "",
+      guardianMobile: "",
+      familyIncomeAsPerCertificate: 150000,
+      communityCertificateNo: `CC${rollNo}`,
+      permDoorNo: "12",
+      permStreet: "Main St",
+      permTaluk: "Erode",
+      permDistrict: "Erode",
+      permState: "Tamil Nadu",
+      permPincode: "638001",
+      commDoorNo: "12",
+      commStreet: "Main St",
+      commTaluk: "Erode",
+      commDistrict: "Erode",
+      commState: "Tamil Nadu",
+      commPincode: "638001",
+      quota: "Government Quota",
+      firstGraduateApplicable: "FALSE",
+      firstGraduateConcession: 0,
+      scheme7point5Applicable: "FALSE",
+      scheme7point5Concession: 0,
+      pmssApplicable: "FALSE",
+      pmssConcession: 0,
+      sakthiApplicable: "FALSE",
+      sakthiConcession: 0,
+      specialApplicable: "FALSE",
+      specialTransport: 0,
+      specialHostel: 0,
+      specialTuition: 0,
+      transportApplicable: "FALSE",
+      transportRoute: "",
+      transportStop: "",
+      hostelApplicable: "FALSE",
+      hostelBlock: "",
+      hostelSharing: "",
+      hostelAttached: "",
+      ...overrides,
+    });
+
+    /** Convert flat row objects into a CSV Buffer */
+    const toCSVBuffer = (rows) => {
+      const lines = [CSV_HEADERS.join(",")];
+      rows.forEach((row) => {
+        const cells = CSV_HEADERS.map((h) => {
+          const val = row[h] ?? "";
+          const str = String(val);
+          return str.includes(",") ? `"${str}"` : str;
+        });
+        lines.push(cells.join(","));
+      });
+      return Buffer.from(lines.join("\n"), "utf-8");
+    };
+
+    /** Convert flat row objects into an XLSX Buffer */
+    const toXLSXBuffer = (rows) => {
+      const aoa = [CSV_HEADERS];
+      rows.forEach((row) => aoa.push(CSV_HEADERS.map((h) => row[h] ?? "")));
+      const ws = xlsx.utils.aoa_to_sheet(aoa);
+      const wb = xlsx.utils.book_new();
+      xlsx.utils.book_append_sheet(wb, ws, "Students");
+      return xlsx.write(wb, { type: "buffer", bookType: "xlsx" });
+    };
+
+    /* ----------  BULK CREATE  ---------- */
+
+    it("rejects bulk create without file", async () => {
+      const res = await request(app)
+        .post("/api/studentsManagement/bulk")
+        .set("Authorization", `Bearer ${testCtx.superadminToken}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/no file/i);
+    });
+
+    it("rejects empty CSV file", async () => {
+      const emptyCSV = Buffer.from(CSV_HEADERS.join(",") + "\n");
+      const res = await request(app)
+        .post("/api/studentsManagement/bulk")
+        .set("Authorization", `Bearer ${testCtx.superadminToken}`)
+        .attach("file", emptyCSV, "empty.csv");
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/empty|no data/i);
+    });
+
+    it("rejects bulk create for admin role", async () => {
+      const csvBuf = toCSVBuffer([buildFlatRow(testCtx.bulkRollA)]);
+      const res = await request(app)
+        .post("/api/studentsManagement/bulk")
+        .set("Authorization", `Bearer ${testCtx.adminToken}`)
+        .attach("file", csvBuf, "students.csv");
+
+      expect(res.status).toBe(401);
+    });
+
+    it("bulk creates students from CSV (2 valid rows)", async () => {
+      const csvBuf = toCSVBuffer([
+        buildFlatRow(testCtx.bulkRollA),
+        buildFlatRow(testCtx.bulkRollB),
+      ]);
+
+      const res = await request(app)
+        .post("/api/studentsManagement/bulk")
+        .set("Authorization", `Bearer ${testCtx.superadminToken}`)
+        .attach("file", csvBuf, "students.csv");
+
+      expect(res.status).toBe(201);
+      expect(res.body.summary.total).toBe(2);
+      expect(res.body.summary.created).toBe(2);
+      expect(res.body.summary.failed).toBe(0);
+      expect(res.body.created).toHaveLength(2);
+
+      // Verify students exist in DB
+      const studentA = await Student.findOne({ "personal.rollNo": testCtx.bulkRollA });
+      const studentB = await Student.findOne({ "personal.rollNo": testCtx.bulkRollB });
+      expect(studentA).toBeTruthy();
+      expect(studentB).toBeTruthy();
+
+      // Verify fee tracking was generated
+      const trackingA = await StudentFeeTracking.findOne({ rollNo: testCtx.bulkRollA });
+      expect(trackingA).toBeTruthy();
+    });
+
+    it("bulk create from XLSX with 1 valid + 1 duplicate → 207 multi-status", async () => {
+      const xlsxBuf = toXLSXBuffer([
+        buildFlatRow(testCtx.bulkRollC),        // new  → should succeed
+        buildFlatRow(testCtx.bulkRollA),         // already exists → should fail
+      ]);
+
+      const res = await request(app)
+        .post("/api/studentsManagement/bulk")
+        .set("Authorization", `Bearer ${testCtx.superadminToken}`)
+        .attach("file", xlsxBuf, "students.xlsx");
+
+      expect(res.status).toBe(207);
+      expect(res.body.summary.created).toBe(1);
+      expect(res.body.summary.failed).toBe(1);
+      expect(res.body.failed[0].rollNo).toBe(testCtx.bulkRollA);
+      expect(res.body.failed[0].reason).toMatch(/already exists/i);
+    });
+
+    it("handles CSV with null / missing columns gracefully", async () => {
+      // Build a CSV with only a few columns (many fields will be null)
+      const minimalHeaders = ["rollNo", "degreeProgram", "batch", "currentAcademicYear"];
+      const line = [`20CS${TS.slice(-3)}`, "BE", testCtx.academicYearPrimary, testCtx.academicYearPrimary].join(",");
+      const csvBuf = Buffer.from(minimalHeaders.join(",") + "\n" + line, "utf-8");
+
+      const res = await request(app)
+        .post("/api/studentsManagement/bulk")
+        .set("Authorization", `Bearer ${testCtx.superadminToken}`)
+        .attach("file", csvBuf, "minimal.csv");
+
+      // Should attempt creation — may succeed or fail depending on model validations,
+      // but must NOT crash (500). Expect 201 or 207.
+      expect([201, 207]).toContain(res.status);
+      expect(res.body.summary).toBeDefined();
+
+      // Cleanup this one-off student if it was created
+      await StudentFeeTracking.deleteMany({ rollNo: `20CS${TS.slice(-3)}` });
+      await Student.deleteMany({ "personal.rollNo": `20CS${TS.slice(-3)}` });
+    });
+
+    it("handles CSV with misaligned / extra columns", async () => {
+      const header = "extraCol,rollNo,unknownField,degreeProgram,batch,currentAcademicYear,anotherExtra";
+      const row = `foo,21CS${TS.slice(-3)},bar,BE,${testCtx.academicYearPrimary},${testCtx.academicYearPrimary},baz`;
+      const csvBuf = Buffer.from(header + "\n" + row, "utf-8");
+
+      const res = await request(app)
+        .post("/api/studentsManagement/bulk")
+        .set("Authorization", `Bearer ${testCtx.superadminToken}`)
+        .attach("file", csvBuf, "misaligned.csv");
+
+      expect([201, 207]).toContain(res.status);
+      expect(res.body.summary).toBeDefined();
+
+      // Cleanup
+      await StudentFeeTracking.deleteMany({ rollNo: `21CS${TS.slice(-3)}` });
+      await Student.deleteMany({ "personal.rollNo": `21CS${TS.slice(-3)}` });
+    });
+
+    /* ----------  BULK UPDATE  ---------- */
+
+    it("rejects bulk update without file", async () => {
+      const res = await request(app)
+        .put("/api/studentsManagement/bulk")
+        .set("Authorization", `Bearer ${testCtx.superadminToken}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/no file/i);
+    });
+
+    it("rejects bulk update for admin role", async () => {
+      const csvBuf = toCSVBuffer([buildFlatRow(testCtx.bulkRollA, { studentName: "Updated" })]);
+      const res = await request(app)
+        .put("/api/studentsManagement/bulk")
+        .set("Authorization", `Bearer ${testCtx.adminToken}`)
+        .attach("file", csvBuf, "update.csv");
+
+      expect(res.status).toBe(401);
+    });
+
+    it("bulk updates students from CSV", async () => {
+      const csvBuf = toCSVBuffer([
+        buildFlatRow(testCtx.bulkRollA, { studentName: "Updated A" }),
+        buildFlatRow(testCtx.bulkRollB, { studentName: "Updated B" }),
+      ]);
+
+      const res = await request(app)
+        .put("/api/studentsManagement/bulk")
+        .set("Authorization", `Bearer ${testCtx.superadminToken}`)
+        .attach("file", csvBuf, "update.csv");
+
+      expect(res.status).toBe(200);
+      expect(res.body.summary.updated).toBe(2);
+      expect(res.body.summary.failed).toBe(0);
+
+      // Verify the names were actually updated
+      const a = await Student.findOne({ "personal.rollNo": testCtx.bulkRollA });
+      const b = await Student.findOne({ "personal.rollNo": testCtx.bulkRollB });
+      expect(a.personal.studentName).toBe("Updated A");
+      expect(b.personal.studentName).toBe("Updated B");
+    });
+
+    it("bulk update from XLSX with valid + not-found → 207", async () => {
+      const xlsxBuf = toXLSXBuffer([
+        buildFlatRow(testCtx.bulkRollC, { studentName: "Updated C" }),
+        buildFlatRow("99CS999", { studentName: "Ghost" }),       // does not exist
+      ]);
+
+      const res = await request(app)
+        .put("/api/studentsManagement/bulk")
+        .set("Authorization", `Bearer ${testCtx.superadminToken}`)
+        .attach("file", xlsxBuf, "update.xlsx");
+
+      expect(res.status).toBe(207);
+      expect(res.body.summary.updated).toBe(1);
+      expect(res.body.summary.failed).toBe(1);
+      expect(res.body.failed[0].rollNo).toBe("99CS999");
+      expect(res.body.failed[0].reason).toMatch(/not found/i);
+    });
+
+    it("bulk update handles rows missing rollNo", async () => {
+      // CSV with rollNo column but empty value → should report error, not crash
+      const rows = [
+        buildFlatRow("", { studentName: "No Roll" }),
+      ];
+      const csvBuf = toCSVBuffer(rows);
+
+      const res = await request(app)
+        .put("/api/studentsManagement/bulk")
+        .set("Authorization", `Bearer ${testCtx.superadminToken}`)
+        .attach("file", csvBuf, "noroll.csv");
+
+      expect(res.status).toBe(207);
+      expect(res.body.summary.failed).toBe(1);
+      expect(res.body.failed[0].reason).toMatch(/rollNo.*required/i);
+    });
+
+    /* ----------  BULK CLEANUP  ---------- */
+
+    it("deletes bulk-created students", async () => {
+      for (const rollNo of [testCtx.bulkRollA, testCtx.bulkRollB, testCtx.bulkRollC]) {
+        const res = await request(app)
+          .delete(`/api/studentsManagement/${rollNo}`)
+          .set("Authorization", `Bearer ${testCtx.superadminToken}`);
+        expect(res.status).toBe(200);
+      }
     });
   });
 

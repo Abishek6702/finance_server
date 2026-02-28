@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const controller = require("./controller.hostel");
 const validation = require("./validation.hostel");
+const { protect, admin } = require("../../middleware/authMiddleware");
 
 /**
  * API 1 - GET /api/hostel
@@ -26,5 +27,20 @@ router.post('/roomTypes', validation.validateGetRoomTypes, controller.getRoomTyp
  * Returns fees
  */
 router.post('/fees', validation.validateGetFees, controller.getFees);
+
+/**
+ * API 5 - POST /api/hostel/add (protected)
+ */
+router.post('/add', protect, admin, validation.validateAddHostel, controller.addHostel);
+
+/**
+ * API 6 - POST /api/hostel/bulk (protected)
+ */
+router.post('/bulk', protect, admin, validation.validateBulkAddHostel, controller.bulkAddHostel);
+
+/**
+ * API 7 - PUT /api/hostel/:id (protected, propagates fee changes)
+ */
+router.put('/:id', protect, admin, validation.validateUpdateHostel, controller.updateHostel);
 
 module.exports = router;

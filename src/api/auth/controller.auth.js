@@ -1,36 +1,22 @@
 const authService = require("./service.auth");
- 
-exports.login = async (req, res) => {
-  try {
-    const reqInfo = { url: req.originalUrl, method: req.method };
-    const data = await authService.login(req.body, reqInfo);
-    
-    res.cookie("token", data.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 30 * 24 * 60 * 60 * 1000  
-    });
-    
-    res.json(data);
-  } catch (err) {
-    const code = err.message === "User not found"
-      ? 404
-      : err.message === "Invalid password"
-        ? 401
-        : err.message === "Email and password are required"
-          ? 400
-          : 500;
-    res.status(code).json({ message: err.message });
-   }
-};
+const asyncHandler = require("../../utils/asyncHandler");
 
-exports.logout = async (req, res) => {
-  try {
-    const result = await authService.logout(req.user.id);
-    res.clearCookie("token");
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
+exports.login = asyncHandler(async (req, res) => {
+  const reqInfo = { url: req.originalUrl, method: req.method };
+  const data = await authService.login(req.body, reqInfo);
+  
+  res.cookie("token", data.token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: 30 * 24 * 60 * 60 * 1000  
+  });
+  
+  res.status(200).json({ success: true, data, message: "Login successful" });
+});
+
+exports.logout = asyncHandler(async (req, res) => {
+  await authService.logout(req.user.id);
+  res.clearCookie("token");
+  res.status(200).json({ success: true, data: null, message: "Logged out successfully" });
+});

@@ -1,104 +1,68 @@
 const transportService = require("./service.transport");
+const asyncHandler = require("../../utils/asyncHandler");
 
-/**
- * API 1 - GET /api/transport
- * Returns full transport mapping grouped by route & busNo
- */
-const getFullMapping = async (req, res) => {
-  try {
-    const data = await transportService.getFullMapping();
+const getFullMapping = asyncHandler(async (req, res) => {
+  const data = await transportService.getFullMapping();
+  res.status(200).json({ success: true, data, message: "Transport mapping fetched successfully" });
+});
 
-    res.status(200).json({
-      success: true,
-      data
-    });
-  } catch (error) {
-    console.error('Error in getFullMapping:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch transport mapping'
-    });
-  }
-};
+const getStops = asyncHandler(async (req, res) => {
+  const filters = { route: req.body.route, busNo: req.body.busNo };
+  const data = await transportService.getStops(filters);
+  res.status(200).json({ success: true, data, message: "Stops fetched successfully" });
+});
 
-/**
- * API 2 - POST /api/transport/stops
- * Returns stops filtered by route and/or busNo
- */
-const getStops = async (req, res) => {
-  try {
-    const filters = {
-      route: req.body.route,
-      busNo: req.body.busNo
-    };
+const getBuses = asyncHandler(async (req, res) => {
+  const data = await transportService.getBuses(req.body.stop);
+  res.status(200).json({ success: true, data, message: "Buses fetched successfully" });
+});
 
-    const data = await transportService.getStops(filters);
+const getFees = asyncHandler(async (req, res) => {
+  const filters = { busNo: req.body.busNo, stop: req.body.stop };
+  const data = await transportService.getFees(filters);
+  res.status(200).json({ success: true, data, message: "Fees fetched successfully" });
+});
 
-    res.status(200).json({
-      success: true,
-      data
-    });
-  } catch (error) {
-    console.error('Error in getStops:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch stops'
-    });
-  }
-};
+const addTransport = asyncHandler(async (req, res) => {
+  const data = await transportService.addTransport(req.body);
+  res.status(201).json({ success: true, data, message: "Transport record added successfully" });
+});
 
-/**
- * API 3 - POST /api/transport/buses
- * Returns buses that stop at a specific location
- */
-const getBuses = async (req, res) => {
-  try {
-    const { stop } = req.body;
+const bulkAddTransport = asyncHandler(async (req, res) => {
+  const result = await transportService.bulkAddTransport(req.body.records);
+  const status = result.failed.length === 0 ? 201 : 207;
+  res.status(status).json({
+    success: true,
+    data: {
+      summary: {
+        total: req.body.records.length,
+        created: result.created.length,
+        failed: result.failed.length
+      },
+      created: result.created,
+      failed: result.failed
+    },
+    message: result.failed.length === 0
+      ? "All transport records created successfully"
+      : `${result.created.length} created, ${result.failed.length} failed`
+  });
+});
 
-    const data = await transportService.getBuses(stop);
-
-    res.status(200).json({
-      success: true,
-      data
-    });
-  } catch (error) {
-    console.error('Error in getBuses:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch buses'
-    });
-  }
-};
-
-/**
- * API 4 - POST /api/transport/fees
- * Returns fees based on busNo, stop, or both
- */
-const getFees = async (req, res) => {
-  try {
-    const filters = {
-      busNo: req.body.busNo,
-      stop: req.body.stop
-    };
-
-    const data = await transportService.getFees(filters);
-
-    res.status(200).json({
-      success: true,
-      data
-    });
-  } catch (error) {
-    console.error('Error in getFees:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch fees'
-    });
-  }
-};
+const updateTransport = asyncHandler(async (req, res) => {
+  const result = await transportService.updateTransport(req.params.id, req.body);
+  res.status(200).json({
+    success: true,
+    data: { transport: result.transport, trackingRecordsUpdated: result.trackingRecordsUpdated },
+    message: "Transport record updated successfully"
+  });
+});
 
 module.exports = {
   getFullMapping,
   getStops,
   getBuses,
-  getFees
+  getFees,
+  addTransport,
+  bulkAddTransport,
+  updateTransport
 };

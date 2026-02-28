@@ -47,6 +47,10 @@ const transportLedgerSchema=new mongoose.Schema({
       type:mongoose.Schema.Types.ObjectId,
       ref:"Transport"
     },
+  route:{type:String,trim:true},
+  busNo:{type:String,trim:true},
+  stop:{type:String,trim:true},
+  fee:{type:Number,min:0},
   subTotal:{type:Number,default:0},
   transportSpecialConcession:{type:Number,default:0},
   total:{type:amountSchema,default:()=>({})}
@@ -57,6 +61,10 @@ const hostelLedgerSchema=new mongoose.Schema({
       type:mongoose.Schema.Types.ObjectId,
       ref:"Hostel"
     },
+  block:{type:String,trim:true,uppercase:true},
+  sharing:{type:Number},
+  isAttached:{type:Boolean},
+  fee:{type:Number,min:0},
   subTotal:{type:Number,default:0},
   hostelSpecialConcession:{type:Number,default:0},
   total:{type:amountSchema,default:()=>({})}

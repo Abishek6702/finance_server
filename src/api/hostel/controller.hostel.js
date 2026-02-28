@@ -1,107 +1,76 @@
 const hostelService = require("./service.hostel");
+const asyncHandler = require("../../utils/asyncHandler");
 
-/**
- * API 1 - GET /api/hostel
- * Returns full hostel mapping
- */
-const getFullMapping = async (req, res) => {
-  try {
-    const data = await hostelService.getFullMapping();
+const getFullMapping = asyncHandler(async (req, res) => {
+  const data = await hostelService.getFullMapping();
+  res.status(200).json({ success: true, data, message: "Hostel mapping fetched successfully" });
+});
 
-    res.status(200).json({
-      success: true,
-      data
-    });
-  } catch (error) {
-    console.error('Error in getFullMapping:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch hostel mapping'
-    });
-  }
-};
+const getBlocks = asyncHandler(async (req, res) => {
+  const filters = {
+    sharing: req.body.sharing,
+    isAttached: req.body.isAttached
+  };
+  const data = await hostelService.getBlocks(filters);
+  res.status(200).json({ success: true, data, message: "Blocks fetched successfully" });
+});
 
-/**
- * API 2 - POST /api/hostel/blocks
- * Returns blocks filtered by specified room types
- */
-const getBlocks = async (req, res) => {
-  try {
-    const filters = {
-      sharing: req.body.sharing,
-      isAttached: req.body.isAttached
-    };
+const getRoomTypes = asyncHandler(async (req, res) => {
+  const filters = { block: req.body.block };
+  const data = await hostelService.getRoomTypes(filters);
+  res.status(200).json({ success: true, data, message: "Room types fetched successfully" });
+});
 
-    const data = await hostelService.getBlocks(filters);
+const getFees = asyncHandler(async (req, res) => {
+  const filters = {
+    block: req.body.block,
+    sharing: req.body.sharing,
+    isAttached: req.body.isAttached
+  };
+  const data = await hostelService.getFees(filters);
+  res.status(200).json({ success: true, data, message: "Fees fetched successfully" });
+});
 
-    res.status(200).json({
-      success: true,
-      data
-    });
-  } catch (error) {
-    console.error('Error in getBlocks:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch blocks'
-    });
-  }
-};
+const addHostel = asyncHandler(async (req, res) => {
+  const data = await hostelService.addHostel(req.body);
+  res.status(201).json({ success: true, data, message: "Hostel record added successfully" });
+});
 
-/**
- * API 3 - POST /api/hostel/roomTypes
- * Returns roomTypes for a block
- */
-const getRoomTypes = async (req, res) => {
-  try {
-    const filters = {
-      block: req.body.block
-    };
+const bulkAddHostel = asyncHandler(async (req, res) => {
+  const result = await hostelService.bulkAddHostel(req.body.records);
+  const status = result.failed.length === 0 ? 201 : 207;
+  res.status(status).json({
+    success: true,
+    data: {
+      summary: {
+        total: req.body.records.length,
+        created: result.created.length,
+        failed: result.failed.length
+      },
+      created: result.created,
+      failed: result.failed
+    },
+    message: result.failed.length === 0
+      ? "All hostel records created successfully"
+      : `${result.created.length} created, ${result.failed.length} failed`
+  });
+});
 
-    const data = await hostelService.getRoomTypes(filters);
-
-    res.status(200).json({
-      success: true,
-      data
-    });
-  } catch (error) {
-    console.error('Error in getRoomTypes:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch room types'
-    });
-  }
-};
-
-/**
- * API 4 - POST /api/hostel/fees
- * Returns fees
- */
-const getFees = async (req, res) => {
-  try {
-    const filters = {
-      block: req.body.block,
-      sharing: req.body.sharing,
-      isAttached: req.body.isAttached
-    };
-
-    const data = await hostelService.getFees(filters);
-
-    res.status(200).json({
-      success: true,
-      data
-    });
-  } catch (error) {
-    console.error('Error in getFees:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch fees'
-    });
-  }
-};
+const updateHostel = asyncHandler(async (req, res) => {
+  const result = await hostelService.updateHostel(req.params.id, req.body);
+  res.status(200).json({
+    success: true,
+    data: { hostel: result.hostel, trackingRecordsUpdated: result.trackingRecordsUpdated },
+    message: "Hostel record updated successfully"
+  });
+});
 
 module.exports = {
   getFullMapping,
   getBlocks,
   getRoomTypes,
-  getFees
+  getFees,
+  addHostel,
+  bulkAddHostel,
+  updateHostel
 };

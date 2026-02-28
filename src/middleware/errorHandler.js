@@ -34,6 +34,7 @@ const errorHandler = (error, req, res, next) => {
 
   res.status(statusCode).json({
     success: false,
+    data: null,
     message
   });
 };

@@ -1,3 +1,5 @@
+const AppError = require("../../utils/AppError");
+
 const MONEY_MAX = 1e12;
 
 const isValidMoney = (value) => {
@@ -13,34 +15,34 @@ const toMoney = (value) => Math.round(value * 100) / 100;
 const validatePayment = (req, res, next) => {
   const { rollNo, receiptNo, paymentType, breakdowns } = req.body;
 
-  if (!rollNo) return res.status(400).json({ success: false, message: "rollNo is required" });
-  if (!receiptNo) return res.status(400).json({ success: false, message: "receiptNo is required" });
+  if (!rollNo) return next(new AppError("rollNo is required", 400));
+  if (!receiptNo) return next(new AppError("receiptNo is required", 400));
 
   const validPaymentTypes = ["Cash", "Card", "UPI", "NetBanking", "Cheque", "DD"];
   if (!paymentType || !validPaymentTypes.includes(paymentType)) {
-    return res.status(400).json({ success: false, message: "Valid paymentType is required" });
+    return next(new AppError("Valid paymentType is required", 400));
   }
 
   if (!breakdowns || !Array.isArray(breakdowns) || breakdowns.length === 0) {
-    return res.status(400).json({ success: false, message: "breakdowns array is required" });
+    return next(new AppError("breakdowns array is required", 400));
   }
 
   const sanitizedBreakdowns = [];
 
   for (const bd of breakdowns) {
     if (!bd || typeof bd !== "object") {
-      return res.status(400).json({ success: false, message: "Each breakdown must be an object" });
+      return next(new AppError("Each breakdown must be an object", 400));
     }
 
     if (!bd.academicYear || !/^\d{4}-\d{4}$/.test(bd.academicYear)) {
-      return res.status(400).json({ success: false, message: "Valid breakdown.academicYear is required" });
+      return next(new AppError("Valid breakdown.academicYear is required", 400));
     }
 
     const cleanAcademic = {};
     if (bd.academic && typeof bd.academic === "object") {
       if (bd.academic.semesterNumber !== undefined) {
         if (!Number.isInteger(bd.academic.semesterNumber) || bd.academic.semesterNumber < 1 || bd.academic.semesterNumber > 8) {
-          return res.status(400).json({ success: false, message: "academic.semesterNumber must be an integer between 1 and 8" });
+          return next(new AppError("academic.semesterNumber must be an integer between 1 and 8", 400));
         }
         cleanAcademic.semesterNumber = bd.academic.semesterNumber;
       }
@@ -49,7 +51,7 @@ const validatePayment = (req, res, next) => {
       for (const field of academicFields) {
         const value = bd.academic[field] === undefined ? 0 : bd.academic[field];
         if (!isValidMoney(value)) {
-          return res.status(400).json({ success: false, message: `academic.${field} must be a non-negative number with up to 2 decimals` });
+          return next(new AppError(`academic.${field} must be a non-negative number with up to 2 decimals`, 400));
         }
         cleanAcademic[field] = toMoney(value);
       }
@@ -59,10 +61,10 @@ const validatePayment = (req, res, next) => {
     const transportValue = bd.transport === undefined ? 0 : bd.transport;
 
     if (!isValidMoney(hostelValue)) {
-      return res.status(400).json({ success: false, message: "hostel must be a non-negative number with up to 2 decimals" });
+      return next(new AppError("hostel must be a non-negative number with up to 2 decimals", 400));
     }
     if (!isValidMoney(transportValue)) {
-      return res.status(400).json({ success: false, message: "transport must be a non-negative number with up to 2 decimals" });
+      return next(new AppError("transport must be a non-negative number with up to 2 decimals", 400));
     }
 
     sanitizedBreakdowns.push({
