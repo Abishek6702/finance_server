@@ -39,7 +39,7 @@ app.use("/assets",express.static("public/assets"));
 app.use(notFoundHandler);
 app.use(errorHandler);
  
-const PORT= 5010;
+const PORT = process.env.PORT || 5010;
 
 const startServer=async()=>{
   if(server) return server;
