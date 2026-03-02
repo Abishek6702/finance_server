@@ -10,6 +10,193 @@ const normalizeMoney = (value) => {
   return Math.round(number * 100) / 100;
 };
 
+const setStatus = (target) => {
+  if (!target) return;
+  if (target.total === 0) target.status = "Paid";
+  else if (target.paid >= target.total) target.status = "Paid";
+  else if (target.paid > 0) target.status = "Partially Paid";
+  else target.status = "Unpaid";
+};
+
+const createReceipt = async (data) => {
+  const { rollNo, receiptNo, paymentType, bankName, bankLocation, remarks, breakdowns } = data;
+
+  const tracking = await StudentFeeTracking.findOne({ rollNo });
+  if (!tracking) throw new AppError("Fee tracking not found for this student", 404);
+
+  /* ===================================================================
+     STEP 1: VALIDATE ALL PAYMENT AMOUNTS BEFORE PROCESSING
+     - No component should exceed its remaining due
+     - Total payment must be > 0
+     - Transaction is created ONLY if all validations pass
+  =================================================================== */
+
+  let grandTotal = 0;
+
+  for (const bd of breakdowns) {
+    const yearRecord = tracking.academicYearWiseRecord.find(r => r.academicYear === bd.academicYear);
+    if (!yearRecord) throw new AppError(`Academic year ${bd.academicYear} not found in fee tracking`, 404);
+
+    // Validate academic fee components
+    if (bd.academic && bd.academic.semesterNumber) {
+      const sem = bd.academic.semesterNumber % 2 === 1 ? yearRecord.academic?.odd : yearRecord.academic?.even;
+      if (!sem) throw new AppError(`Semester ${bd.academic.semesterNumber} not found in tracking for ${bd.academicYear}`, 404);
+
+      const fields = ['tuition', 'exam', 'erp', 'book', 'lab'];
+      for (const field of fields) {
+        const payAmount = normalizeMoney(bd.academic[field] || 0);
+        if (payAmount > 0) {
+          const total = normalizeMoney(sem[field]?.total || 0);
+          const paid = normalizeMoney(sem[field]?.paid || 0);
+          const remaining = normalizeMoney(total - paid);
+          if (payAmount > remaining) {
+            throw new AppError(
+              `${field} payment ₹${payAmount} exceeds remaining due ₹${remaining} for semester ${bd.academic.semesterNumber} in ${bd.academicYear}`, 400
+            );
+          }
+          grandTotal += payAmount;
+        }
+      }
+    }
+
+    // Validate hostel payment
+    if (bd.hostel && normalizeMoney(bd.hostel) > 0) {
+      if (!yearRecord.hostel) throw new AppError(`No hostel fee record found for ${bd.academicYear}`, 404);
+      const hostelRemaining = normalizeMoney(
+        (yearRecord.hostel.total?.total || 0) - (yearRecord.hostel.total?.paid || 0)
+      );
+      if (normalizeMoney(bd.hostel) > hostelRemaining) {
+        throw new AppError(
+          `Hostel payment ₹${bd.hostel} exceeds remaining due ₹${hostelRemaining} for ${bd.academicYear}`, 400
+        );
+      }
+      grandTotal += normalizeMoney(bd.hostel);
+    }
+
+    // Validate transport payment
+    if (bd.transport && normalizeMoney(bd.transport) > 0) {
+      if (!yearRecord.transport) throw new AppError(`No transport fee record found for ${bd.academicYear}`, 404);
+      const transportRemaining = normalizeMoney(
+        (yearRecord.transport.total?.total || 0) - (yearRecord.transport.total?.paid || 0)
+      );
+      if (normalizeMoney(bd.transport) > transportRemaining) {
+        throw new AppError(
+          `Transport payment ₹${bd.transport} exceeds remaining due ₹${transportRemaining} for ${bd.academicYear}`, 400
+        );
+      }
+      grandTotal += normalizeMoney(bd.transport);
+    }
+  }
+
+  // Reject zero-amount payments
+  if (grandTotal <= 0) {
+    throw new AppError("Total payment amount must be greater than 0", 400);
+  }
+
+  /* ===================================================================
+     STEP 2: ALL VALIDATIONS PASSED – Create transaction record
+  =================================================================== */
+
+  let transactionDoc = await StudentTransaction.findOne({ rollNo });
+  if (!transactionDoc) {
+    const student = await Student.findOne({ "personal.rollNo": rollNo });
+    if (!student) throw new AppError("Student not found", 404);
+    transactionDoc = new StudentTransaction({
+      student: student._id,
+      rollNo,
+      transactions: []
+    });
+  }
+
+  const mappedBreakdowns = breakdowns.map(bd => {
+    const academic = bd.academic || {};
+    let academicTotal = 0;
+    academicTotal += normalizeMoney(academic.tuition || 0)
+      + normalizeMoney(academic.exam || 0)
+      + normalizeMoney(academic.erp || 0)
+      + normalizeMoney(academic.book || 0)
+      + normalizeMoney(academic.lab || 0);
+
+    const total = normalizeMoney(academicTotal + normalizeMoney(bd.hostel || 0) + normalizeMoney(bd.transport || 0));
+
+    return {
+      academicYear: bd.academicYear,
+      academic: {
+        semesterNumber: academic.semesterNumber,
+        tuition: normalizeMoney(academic.tuition || 0),
+        exam: normalizeMoney(academic.exam || 0),
+        erp: normalizeMoney(academic.erp || 0),
+        book: normalizeMoney(academic.book || 0),
+        lab: normalizeMoney(academic.lab || 0)
+      },
+      hostel: normalizeMoney(bd.hostel || 0),
+      transport: normalizeMoney(bd.transport || 0),
+      total
+    };
+  });
+
+  transactionDoc.transactions.push({
+    receiptNo,
+    paymentType,
+    bankName,
+    bankLocation,
+    remarks,
+    breakdowns: mappedBreakdowns
+  });
+
+  await transactionDoc.save();
+
+  for (const bd of breakdowns) {
+    const yearRecord = tracking.academicYearWiseRecord.find(r => r.academicYear === bd.academicYear);
+    if (!yearRecord) continue;
+
+    const addPayment = (target, amount) => {
+      if (!target || !amount) return;
+
+      const increment = normalizeMoney(amount);
+      target.total = normalizeMoney(target.total || 0);
+      target.paid = normalizeMoney((target.paid || 0) + increment);
+      target.paid = Math.min(target.paid, target.total);
+      setStatus(target);
+    };
+
+    if (bd.academic && bd.academic.semesterNumber) {
+      const sem = bd.academic.semesterNumber % 2 === 1 ? yearRecord.academic.odd : yearRecord.academic.even;
+      if (sem) {
+        addPayment(sem.tuition, bd.academic.tuition);
+        addPayment(sem.exam, bd.academic.exam);
+        addPayment(sem.erp, bd.academic.erp);
+        addPayment(sem.book, bd.academic.book);
+        addPayment(sem.lab, bd.academic.lab);
+
+        const semPaid = normalizeMoney((sem.tuition?.paid || 0) + (sem.exam?.paid || 0) + (sem.erp?.paid || 0) + (sem.book?.paid || 0) + (sem.lab?.paid || 0));
+        sem.total.paid = Math.min(semPaid, normalizeMoney(sem.total.total || 0));
+        setStatus(sem.total);
+      }
+
+      const termTotalPaid = normalizeMoney((yearRecord.academic.odd?.total?.paid || 0) + (yearRecord.academic.even?.total?.paid || 0));
+      yearRecord.academic.total.paid = Math.min(termTotalPaid, normalizeMoney(yearRecord.academic.total.total || 0));
+      setStatus(yearRecord.academic.total);
+    }
+
+    if (bd.hostel && yearRecord.hostel) {
+      addPayment(yearRecord.hostel.total, bd.hostel);
+    }
+    if (bd.transport && yearRecord.transport) {
+      addPayment(yearRecord.transport.total, bd.transport);
+    }
+
+    const yearPaid = normalizeMoney((yearRecord.academic.total?.paid || 0) + (yearRecord.hostel?.total?.paid || 0) + (yearRecord.transport?.total?.paid || 0));
+    yearRecord.total.paid = Math.min(yearPaid, normalizeMoney(yearRecord.total.total || 0));
+    setStatus(yearRecord.total);
+  }
+
+  tracking.markModified("academicYearWiseRecord");
+  await tracking.save();
+
+  return transactionDoc;
+};
+
 const getFeesSummary = async (query = {}) => {
   const year = query.year || "2025-2026";
   const filter = { "academicYearWiseRecord.academicYear": year };
@@ -87,12 +274,41 @@ const getFeesSummary = async (query = {}) => {
     else if (st === "dayscholar") filtered = filtered.filter(r => r.studentType.isDayScholar);
     else if (st === "transport") filtered = filtered.filter(r => r.studentType.usesTransport);
   }
+  
+  if (query.semesterNumber) {
+     filtered = filtered.filter(r => {
+        const oddSem = r.yearRecord?.academic?.odd?.semesterNumber;
+        const evenSem = r.yearRecord?.academic?.even?.semesterNumber;
+        return String(oddSem) === String(query.semesterNumber) || String(evenSem) === String(query.semesterNumber);
+     });
+  }
+
+  const resultCount = filtered.length;
+  
+  // Pagination
+  const page = query.page && query.page !== "all" ? parseInt(query.page) : 1;
+  const limit = query.limit && query.limit !== "all" ? parseInt(query.limit) : resultCount > 0 ? resultCount : 50;
+  const skip = (page - 1) * limit;
+  
+  let paginatedRecords = filtered;
+  if (query.limit !== "all" && query.page !== "all") {
+    paginatedRecords = filtered.slice(skip, skip + limit);
+  } else if (query.limit !== "all") {
+    paginatedRecords = filtered.slice(0, limit);
+  }
 
   return {
-    records: filtered,
+    records: paginatedRecords,
     aggregate: {
       totalCollection: normalizeMoney(totalCollection),
       totalDue: normalizeMoney(totalDue)
+    },
+    pagination: {
+      totalCount: resultCount,
+      page: query.page === "all" ? 1 : page,
+      limit: query.limit === "all" ? resultCount : limit,
+      totalPages: query.limit === "all" ? 1 : Math.ceil(resultCount / limit),
+      hasMore: query.limit === "all" ? false : skip + paginatedRecords.length < resultCount
     }
   };
 };
@@ -270,6 +486,7 @@ module.exports = {
   getFeesSummary,
   getStudentFeeSummary,
   getStudentsForFilter,
+  createReceipt,
   updateReceipt,
   updateConcession
 };

@@ -21,6 +21,11 @@ const updateReceipt = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, data, message: "Receipt updated successfully" });
 });
 
+const createReceipt = asyncHandler(async (req, res) => {
+  const data = await trackingService.createReceipt(req.body);
+  res.status(201).json({ success: true, data, message: "Receipt created successfully" });
+});
+
 const updateConcession = asyncHandler(async (req, res) => {
   const data = await trackingService.updateConcession(req.params.rollNo, req.params.academicYear, req.body.concessions);
   res.status(200).json({ success: true, data, message: "Concessions updated successfully" });
@@ -30,6 +35,7 @@ module.exports = {
   getFeesSummary,
   getStudentFeeSummary,
   getStudentsForFilter,
+  createReceipt,
   updateReceipt,
   updateConcession
 };
