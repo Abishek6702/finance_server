@@ -44,8 +44,7 @@ const semesterLedgerSchema=new mongoose.Schema({
 
 const transportLedgerSchema=new mongoose.Schema({
   transport:{
-      type:mongoose.Schema.Types.ObjectId,
-      ref:"Transport"
+      type:String
     },
   route:{type:String,trim:true},
   busNo:{type:String,trim:true},
@@ -58,8 +57,7 @@ const transportLedgerSchema=new mongoose.Schema({
 
 const hostelLedgerSchema=new mongoose.Schema({
   hostel:{
-      type:mongoose.Schema.Types.ObjectId,
-      ref:"Hostel"
+      type:String
     },
   block:{type:String,trim:true,uppercase:true},
   sharing:{type:Number},

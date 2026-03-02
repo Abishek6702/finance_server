@@ -308,8 +308,8 @@ const globalTeardown = async () => {
     academicYear: { $in: [testCtx.academicYearPrimary, testCtx.academicYearSecondary] },
   });
   // Cleanup test transport/hostel if created
-  if (testCtx.testTransportId) await Transport.findByIdAndDelete(testCtx.testTransportId);
-  if (testCtx.testHostelId) await Hostel.findByIdAndDelete(testCtx.testHostelId);
+  if (testCtx.testTransportId) await Transport.findOneAndDelete({ id: testCtx.testTransportId });
+  if (testCtx.testHostelId) await Hostel.findOneAndDelete({ id: testCtx.testHostelId });
 
   await stopServer();
 };

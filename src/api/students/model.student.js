@@ -123,8 +123,7 @@ const enrollmentSchema=new mongoose.Schema({
 const transportSchema=new mongoose.Schema({
   isApplicable:{type:Boolean,default:false},
   transport:{
-    type:mongoose.Schema.Types.ObjectId,
-    ref:"Transport"
+    type:String
   },
   route:{type:String,trim:true},
   busNo:{type:String,trim:true},
@@ -139,8 +138,7 @@ const transportSchema=new mongoose.Schema({
 const hostelSchema=new mongoose.Schema({
   isApplicable:{type:Boolean,default:false},
   hostel:{
-    type:mongoose.Schema.Types.ObjectId,
-    ref:"Hostel"
+    type:String
   },
   block:{type:String,trim:true,uppercase:true},
   sharing:{type:Number},

@@ -1,5 +1,4 @@
-const mongoose = require("mongoose");
-const { Transport } = require("../transport/model.transport");
+const { Transport, getNextTransportId } = require("../transport/model.transport");
 const StudentFeeTracking = require("../studentFeeTracking/model.studentFeeTracking");
 const AppError = require("../../utils/AppError");
 
@@ -31,7 +30,7 @@ const getFullMapping = async () => {
       });
     }
     
-    groupMap.get(key).stops.push({ id: doc._id, stop: doc.stop });
+    groupMap.get(key).stops.push({ id: doc.id, stop: doc.stop });
   });
 
   // Convert map to array
@@ -53,9 +52,9 @@ const getStops = async (filters) => {
     query.busNo = filters.busNo;
   }
 
-  // Fetch matching documents with _id and stop field
+  // Fetch matching documents with id and stop field
   const transports = await Transport.find(query)
-    .select('_id stop')
+    .select('id stop')
     .lean();
 
   // Extract unique stops and their IDs
@@ -66,7 +65,7 @@ const getStops = async (filters) => {
     if (!seen.has(t.stop)) {
       seen.add(t.stop);
       uniqueStops.push({
-        id: t._id,
+        id: t.id,
         stop: t.stop
       });
     }
@@ -82,7 +81,7 @@ const getStops = async (filters) => {
 const getBuses = async (stop) => {
   // Query by stop (indexed field)
   const transports = await Transport.find({ stop })
-    .select('_id busNo route')
+    .select('id busNo route')
     .lean();
 
   // Deduplicate using Set with stringified objects
@@ -94,7 +93,7 @@ const getBuses = async (stop) => {
     if (!seen.has(key)) {
       seen.add(key);
       uniqueBuses.push({
-        id: t._id,
+        id: t.id,
         busNo: t.busNo,
         route: t.route
       });
@@ -113,7 +112,7 @@ const getFees = async (filters) => {
   if (filters.stop) query.stop = filters.stop;
 
   const transports = await Transport.find(query)
-    .select('route busNo stop fee')
+    .select('id route busNo stop fee')
     .lean();
 
   return transports;
@@ -125,6 +124,7 @@ const getFees = async (filters) => {
 const addTransport = async (data) => {
   const existing = await Transport.findOne({ route: data.route, busNo: data.busNo, stop: data.stop });
   if (existing) throw new AppError(`Transport record already exists for route: ${data.route}, busNo: ${data.busNo}, stop: ${data.stop}`, 409);
+  data.id = await getNextTransportId();
   return await Transport.create(data);
 };
 
@@ -139,8 +139,9 @@ const bulkAddTransport = async (records) => {
     try {
       const existing = await Transport.findOne({ route: records[i].route, busNo: records[i].busNo, stop: records[i].stop });
       if (existing) throw new AppError('Duplicate: record already exists', 409);
+      records[i].id = await getNextTransportId();
       const doc = await Transport.create(records[i]);
-      created.push({ index: i, id: doc._id, route: doc.route, busNo: doc.busNo, stop: doc.stop });
+      created.push({ index: i, id: doc.id, route: doc.route, busNo: doc.busNo, stop: doc.stop });
     } catch (err) {
       failed.push({ index: i, route: records[i].route, busNo: records[i].busNo, stop: records[i].stop, reason: err.message });
     }
@@ -153,9 +154,8 @@ const bulkAddTransport = async (records) => {
  * Propagate transport fee change to all student tracking records
  */
 const propagateTransportFeeUpdate = async (transportId, newFee) => {
-  const objectId = new mongoose.Types.ObjectId(transportId);
   const trackingRecords = await StudentFeeTracking.find({
-    "academicYearWiseRecord.transport.transport": objectId
+    "academicYearWiseRecord.transport.transport": transportId
   });
 
   let updatedCount = 0;
@@ -182,7 +182,7 @@ const propagateTransportFeeUpdate = async (transportId, newFee) => {
  * Update a transport record by ID and propagate fee changes to tracking
  */
 const updateTransport = async (id, data) => {
-  const existing = await Transport.findById(id);
+  const existing = await Transport.findOne({ id });
   if (!existing) throw new AppError('Transport record not found', 404);
 
   const oldFee = existing.fee;
@@ -192,7 +192,7 @@ const updateTransport = async (id, data) => {
   if (data.stop !== undefined) updateFields.stop = data.stop;
   if (data.fee !== undefined) updateFields.fee = data.fee;
 
-  const updated = await Transport.findByIdAndUpdate(id, updateFields, { new: true, runValidators: true });
+  const updated = await Transport.findOneAndUpdate({ id }, updateFields, { new: true, runValidators: true });
   if (!updated) throw new AppError('Transport record not found', 404);
 
   // Propagate fee change to student tracking if fee changed

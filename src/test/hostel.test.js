@@ -29,11 +29,12 @@ describe("Hostel API", () => {
   afterAll(async () => {
     // Clean test-created records
     for (const id of addedHostelIds) {
-      await Hostel.findByIdAndDelete(id);
+      await Hostel.findOneAndDelete({ id });
     }
     // Restore deleted seed records
     if (deletedRecord) {
       await Hostel.create({
+        id: deletedRecord.id,
         block: deletedRecord.block,
         sharing: deletedRecord.sharing,
         isAttached: deletedRecord.isAttached,
@@ -42,6 +43,7 @@ describe("Hostel API", () => {
     }
     if (deletedRecord2) {
       await Hostel.create({
+        id: deletedRecord2.id,
         block: deletedRecord2.block,
         sharing: deletedRecord2.sharing,
         isAttached: deletedRecord2.isAttached,
@@ -278,7 +280,7 @@ describe("Hostel API", () => {
     expect(res.body.data.sharing).toBe(5);
     expect(res.body.data.isAttached).toBe(false);
     expect(res.body.data.fee).toBe(99000);
-    addedHostelIds.push(res.body.data._id);
+    addedHostelIds.push(res.body.data.id);
   });
 
   it("rejects duplicate hostel add (409)", async () => {
@@ -374,7 +376,7 @@ describe("Hostel API", () => {
   it("rejects update with no fields", async () => {
     const existing = await Hostel.findOne({ block: "A", sharing: 2, isAttached: true });
     const res = await request(app)
-      .put(`/api/hostel/${existing._id}`)
+      .put(`/api/hostel/${existing.id}`)
       .set(adminAuth())
       .send({});
     expect(res.status).toBe(400);
@@ -384,7 +386,7 @@ describe("Hostel API", () => {
   it("rejects update with negative fee", async () => {
     const existing = await Hostel.findOne({ block: "A", sharing: 2, isAttached: true });
     const res = await request(app)
-      .put(`/api/hostel/${existing._id}`)
+      .put(`/api/hostel/${existing.id}`)
       .set(adminAuth())
       .send({ fee: -500 });
     expect(res.status).toBe(400);
@@ -393,7 +395,7 @@ describe("Hostel API", () => {
   it("rejects update with invalid sharing", async () => {
     const existing = await Hostel.findOne({ block: "A", sharing: 2, isAttached: true });
     const res = await request(app)
-      .put(`/api/hostel/${existing._id}`)
+      .put(`/api/hostel/${existing.id}`)
       .set(adminAuth())
       .send({ sharing: 10 });
     expect(res.status).toBe(400);
@@ -402,7 +404,7 @@ describe("Hostel API", () => {
   it("rejects update with non-boolean isAttached", async () => {
     const existing = await Hostel.findOne({ block: "A", sharing: 2, isAttached: true });
     const res = await request(app)
-      .put(`/api/hostel/${existing._id}`)
+      .put(`/api/hostel/${existing.id}`)
       .set(adminAuth())
       .send({ isAttached: "true" });
     expect(res.status).toBe(400);
@@ -411,7 +413,7 @@ describe("Hostel API", () => {
   it("rejects update with empty block", async () => {
     const existing = await Hostel.findOne({ block: "A", sharing: 2, isAttached: true });
     const res = await request(app)
-      .put(`/api/hostel/${existing._id}`)
+      .put(`/api/hostel/${existing.id}`)
       .set(adminAuth())
       .send({ block: "  " });
     expect(res.status).toBe(400);
@@ -420,7 +422,7 @@ describe("Hostel API", () => {
   it("rejects update with non-string block", async () => {
     const existing = await Hostel.findOne({ block: "A", sharing: 2, isAttached: true });
     const res = await request(app)
-      .put(`/api/hostel/${existing._id}`)
+      .put(`/api/hostel/${existing.id}`)
       .set(adminAuth())
       .send({ block: 999 });
     expect(res.status).toBe(400);
@@ -430,31 +432,31 @@ describe("Hostel API", () => {
     const existing = await Hostel.findOne({ block: "A", sharing: 3, isAttached: false });
     const originalFee = existing.fee;
     const res = await request(app)
-      .put(`/api/hostel/${existing._id}`)
+      .put(`/api/hostel/${existing.id}`)
       .set(adminAuth())
       .send({ fee: 77777 });
     expect(res.status).toBe(200);
     expect(res.body.data.hostel.fee).toBe(77777);
     // Restore original fee
-    await Hostel.findByIdAndUpdate(existing._id, { fee: originalFee });
+    await Hostel.findOneAndUpdate({ id: existing.id }, { fee: originalFee });
   });
 
   it("updates hostel fee=0 (free hostel)", async () => {
     const existing = await Hostel.findOne({ block: "B", sharing: 4, isAttached: true });
     const originalFee = existing.fee;
     const res = await request(app)
-      .put(`/api/hostel/${existing._id}`)
+      .put(`/api/hostel/${existing.id}`)
       .set(adminAuth())
       .send({ fee: 0 });
     expect(res.status).toBe(200);
     expect(res.body.data.hostel.fee).toBe(0);
     // Restore
-    await Hostel.findByIdAndUpdate(existing._id, { fee: originalFee });
+    await Hostel.findOneAndUpdate({ id: existing.id }, { fee: originalFee });
   });
 
   it("returns 404 for non-existent hostel ID", async () => {
     const res = await request(app)
-      .put("/api/hostel/000000000000000000000000")
+      .put("/api/hostel/H999")
       .set(adminAuth())
       .send({ fee: 1000 });
     expect(res.status).toBe(404);

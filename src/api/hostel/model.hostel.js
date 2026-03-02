@@ -1,6 +1,11 @@
 const mongoose = require("mongoose");
 
 const hostelSchema = new mongoose.Schema({
+  id: {
+    type: String,
+    unique: true,
+    required: true
+  },
   block: { 
     type: String, 
     enum: ["A", "B", "C", "D", "E", "F"],
@@ -88,13 +93,34 @@ const data = [
 ];
 
 //keep it here for High Cohesion
+const getNextHostelId = async () => {
+  const last = await Hostel.findOne({}).sort({ id: -1 }).select('id').lean();
+  if (!last || !last.id) return 'H001';
+  const num = parseInt(last.id.substring(1), 10);
+  return `H${String(num + 1).padStart(3, '0')}`;
+};
+
 const seedHostel = async () => {
   if (!data.length) return;
 
   const count = await Hostel.countDocuments();
-  if (count > 0) return;
+  if (count > 0) {
+    // Migration: if old records exist without id field, drop and re-seed
+    const withoutId = await Hostel.countDocuments({ $or: [{ id: { $exists: false } }, { id: null }] });
+    if (withoutId > 0) {
+      console.log('Migrating hostel data: re-seeding with custom IDs...');
+      await Hostel.deleteMany({});
+    } else {
+      return;
+    }
+  }
 
-  await Hostel.insertMany(data);
+  const dataWithIds = data.map((item, index) => ({
+    ...item,
+    id: `H${String(index + 1).padStart(3, '0')}`
+  }));
+
+  await Hostel.insertMany(dataWithIds);
 };
 
-module.exports = { Hostel, seedHostel };
+module.exports = { Hostel, seedHostel, getNextHostelId };

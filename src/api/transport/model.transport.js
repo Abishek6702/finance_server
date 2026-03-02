@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 
 const transportSchema = new mongoose.Schema({
+  id: { type: String, unique: true, required: true },
   route: { type: String, trim: true, required: true },
   busNo: { type: String, trim: true, required: true },
   stop: { type: String, trim: true, required: true },
@@ -146,12 +147,21 @@ const data = [
   }
 ];
 //keep it here for High Cohesion
+const getNextTransportId = async () => {
+  const last = await Transport.findOne({}).sort({ id: -1 }).select('id').lean();
+  if (!last || !last.id) return 'T001';
+  const num = parseInt(last.id.substring(1), 10);
+  return `T${String(num + 1).padStart(3, '0')}`;
+};
+
 const seedTransport = async () => {
   const docs = [];
+  let counter = 1;
 
   data.forEach(r => {
     r.stops.forEach(stopObj => {
       docs.push({
+        id: `T${String(counter++).padStart(3, '0')}`,
         route: r.route,
         busNo: r.busNo,
         stop: stopObj.name,
@@ -163,9 +173,18 @@ const seedTransport = async () => {
   if (!docs.length) return;
 
   const count = await Transport.countDocuments();
-  if (count > 0) return;
+  if (count > 0) {
+    // Migration: if old records exist without id field, drop and re-seed
+    const withoutId = await Transport.countDocuments({ $or: [{ id: { $exists: false } }, { id: null }] });
+    if (withoutId > 0) {
+      console.log('Migrating transport data: re-seeding with custom IDs...');
+      await Transport.deleteMany({});
+    } else {
+      return;
+    }
+  }
 
   await Transport.insertMany(docs);
 };
 
-module.exports = { Transport, seedTransport };
+module.exports = { Transport, seedTransport, getNextTransportId };

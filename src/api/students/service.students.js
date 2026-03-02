@@ -47,7 +47,7 @@ const mapTransport=async(data,session=null)=>{
 
     data.transport={
       isApplicable:true,
-      transport:transportDoc._id,
+      transport:transportDoc.id,
       route:transportDoc.route,
       busNo:transportDoc.busNo,
       stop:transportDoc.stop,
@@ -72,7 +72,7 @@ const mapHostel=async(data,session=null)=>{
 
     data.hostel={
       isApplicable:true,
-      hostel:hostelDoc._id,
+      hostel:hostelDoc.id,
       block:hostelDoc.block,
       sharing:hostelDoc.sharing,
       isAttached:hostelDoc.isAttached,
@@ -157,7 +157,7 @@ const updateStudent = async (rollNo, data) => {
     
     data.transport = {
       isApplicable: true,
-      transport: transportDoc._id,
+      transport: transportDoc.id,
       route: transportDoc.route,
       busNo: transportDoc.busNo,
       stop: transportDoc.stop,
@@ -179,7 +179,7 @@ const updateStudent = async (rollNo, data) => {
 
     data.hostel={
       isApplicable:true,
-      hostel:hostelDoc._id,
+      hostel:hostelDoc.id,
       block:hostelDoc.block,
       sharing:hostelDoc.sharing,
       isAttached:hostelDoc.isAttached,

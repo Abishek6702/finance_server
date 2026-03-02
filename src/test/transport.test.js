@@ -16,7 +16,7 @@ describe("Transport API", () => {
 
   afterAll(async () => {
     for (const id of addedTransportIds) {
-      await Transport.findByIdAndDelete(id);
+      await Transport.findOneAndDelete({ id });
     }
     await globalTeardown();
   });
@@ -201,7 +201,7 @@ describe("Transport API", () => {
     expect(res.status).toBe(201);
     expect(res.body.data.route).toBe(`TestRoute${TS}`);
     expect(res.body.data.fee).toBe(5000);
-    addedTransportIds.push(res.body.data._id);
+    addedTransportIds.push(res.body.data.id);
   });
 
   it("rejects duplicate transport add (409)", async () => {
@@ -335,7 +335,7 @@ describe("Transport API", () => {
 
   it("returns 404 when updating non-existent transport ID", async () => {
     const res = await request(app)
-      .put("/api/transport/000000000000000000000000")
+      .put("/api/transport/T999")
       .set(adminAuth())
       .send({ fee: 1000 });
     expect(res.status).toBe(404);
@@ -378,7 +378,7 @@ describe("Transport API", () => {
 
       if (transportId) {
         // Read current transport fee so we use a DIFFERENT value
-        const transportDoc = await Transport.findById(transportId);
+        const transportDoc = await Transport.findOne({ id: transportId });
         const originalFee = transportDoc.fee;
         const newFee = originalFee === 12345 ? 54321 : 12345;
 
@@ -396,7 +396,7 @@ describe("Transport API", () => {
         expect(updatedYr.transport.subTotal).toBe(newFee);
 
         // Restore original transport fee
-        await Transport.findByIdAndUpdate(transportId, { fee: originalFee });
+        await Transport.findOneAndUpdate({ id: transportId }, { fee: originalFee });
       }
 
       // Cleanup

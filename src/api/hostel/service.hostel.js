@@ -1,5 +1,4 @@
-const mongoose = require("mongoose");
-const { Hostel } = require("../hostel/model.hostel");
+const { Hostel, getNextHostelId } = require("../hostel/model.hostel");
 const StudentFeeTracking = require("../studentFeeTracking/model.studentFeeTracking");
 const AppError = require("../../utils/AppError");
 
@@ -31,7 +30,7 @@ const getFullMapping = async () => {
     }
     
     groupMap.get(key).roomTypes.push({ 
-      id: doc._id, 
+      id: doc.id, 
       sharing: doc.sharing, 
       isAttached: doc.isAttached,
       fee: doc.fee
@@ -56,7 +55,7 @@ const getBlocks = async (filters) => {
   }
 
   const hostels = await Hostel.find(query)
-    .select('_id block')
+    .select('id block')
     .lean();
 
   const seen = new Set();
@@ -66,7 +65,7 @@ const getBlocks = async (filters) => {
     if (!seen.has(h.block)) {
       seen.add(h.block);
       uniqueBlocks.push({
-        id: h._id,
+        id: h.id,
         block: h.block
       });
     }
@@ -86,7 +85,7 @@ const getRoomTypes = async (filters) => {
   }
 
   const hostels = await Hostel.find(query)
-    .select('_id sharing isAttached')
+    .select('id sharing isAttached')
     .lean();
 
   const seen = new Set();
@@ -97,7 +96,7 @@ const getRoomTypes = async (filters) => {
     if (!seen.has(key)) {
       seen.add(key);
       uniqueRoomTypes.push({
-        id: h._id,
+        id: h.id,
         sharing: h.sharing,
         isAttached: h.isAttached
       });
@@ -117,7 +116,7 @@ const getFees = async (filters) => {
   if (filters.isAttached !== undefined) query.isAttached = filters.isAttached;
 
   const hostels = await Hostel.find(query)
-    .select('block sharing isAttached fee')
+    .select('id block sharing isAttached fee')
     .lean();
 
   return hostels;
@@ -129,6 +128,7 @@ const getFees = async (filters) => {
 const addHostel = async (data) => {
   const existing = await Hostel.findOne({ block: data.block, sharing: data.sharing, isAttached: data.isAttached });
   if (existing) throw new AppError(`Hostel record already exists for block: ${data.block}, sharing: ${data.sharing}, isAttached: ${data.isAttached}`, 409);
+  data.id = await getNextHostelId();
   return await Hostel.create(data);
 };
 
@@ -143,8 +143,9 @@ const bulkAddHostel = async (records) => {
     try {
       const existing = await Hostel.findOne({ block: records[i].block, sharing: records[i].sharing, isAttached: records[i].isAttached });
       if (existing) throw new AppError('Duplicate: record already exists', 409);
+      records[i].id = await getNextHostelId();
       const doc = await Hostel.create(records[i]);
-      created.push({ index: i, id: doc._id, block: doc.block, sharing: doc.sharing, isAttached: doc.isAttached });
+      created.push({ index: i, id: doc.id, block: doc.block, sharing: doc.sharing, isAttached: doc.isAttached });
     } catch (err) {
       failed.push({ index: i, block: records[i].block, sharing: records[i].sharing, isAttached: records[i].isAttached, reason: err.message });
     }
@@ -157,9 +158,8 @@ const bulkAddHostel = async (records) => {
  * Propagate hostel fee change to all student tracking records
  */
 const propagateHostelFeeUpdate = async (hostelId, newFee) => {
-  const objectId = new mongoose.Types.ObjectId(hostelId);
   const trackingRecords = await StudentFeeTracking.find({
-    "academicYearWiseRecord.hostel.hostel": objectId
+    "academicYearWiseRecord.hostel.hostel": hostelId
   });
 
   let updatedCount = 0;
@@ -186,7 +186,7 @@ const propagateHostelFeeUpdate = async (hostelId, newFee) => {
  * Update a hostel record by ID and propagate fee changes to tracking
  */
 const updateHostel = async (id, data) => {
-  const existing = await Hostel.findById(id);
+  const existing = await Hostel.findOne({ id });
   if (!existing) throw new AppError('Hostel record not found', 404);
 
   const oldFee = existing.fee;
@@ -196,7 +196,7 @@ const updateHostel = async (id, data) => {
   if (data.isAttached !== undefined) updateFields.isAttached = data.isAttached;
   if (data.fee !== undefined) updateFields.fee = data.fee;
 
-  const updated = await Hostel.findByIdAndUpdate(id, updateFields, { new: true, runValidators: true });
+  const updated = await Hostel.findOneAndUpdate({ id }, updateFields, { new: true, runValidators: true });
   if (!updated) throw new AppError('Hostel record not found', 404);
 
   // Propagate fee change to student tracking if fee changed

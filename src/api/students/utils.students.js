@@ -57,26 +57,18 @@ async function generateLedger(studentDoc,options={}){
 
   let transportDoc=null;
   if(studentDoc.transport?.isApplicable && studentDoc.transport.transport){
-    const transportId=studentDoc.transport.transport?._id || studentDoc.transport.transport;
+    const transportId=studentDoc.transport.transport;
     // Use embedded data from student document (no populate needed)
     if(studentDoc.transport.fee!==undefined){
       transportDoc={
-        _id:transportId,
+        id:transportId,
         route:studentDoc.transport.route,
         busNo:studentDoc.transport.busNo,
         stop:studentDoc.transport.stop,
         fee:studentDoc.transport.fee
       };
-    }else if(studentDoc.transport.transport?.fee!==undefined){
-      transportDoc={
-        _id:transportId,
-        route:studentDoc.transport.transport.route,
-        busNo:studentDoc.transport.transport.busNo,
-        stop:studentDoc.transport.transport.stop,
-        fee:studentDoc.transport.transport.fee
-      };
     }else{
-      const query=Transport.findById(transportId).select("_id route busNo stop fee");
+      const query=Transport.findOne({ id: transportId }).select("id route busNo stop fee");
       if(session) query.session(session);
       transportDoc=await query;
 
@@ -88,26 +80,18 @@ async function generateLedger(studentDoc,options={}){
 
   let hostelDoc=null;
   if(studentDoc.hostel?.isApplicable && studentDoc.hostel.hostel){
-    const hostelId=studentDoc.hostel.hostel?._id || studentDoc.hostel.hostel;
+    const hostelId=studentDoc.hostel.hostel;
     // Use embedded data from student document (no populate needed)
     if(studentDoc.hostel.fee!==undefined){
       hostelDoc={
-        _id:hostelId,
+        id:hostelId,
         block:studentDoc.hostel.block,
         sharing:studentDoc.hostel.sharing,
         isAttached:studentDoc.hostel.isAttached,
         fee:studentDoc.hostel.fee
       };
-    }else if(studentDoc.hostel.hostel?.fee!==undefined){
-      hostelDoc={
-        _id:hostelId,
-        fee:studentDoc.hostel.hostel.fee,
-        block:studentDoc.hostel.hostel.block,
-        sharing:studentDoc.hostel.hostel.sharing,
-        isAttached:studentDoc.hostel.hostel.isAttached
-      };
     }else{
-      const query=Hostel.findById(hostelId).select("_id fee block sharing isAttached");
+      const query=Hostel.findOne({ id: hostelId }).select("id fee block sharing isAttached");
       if(session) query.session(session);
       hostelDoc=await query;
 
@@ -226,7 +210,7 @@ async function generateLedger(studentDoc,options={}){
         const special=normalizeMoney(studentDoc.enrollment?.specialConcession?.transport||0);
 
         transportLedger={
-          transport:transportDoc._id,
+          transport:transportDoc.id,
           route:transportDoc.route,
           busNo:transportDoc.busNo,
           stop:transportDoc.stop,
@@ -250,7 +234,7 @@ async function generateLedger(studentDoc,options={}){
         const special=normalizeMoney(studentDoc.enrollment?.specialConcession?.hostel||0);
 
         hostelLedger={
-          hostel:hostelDoc._id,
+          hostel:hostelDoc.id,
           block:hostelDoc.block,
           sharing:hostelDoc.sharing,
           isAttached:hostelDoc.isAttached,
