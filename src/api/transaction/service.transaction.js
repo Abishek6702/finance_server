@@ -1,6 +1,4 @@
 const StudentTransaction = require("./model.studentTransaction");
-const StudentFeeTracking = require("../studentFeeTracking/model.studentFeeTracking");
-const Student = require("../students/model.student");
 const AppError = require("../../utils/AppError");
 
 const normalizeMoney = (value) => {

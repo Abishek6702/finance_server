@@ -7,4 +7,3 @@ const getStudents = asyncHandler(async (req, res) => {
 });
 
 module.exports = { getStudents };
-
