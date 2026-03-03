@@ -15,15 +15,9 @@ const getStudentTransactions = asyncHandler(async (req, res) => {
   const data = await transactionService.getStudentTransactions(req.params.rollNo, req.query);
   res.status(200).json({ success: true, data, message: "Student transactions fetched successfully" });
 });
-
-const getNextReceiptNo = asyncHandler(async (req, res) => {
-  const data = await transactionService.getNextReceiptNo();
-  res.status(200).json({ success: true, data, message: "Next receipt number generated" });
-});
-
+ 
 module.exports = {
   createPayment,
   getAllTransactions,
-  getStudentTransactions,
-  getNextReceiptNo,
+  getStudentTransactions, 
 };

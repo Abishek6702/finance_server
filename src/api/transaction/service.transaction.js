@@ -1,6 +1,7 @@
 const StudentTransaction = require("./model.studentTransaction");
 const StudentFeeTracking = require("../studentFeeTracking/model.studentFeeTracking");
 const Student = require("../students/model.student");
+const ReceiptCounter = require("./model.receiptCounter");
 const AppError = require("../../utils/AppError");
 
 const parseBillingDate = (billingDate) => {
@@ -32,8 +33,8 @@ const setStatus = (target) => {
 };
 
 const createPayment = async (data) => {
-  const { rollNo, receiptNo, paymentType, bankName, bankLocation, billingDate, remarks, breakdowns } = data;
-
+  const { rollNo, paymentType, bankName, bankLocation, billingDate, remarks, breakdowns } = data;
+  const { receiptNo } = await getNextReceiptNo();
   const tracking = await StudentFeeTracking.findOne({ rollNo });
   if (!tracking) throw new AppError("Fee tracking not found for this student", 404);
 
@@ -186,12 +187,7 @@ const createPayment = async (data) => {
       transactions: []
     });
   }
-
-  // Reject duplicate receipt numbers
-  const receiptExists = transactionDoc.transactions.some(t => t.receiptNo === receiptNo);
-  if (receiptExists) {
-    throw new AppError(`Receipt number '${receiptNo}' has already been used for this student`, 400);
-  }
+ 
 
   const mappedBreakdowns = breakdowns.map(bd => {
     const academic = bd.academic || {};
@@ -283,26 +279,46 @@ const createPayment = async (data) => {
   return transactionDoc;
 };
  
-/**
- * GET /
- * Returns all transactions with student details.
- * Filters: department, paymentMode, fromDate, toDate
- * Pagination: page, limit (default: all)
- * Sorted: newest first
- */
+
+
+/* ============================================================
+   PAGINATION CONSTANTS (DRY)
+============================================================ */
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 20;
+const MAX_LIMIT = 500;
+
+const getPagination = (page, limit) => {
+  const pageNum =
+    Number.isInteger(Number(page)) && Number(page) > 0
+      ? Number(page)
+      : DEFAULT_PAGE;
+
+  const limitNum =
+    Number.isInteger(Number(limit)) && Number(limit) > 0
+      ? Math.min(Number(limit), MAX_LIMIT)
+      : DEFAULT_LIMIT;
+
+  const skip = (pageNum - 1) * limitNum;
+
+  return { pageNum, limitNum, skip };
+};
+
+
+
+/* ============================================================
+   GET ALL TRANSACTIONS
+============================================================ */
 const getAllTransactions = async (query) => {
   const { department, paymentMode, fromDate, toDate, page, limit } = query;
 
-  const pageNum = Math.max(1, parseInt(page) || 1);
+  const { pageNum, limitNum, skip } = getPagination(page, limit);
   const hasLimit = limit !== undefined && limit !== null && limit !== "";
-  const limitNum = hasLimit ? Math.min(500, Math.max(1, parseInt(limit) || 20)) : 0;
 
   const pipeline = [];
 
-  // Unwind transactions to work with individual payments
   pipeline.push({ $unwind: "$transactions" });
 
-  // Build match filters on transaction-level fields
   const matchStage = {};
 
   if (paymentMode) {
@@ -323,55 +339,55 @@ const getAllTransactions = async (query) => {
     pipeline.push({ $match: matchStage });
   }
 
-  // Join with Student collection for student data
   pipeline.push({
     $lookup: {
       from: "students",
-      localField: "student",
-      foreignField: "_id",
-      as: "studentData"
+      let: { studentId: "$student" },
+      pipeline: [
+        { $match: { $expr: { $eq: ["$_id", "$$studentId"] } } },
+        ...(department
+          ? [{ $match: { "academic.departmentName": department } }]
+          : []),
+        {
+          $project: {
+            _id: 1,
+            personal: {
+              rollNo: 1,
+              studentName: 1,
+              studentPhoto: 1
+            },
+            academic: 1,
+            contact: 1
+          }
+        }
+      ],
+      as: "student"
     }
   });
-  pipeline.push({ $unwind: "$studentData" });
 
-  // Filter by department (from student data)
-  if (department) {
-    pipeline.push({
-      $match: { "studentData.academic.departmentName": department }
-    });
-  }
+  pipeline.push({ $unwind: "$student" });
 
-  // Sort by payment date descending (newest first)
   pipeline.push({ $sort: { "transactions.paidOn": -1 } });
 
-  // Shape output
   const projectStage = {
     $project: {
       _id: 0,
-      rollNo: 1,
-      transaction: "$transactions",
-      student: {
-        _id: "$studentData._id",
-        personal: "$studentData.personal",
-        academic: "$studentData.academic",
-        contact: "$studentData.contact"
-      }
+      student: 1,
+      transaction: "$transactions"
     }
   };
 
-  // Use $facet for efficient count + data in one query
   if (hasLimit) {
-    const facetPipeline = {
+    pipeline.push({
       $facet: {
         metadata: [{ $count: "total" }],
         data: [
-          { $skip: (pageNum - 1) * limitNum },
+          { $skip: skip },
           { $limit: limitNum },
           projectStage
         ]
       }
-    };
-    pipeline.push(facetPipeline);
+    });
 
     const [result] = await StudentTransaction.aggregate(pipeline);
     const total = result.metadata[0]?.total || 0;
@@ -387,7 +403,6 @@ const getAllTransactions = async (query) => {
     };
   }
 
-  // No limit — return all results
   pipeline.push(projectStage);
   const results = await StudentTransaction.aggregate(pipeline);
 
@@ -402,100 +417,134 @@ const getAllTransactions = async (query) => {
   };
 };
 
-/**
- * GET /:rollNo
- * Returns complete transactions for one student.
- * Features: pagination, newest first, optional date filter, receipt breakdown
- */
+/* ============================================================
+   GET SINGLE STUDENT TRANSACTIONS
+============================================================ */
 const getStudentTransactions = async (rollNo, query = {}) => {
   const { fromDate, toDate, page, limit } = query;
 
-  const student = await Student.findOne({ "personal.rollNo": rollNo }).lean();
+  const { pageNum, limitNum, skip } = getPagination(page, limit);
+  const hasLimit = limit !== undefined && limit !== null && limit !== "";
+
+  const student = await Student.findOne(
+    { "personal.rollNo": rollNo },
+    {
+      "personal.rollNo": 1,
+      "personal.studentName": 1,
+      "personal.studentPhoto": 1,
+      academic: 1,
+      contact: 1
+    }
+  ).lean();
+
   if (!student) throw new AppError("Student not found", 404);
 
-  const txnDoc = await StudentTransaction.findOne({ rollNo }).lean();
+  const pipeline = [
+    { $match: { rollNo } },
+    { $unwind: "$transactions" }
+  ];
 
-  let transactions = txnDoc?.transactions ? [...txnDoc.transactions] : [];
+  const dateMatch = {};
 
-  // Filter by date range
   if (fromDate || toDate) {
-    transactions = transactions.filter((t) => {
-      const paidOn = new Date(t.paidOn);
-      if (fromDate && paidOn < new Date(fromDate)) return false;
-      if (toDate) {
-        const endDate = new Date(toDate);
-        endDate.setHours(23, 59, 59, 999);
-        if (paidOn > endDate) return false;
-      }
-      return true;
-    });
+    dateMatch["transactions.paidOn"] = {};
+    if (fromDate) dateMatch["transactions.paidOn"]["$gte"] = new Date(fromDate);
+    if (toDate) {
+      const endDate = new Date(toDate);
+      endDate.setHours(23, 59, 59, 999);
+      dateMatch["transactions.paidOn"]["$lte"] = endDate;
+    }
   }
 
-  // Sort newest first
-  transactions.sort((a, b) => new Date(b.paidOn) - new Date(a.paidOn));
+  if (Object.keys(dateMatch).length > 0) {
+    pipeline.push({ $match: dateMatch });
+  }
 
-  // Pagination
-  const total = transactions.length;
-  const pageNum = Math.max(1, parseInt(page) || 1);
-  const hasLimit = limit !== undefined && limit !== null && limit !== "";
-  const limitNum = hasLimit ? Math.min(500, Math.max(1, parseInt(limit) || 20)) : total;
+  pipeline.push({ $sort: { "transactions.paidOn": -1 } });
 
-  const start = (pageNum - 1) * limitNum;
-  const paginatedTransactions = hasLimit ? transactions.slice(start, start + limitNum) : transactions;
+  const projectStage = {
+    $project: {
+      _id: 0,
+      transaction: "$transactions"
+    }
+  };
+
+  if (hasLimit) {
+    pipeline.push({
+      $facet: {
+        metadata: [{ $count: "total" }],
+        data: [
+          { $skip: skip },
+          { $limit: limitNum },
+          projectStage
+        ]
+      }
+    });
+
+    const [result] = await StudentTransaction.aggregate(pipeline);
+    const total = result.metadata[0]?.total || 0;
+
+    return {
+      student,
+      transactions: result.data.map(d => d.transaction),
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum)
+      }
+    };
+  }
+
+  pipeline.push(projectStage);
+  const results = await StudentTransaction.aggregate(pipeline);
 
   return {
-    student: {
-      personal: student.personal,
-      academic: student.academic,
-      contact: student.contact
-    },
-    transactions: paginatedTransactions,
+    student,
+    transactions: results.map(r => r.transaction),
     pagination: {
-      total,
-      page: pageNum,
-      limit: limitNum,
-      totalPages: limitNum > 0 ? Math.ceil(total / limitNum) : 1
+      total: results.length,
+      page: 1,
+      limit: results.length,
+      totalPages: 1
     }
   };
 };
+ 
 
 /**
- * GET /nextReceiptNo
- * Returns the next unique receipt number for today.
- * Format: REC-YYYYMMDD-NNN (e.g. REC-20260302-001)
- * NNN = count of today's receipts + 1
- * NOTE: This format function will be changed in the future.
+ 
+ * Returns next unique receipt number for today.
+ * Format: REC-YYYYMMDD-NNN
+ * Uses atomic increment (no race condition).
  */
 const getNextReceiptNo = async () => {
   const now = new Date();
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
-  // Count all receipts created today across all students
-  const result = await StudentTransaction.aggregate([
-    { $unwind: "$transactions" },
-    { $match: { "transactions.paidOn": { $gte: startOfDay, $lte: endOfDay } } },
-    { $count: "count" }
-  ]);
-
-  const todayCount = result.length > 0 ? result[0].count : 0;
-  const nextCount = todayCount + 1;
-
-  // Format date as YYYYMMDD
   const yyyy = String(now.getFullYear());
   const mm = String(now.getMonth() + 1).padStart(2, "0");
   const dd = String(now.getDate()).padStart(2, "0");
   const dateStr = `${yyyy}${mm}${dd}`;
 
-  // Format count as 3-digit padded number
-  const countStr = String(nextCount).padStart(3, "0");
+  // Atomic increment
+  const counter = await ReceiptCounter.findOneAndUpdate(
+    { date: dateStr },
+    { $inc: { sequence: 1 } },
+    {
+      new: true,
+      upsert: true
+    }
+  );
 
-  return { receiptNo: `REC-${dateStr}-${countStr}` };
+  const countStr = String(counter.sequence).padStart(3, "0");
+
+  return {
+    receiptNo: `REC-${dateStr}-${countStr}`
+  };
 };
 
 module.exports = {
   createPayment,
   getAllTransactions,
-  getStudentTransactions,
-  getNextReceiptNo,
+  getStudentTransactions, 
 };

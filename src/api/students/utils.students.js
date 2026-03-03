@@ -57,6 +57,10 @@ function calculateComponentConcessions(enrollment){
 
   return result;
 }
+
+
+
+
 async function generateLedger(studentDoc,options={}){
 
   const session=options.session;
@@ -296,6 +300,7 @@ async function generateLedger(studentDoc,options={}){
   }
 
   await tracking.save({session});
+  return tracking;
 }
 
-module.exports={generateLedger,calculateComponentConcessions};
+module.exports={generateLedger};

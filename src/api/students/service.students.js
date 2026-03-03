@@ -98,7 +98,7 @@ const createStudent=async(data)=>{
   const session=await mongoose.startSession();
   let createdStudent=null;
   let sessionEnded=false;
-
+  let traking=null;
   try{
     await session.withTransaction(async()=>{
 
@@ -111,7 +111,8 @@ const createStudent=async(data)=>{
       const students=await Student.create([data],{session});
       createdStudent=students[0];
 
-      await generateLedger(createdStudent,{session});
+     traking = await generateLedger(createdStudent,{session}); 
+
     });
   }catch(error){
     if(isTransactionUnsupported(error)){
@@ -128,7 +129,6 @@ const createStudent=async(data)=>{
       await session.endSession();
     }
   }
-
   return createdStudent;
 };
 

@@ -65,7 +65,6 @@ The **Transaction** module handles fee payment recording, receipt generation, an
 ```json
 {
   "rollNo": "25CS101",
-  "receiptNo": "REC-2025-001",
   "paymentType": "Cash",
   "billingDate": "15/08/2025",
   "remarks": "First semester fee payment",
@@ -159,31 +158,6 @@ The **Transaction** module handles fee payment recording, receipt generation, an
   "success": false,
   "data": null,
   "message": "Student not found"
-}
-```
-
----
-
-### GET `/api/transaction/nextReceiptNo`
-
-**Auth required:** Yes — Admin
-
-**Description:** Generates and returns the next available receipt number based on the current highest receipt number in the database.
-
-#### Request
-
-No parameters.
-
-#### Response
-
-**200 — Success**
-```json
-{
-  "success": true,
-  "data": {
-    "nextReceiptNo": "REC-2025-002"
-  },
-  "message": "Next receipt number generated"
 }
 ```
 

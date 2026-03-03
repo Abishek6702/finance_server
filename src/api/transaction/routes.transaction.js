@@ -6,8 +6,7 @@ const { protect, admin } = require("../../middleware/authMiddleware");
 
 router.use(protect, admin);
 
-router.post("/pay", validatePayment, controller.createPayment);
-router.get("/nextReceiptNo", controller.getNextReceiptNo);
+router.post("/pay", validatePayment, controller.createPayment); 
 router.get("/", validateAllTransactionsQuery, controller.getAllTransactions);
 router.get("/:rollNo", validateStudentTransactionsQuery, controller.getStudentTransactions);
 
