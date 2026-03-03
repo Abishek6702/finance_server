@@ -18,13 +18,12 @@ describe("Student Fee Tracking API", () => {
       .post("/api/studentsManagement")
       .set(superadminAuth())
       .send(buildStudentPayload(testCtx.studentRollFinance, { academicYear: testCtx.academicYearPrimary }));
-    // Make a payment so fee tracking record has data
+    // Make a payment so fee tracking record has data (receiptNo is auto-generated)
     await request(app)
       .post("/api/feePayment/pay")
       .set(adminAuth())
       .send({
         rollNo: testCtx.studentRollFinance,
-        receiptNo: testCtx.receiptOne,
         paymentType: "Cash",
         bankName: "Indian Bank",
         bankLocation: "Kinathukadavu",

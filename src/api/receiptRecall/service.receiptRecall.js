@@ -301,7 +301,7 @@ const approveRecall = async (recallId, userId) => {
 /* ===================================================================
    REJECT RECALL (Super Admin)
 =================================================================== */
-const rejectRecall = async (recallId, userId) => {
+const rejectRecall = async (recallId, userId, rejectReason) => {
   const recallRequest = await ReceiptRecallRequest.findById(recallId);
   if (!recallRequest) {
     throw new AppError("Recall request not found", 404);
@@ -311,6 +311,7 @@ const rejectRecall = async (recallId, userId) => {
   }
 
   recallRequest.status = "REJECTED";
+  recallRequest.rejectReason = rejectReason;
   recallRequest.reviewedBy = userId;
   recallRequest.reviewedAt = new Date();
   await recallRequest.save();
@@ -323,7 +324,7 @@ const rejectRecall = async (recallId, userId) => {
     module: "receiptRecall",
     description: `Recall rejected for receipt ${recallRequest.receiptNo} (student: ${recallRequest.rollNo})`,
     before: { status: "PENDING" },
-    after: { status: "REJECTED" },
+    after: { status: "REJECTED", rejectReason },
     meta: { status: "REJECTED" },
   });
 

@@ -17,7 +17,6 @@ describe("Receipt Recall API", () => {
     await globalSetup();
 
     recallRollNo = testCtx.studentRollRecall;
-    recallReceiptNo = testCtx.receiptRecall;
 
     // Create fee structure (reuse primary academic year)
     await request(app)
@@ -45,13 +44,12 @@ describe("Receipt Recall API", () => {
       yearTotalPaid: yrPre.total.paid,
     };
 
-    // Make a payment that we will later recall
+    // Make a payment that we will later recall (receiptNo is auto-generated)
     const payRes = await request(app)
       .post("/api/feePayment/pay")
       .set(adminAuth())
       .send({
         rollNo: recallRollNo,
-        receiptNo: recallReceiptNo,
         paymentType: "Cash",
         bankName: "Test Bank",
         remarks: "payment to be recalled",
@@ -61,6 +59,10 @@ describe("Receipt Recall API", () => {
         }],
       });
     expect(payRes.status).toBe(201);
+
+    // Capture the auto-generated receiptNo from the payment response
+    const txns = payRes.body.data.transactions;
+    recallReceiptNo = txns[txns.length - 1].receiptNo;
   });
 
   afterAll(async () => {
@@ -92,7 +94,7 @@ describe("Receipt Recall API", () => {
     const res = await request(app)
       .post("/api/receiptRecall")
       .set(adminAuth())
-      .send({ receiptNo: recallReceiptNo, rollNo: recallRollNo });
+      .send({ rollNo: recallRollNo });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/reason/i);
   });
@@ -206,6 +208,24 @@ describe("Receipt Recall API", () => {
     expect(res.status).toBe(404);
   });
 
+  it("rejects recall without rejectReason", async () => {
+    const res = await request(app)
+      .post(`/api/receiptRecall/${createdRecallId}/reject`)
+      .set(superadminAuth())
+      .send({});
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/rejectReason/i);
+  });
+
+  it("rejects recall with empty rejectReason", async () => {
+    const res = await request(app)
+      .post(`/api/receiptRecall/${createdRecallId}/reject`)
+      .set(superadminAuth())
+      .send({ rejectReason: "   " });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/rejectReason/i);
+  });
+
   it("superadmin rejects recall → no payment changes", async () => {
     // Snapshot tracking before rejection
     const trackingBefore = await StudentFeeTracking.findOne({ rollNo: recallRollNo }).lean();
@@ -214,9 +234,11 @@ describe("Receipt Recall API", () => {
 
     const res = await request(app)
       .post(`/api/receiptRecall/${createdRecallId}/reject`)
-      .set(superadminAuth());
+      .set(superadminAuth())
+      .send({ rejectReason: "Amount is correct, no recall needed" });
     expect(res.status).toBe(200);
     expect(res.body.data.status).toBe("REJECTED");
+    expect(res.body.data.rejectReason).toBe("Amount is correct, no recall needed");
     expect(res.body.data.reviewedBy).toBeDefined();
     expect(res.body.data.reviewedAt).toBeDefined();
 
@@ -234,7 +256,8 @@ describe("Receipt Recall API", () => {
   it("rejects double rejection (already REJECTED)", async () => {
     const res = await request(app)
       .post(`/api/receiptRecall/${createdRecallId}/reject`)
-      .set(superadminAuth());
+      .set(superadminAuth())
+      .send({ rejectReason: "Duplicate attempt" });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/REJECTED/);
   });
@@ -304,15 +327,12 @@ describe("Receipt Recall API", () => {
   let trackingBeforeSecondPayment;
 
   it("makes a second payment and recalls it correctly", async () => {
-    secondReceiptNo = `${recallReceiptNo}-2`;
-
-    // Make another payment
+    // Make another payment (receiptNo is auto-generated)
     const payRes = await request(app)
       .post("/api/feePayment/pay")
       .set(adminAuth())
       .send({
         rollNo: recallRollNo,
-        receiptNo: secondReceiptNo,
         paymentType: "UPI",
         breakdowns: [{
           academicYear: testCtx.academicYearPrimary,
@@ -320,6 +340,10 @@ describe("Receipt Recall API", () => {
         }],
       });
     expect(payRes.status).toBe(201);
+
+    // Capture auto-generated receiptNo
+    const txns = payRes.body.data.transactions;
+    secondReceiptNo = txns[txns.length - 1].receiptNo;
 
     // Snapshot before recall
     const trackingPre = await StudentFeeTracking.findOne({ rollNo: recallRollNo }).lean();

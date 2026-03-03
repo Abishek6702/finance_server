@@ -15,8 +15,7 @@ const toMoney = (value) => Math.round(value * 100) / 100;
 const validatePayment = (req, res, next) => {
   const { rollNo, receiptNo, paymentType, breakdowns } = req.body;
 
-  if (!rollNo) return next(new AppError("rollNo is required", 400));
-  if (!receiptNo) return next(new AppError("receiptNo is required", 400));
+  if (!rollNo) return next(new AppError("rollNo is required", 400)); 
 
   const validPaymentTypes = ["Cash", "Card", "UPI", "NetBanking", "Cheque", "DD"];
   if (!paymentType || !validPaymentTypes.includes(paymentType)) {

@@ -43,6 +43,11 @@ const receiptRecallRequestSchema = new mongoose.Schema({
     ref: "User",
     default: null,
   },
+  rejectReason: {
+    type: String,
+    trim: true,
+    default: null,
+  },
   reviewedAt: {
     type: Date,
     default: null,

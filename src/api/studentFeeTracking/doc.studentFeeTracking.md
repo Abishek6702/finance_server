@@ -225,3 +225,82 @@ academicYearWiseRecord[]
 │   └── totalConcession
 └── total: { total, paid, status }
 ```
+
+
+
+
+
+
+
+**Subject: Clarification on Batch, Academic Year, and Semester Mapping in Fee Ledger System**
+
+This is to formally clarify the definitions and relationships between *Batch*, *Academic Year*, and *Semester* as implemented in the student fee ledger system to avoid confusion and ensure consistency across departments.
+
+---
+
+### 1. Batch
+
+**Batch** represents the total duration of a student’s program.
+
+Example:
+Batch **2024–2028** indicates:
+
+* Admission Year: 2024
+* Completion Year: 2028
+* Duration: 4 Academic Years
+* Total Semesters: 8 (for UG programs)
+
+Batch remains constant for the entire course duration and defines the overall academic lifecycle of the student.
+
+---
+
+### 2. Academic Year
+
+An **Academic Year** represents one study year within the batch duration.
+
+For Batch 2024–2028, the valid academic years are:
+
+* 2024–2025 (1st Year)
+* 2025–2026 (2nd Year)
+* 2026–2027 (3rd Year)
+* 2027–2028 (4th Year)
+
+There are only 4 academic years for a 4-year UG program.
+Academic Year 2028–2029 does **not** belong to Batch 2024–2028.
+
+---
+
+### 3. Semester
+
+Each Academic Year consists of **two semesters**:
+
+| Study Year | Academic Year | Odd Semester | Even Semester |
+| ---------- | ------------- | ------------ | ------------- |
+| 1st Year   | 2024–2025     | Semester 1   | Semester 2    |
+| 2nd Year   | 2025–2026     | Semester 3   | Semester 4    |
+| 3rd Year   | 2026–2027     | Semester 5   | Semester 6    |
+| 4th Year   | 2027–2028     | Semester 7   | Semester 8    |
+
+For a standard UG program:
+
+* Maximum Semesters = 8
+* No Semester 9 or 10 exists.
+
+---
+
+### Structural Relationship
+
+The hierarchy is:
+
+Batch
+→ Academic Year
+→ Semester
+
+Ledger generation and fee calculation strictly follow this structure.
+Academic years and semesters beyond the batch duration will not be generated in the system.
+
+---
+
+This clarification is issued to ensure uniform understanding across departments and prevent inconsistencies in academic and financial records.
+
+If any further clarification is required, it can be addressed through the system documentation or technical review meeting.

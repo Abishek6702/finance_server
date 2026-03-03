@@ -459,3 +459,8 @@ Same nested structure as `POST`. All fields are optional. Same enum and format v
 - **Bulk partial failure (207):** Failing rows do not roll back successfully created rows. Each row is processed independently.
 - **Delete cascade:** Deleting a student removes both the `Student` document and the linked `StudentFeeTracking` document. The `StudentTransaction` document is **not** deleted to preserve payment history.
 - **`rollNo` uniqueness:** Roll number is validated against the regex `^\d{2}[A-Z]{2}\d{3}$` (e.g. `25CS101`) and must be globally unique.
+
+
+
+
+

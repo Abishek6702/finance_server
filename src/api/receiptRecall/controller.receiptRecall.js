@@ -17,7 +17,7 @@ const approveRecall = asyncHandler(async (req, res) => {
 });
 
 const rejectRecall = asyncHandler(async (req, res) => {
-  const data = await recallService.rejectRecall(req.params.recallId, req.user._id);
+  const data = await recallService.rejectRecall(req.params.recallId, req.user._id, req.body.rejectReason);
   res.status(200).json({ success: true, data, message: "Recall request rejected" });
 });
 

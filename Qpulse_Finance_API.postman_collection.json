@@ -1311,7 +1311,12 @@
           "name": "Reject Recall (Superadmin)",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
               "raw": "{{base_url}}/receiptRecall/{{recall_id}}/reject",
               "host": [
@@ -1322,6 +1327,15 @@
                 "{{recall_id}}",
                 "reject"
               ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rejectReason\": \"Payment amount is correct — no recall needed\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           },
           "event": [
@@ -1335,6 +1349,7 @@
                   "  const body = pm.response.json();",
                   "  pm.expect(body.success).to.equal(true);",
                   "  pm.expect(body.data.status).to.equal('REJECTED');",
+                  "  pm.expect(body.data.rejectReason).to.be.a('string');",
                   "  pm.expect(body.data.reviewedAt).to.be.a('string');",
                   "});"
                 ]

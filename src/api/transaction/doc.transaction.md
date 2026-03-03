@@ -90,8 +90,7 @@ The **Transaction** module handles fee payment recording, receipt generation, an
 
 | Rule | Error |
 |---|---|
-| `rollNo` missing | 400 — `rollNo is required` |
-| `receiptNo` missing | 400 — `receiptNo is required` |
+| `rollNo` missing | 400 — `rollNo is required` | 
 | `paymentType` missing or invalid | 400 — `Valid paymentType is required` |
 | `breakdowns` missing or empty array | 400 — `breakdowns array is required` |
 | `breakdown.academicYear` not in `YYYY-YYYY` format | 400 |

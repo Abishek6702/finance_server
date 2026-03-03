@@ -3,10 +3,7 @@ const AppError = require("../../utils/AppError");
 
 const validateCreateRecall = (req, res, next) => {
   const { receiptNo, rollNo, reason } = req.body;
-
-  if (!receiptNo || typeof receiptNo !== "string" || !receiptNo.trim()) {
-    return next(new AppError("receiptNo is required", 400));
-  }
+ 
   if (!rollNo || typeof rollNo !== "string" || !rollNo.trim()) {
     return next(new AppError("rollNo is required", 400));
   }
@@ -33,6 +30,23 @@ const validateRecallAction = (req, res, next) => {
   next();
 };
 
+const validateRejectAction = (req, res, next) => {
+  const { recallId } = req.params;
+
+  if (!recallId || !mongoose.Types.ObjectId.isValid(recallId)) {
+    return next(new AppError("Valid recallId is required", 400));
+  }
+
+  const { rejectReason } = req.body;
+  if (!rejectReason || typeof rejectReason !== "string" || !rejectReason.trim()) {
+    return next(new AppError("rejectReason is required", 400));
+  }
+
+  req.body = { rejectReason: rejectReason.trim() };
+
+  next();
+};
+
 const validateGetRecalls = (req, res, next) => {
   const { status, page, limit } = req.query;
 
@@ -51,4 +65,5 @@ const validateGetRecalls = (req, res, next) => {
   next();
 };
 
-module.exports = { validateCreateRecall, validateRecallAction, validateGetRecalls };
+module.exports = { validateCreateRecall, validateRecallAction, validateRejectAction, validateGetRecalls };
+

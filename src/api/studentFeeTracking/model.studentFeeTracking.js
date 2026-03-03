@@ -1,262 +1,292 @@
-const mongoose=require("mongoose");
+const mongoose = require("mongoose");
 
-function normalizeMoney(value){
-  const number=Number(value);
-  if(!Number.isFinite(number)||number<0) return 0;
-  return Math.round(number*100)/100;
+function normalizeMoney(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0) return 0;
+  return Math.round(number * 100) / 100;
 }
 
-function normalizeAmountSchema(amount){
-  const target=amount||{};
+function normalizeAmountSchema(amount) {
+  const target = amount || {};
 
-  target.total=normalizeMoney(target.total);
-  target.paid=normalizeMoney(target.paid);
-  target.paid=Math.min(target.paid,target.total);
+  target.total = normalizeMoney(target.total);
+  target.paid = normalizeMoney(target.paid);
+  target.paid = Math.min(target.paid, target.total);
 
-  if(target.total===0) target.status="Paid";
-  else if(target.paid>=target.total) target.status="Paid";
-  else if(target.paid>0) target.status="Partially Paid";
-  else target.status="Unpaid";
+  if (target.total === 0) target.status = "Paid";
+  else if (target.paid >= target.total) target.status = "Paid";
+  else if (target.paid > 0) target.status = "Partially Paid";
+  else target.status = "Unpaid";
 
   return target;
 }
 
-const amountSchema=new mongoose.Schema({
-  total:{type:Number,default:0,min:0},
-  paid:{type:Number,default:0,min:0},
-  status:{
-    type:String,
-    enum:["Paid","Partially Paid","Unpaid"],
-    default:"Unpaid"
-  }
-},{_id:false});
-
-const semesterLedgerSchema=new mongoose.Schema({
-  semesterNumber:{type:Number,min:1,max:8},
-  tuition:{type:amountSchema,default:()=>({})},
-  exam:{type:amountSchema,default:()=>({})},
-  erp:{type:amountSchema,default:()=>({})},
-  book:{type:amountSchema,default:()=>({})},
-  lab:{type:amountSchema,default:()=>({})},
-  subTotal:{type:Number,default:0},
-  total:{type:amountSchema,default:()=>({})}
-},{_id:false});
-
-const transportLedgerSchema=new mongoose.Schema({
-  transport:{
-      type:String
-    },
-  route:{type:String,trim:true},
-  busNo:{type:String,trim:true},
-  stop:{type:String,trim:true},
-  fee:{type:Number,min:0},
-  subTotal:{type:Number,default:0},
-  transportSpecialConcession:{type:Number,default:0},
-  total:{type:amountSchema,default:()=>({})}
-},{_id:false});
-
-const hostelLedgerSchema=new mongoose.Schema({
-  hostel:{
-      type:String
-    },
-  block:{type:String,trim:true,uppercase:true},
-  sharing:{type:Number},
-  isAttached:{type:Boolean},
-  fee:{type:Number,min:0},
-  subTotal:{type:Number,default:0},
-  hostelSpecialConcession:{type:Number,default:0},
-  total:{type:amountSchema,default:()=>({})}
-},{_id:false});
-
-const concessionSchema=new mongoose.Schema({
-  tuition:{type:Number,default:0},
-  exam:{type:Number,default:0},
-  erp:{type:Number,default:0},
-  book:{type:Number,default:0},
-  lab:{type:Number,default:0},
-  transport:{type:Number,default:0},
-  hostel:{type:Number,default:0},
-  totalConcession:{type:Number,default:0}
-},{_id:false});
-
-const academicYearWiseRecordSchema=new mongoose.Schema({
-  academicYear:{
-    type:String,
-    trim:true,
-    match:/^\d{4}-\d{4}$/,
-    index:true
+const amountSchema = new mongoose.Schema({
+  total: { type: Number, default: 0, min: 0 },
+  paid: { type: Number, default: 0, min: 0 },
+  status: {
+    type: String,
+    enum: ["Paid", "Partially Paid", "Unpaid"],
+    default: "Unpaid",
   },
-  academic:{
-    odd:semesterLedgerSchema,
-    even:semesterLedgerSchema,
-    academicSpecialConcession:{type:Number,default:0},
-    subTotal:{type:Number,default:0},
-    total:{type:amountSchema,default:()=>({})}
-  },
-  transport:transportLedgerSchema,
-  hostel:hostelLedgerSchema,
-  concessions:concessionSchema,
-  total:{type:amountSchema,default:()=>({})}
-},{_id:false});
+}, { _id: false });
 
-const studentFeeTrackingSchema=new mongoose.Schema({
-  student:{
-    type:mongoose.Schema.Types.ObjectId,
-    ref:"Student",
-    required:true,
-    unique:true,
-    index:true
-  },
-  rollNo:{type:String,index:true},
-  academicYearWiseRecord:[academicYearWiseRecordSchema]
-},{timestamps:true});
+const semesterLedgerSchema = new mongoose.Schema({
+  semesterNumber: { type: Number, min: 1, max: 8 },
+  tuition: { type: amountSchema, default: () => ({}) },
+  exam: { type: amountSchema, default: () => ({}) },
+  erp: { type: amountSchema, default: () => ({}) },
+  book: { type: amountSchema, default: () => ({}) },
+  lab: { type: amountSchema, default: () => ({}) },
+  subTotal: { type: Number, default: 0 },
+  total: { type: amountSchema, default: () => ({}) },
+}, { _id: false });
 
-studentFeeTrackingSchema.pre("save",function(){
-  this.academicYearWiseRecord?.forEach(yearRecord=>{
-    const academic=yearRecord.academic;
-    if(!academic){
-      yearRecord.total=normalizeAmountSchema(yearRecord.total||{});
+const transportLedgerSchema = new mongoose.Schema({
+  transport: { type: String },
+  route: { type: String, trim: true },
+  busNo: { type: String, trim: true },
+  stop: { type: String, trim: true },
+  fee: { type: Number, min: 0 },
+  subTotal: { type: Number, default: 0 },
+  transportSpecialConcession: { type: Number, default: 0 },
+  total: { type: amountSchema, default: () => ({}) },
+}, { _id: false });
+
+const hostelLedgerSchema = new mongoose.Schema({
+  hostel: { type: String },
+  block: { type: String, trim: true, uppercase: true },
+  sharing: { type: Number },
+  isAttached: { type: Boolean },
+  fee: { type: Number, min: 0 },
+  subTotal: { type: Number, default: 0 },
+  hostelSpecialConcession: { type: Number, default: 0 },
+  total: { type: amountSchema, default: () => ({}) },
+}, { _id: false });
+
+const concessionSchema = new mongoose.Schema({
+  tuition: { type: Number, default: 0 },
+  exam: { type: Number, default: 0 },
+  erp: { type: Number, default: 0 },
+  book: { type: Number, default: 0 },
+  lab: { type: Number, default: 0 },
+  transport: { type: Number, default: 0 },
+  hostel: { type: Number, default: 0 },
+  totalConcession: { type: Number, default: 0 },
+}, { _id: false });
+
+const academicYearWiseRecordSchema = new mongoose.Schema({
+  academicYear: {
+    type: String,
+    trim: true,
+    match: /^\d{4}-\d{4}$/,
+    index: true,
+  },
+  academic: {
+    odd: semesterLedgerSchema,
+    even: semesterLedgerSchema,
+    academicSpecialConcession: { type: Number, default: 0 },
+    subTotal: { type: Number, default: 0 },
+    total: { type: amountSchema, default: () => ({}) },
+  },
+  transport: transportLedgerSchema,
+  hostel: hostelLedgerSchema,
+  concessions: concessionSchema,
+  total: { type: amountSchema, default: () => ({}) },
+}, { _id: false });
+
+const studentFeeTrackingSchema = new mongoose.Schema({
+  student: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Student",
+    required: true,
+    unique: true,
+    index: true,
+  },
+  rollNo: { type: String, index: true },
+  academicYearWiseRecord: [academicYearWiseRecordSchema],
+}, { timestamps: true });
+
+studentFeeTrackingSchema.pre("save", function () {
+  this.academicYearWiseRecord?.forEach((yearRecord) => {
+    const academic = yearRecord.academic;
+
+    if (!academic) {
+      yearRecord.total = normalizeAmountSchema(yearRecord.total || {});
       return;
     }
 
-    const odd=academic.odd;
-    const even=academic.even;
+    const odd = academic.odd;
+    const even = academic.even;
 
-    // ── Step 1: compute gross subTotal per semester ──────────────────────
-    [odd,even].forEach(sem=>{
-      if(!sem) return;
-      sem.tuition=normalizeAmountSchema(sem.tuition||{});
-      sem.exam   =normalizeAmountSchema(sem.exam||{});
-      sem.erp    =normalizeAmountSchema(sem.erp||{});
-      sem.book   =normalizeAmountSchema(sem.book||{});
-      sem.lab    =normalizeAmountSchema(sem.lab||{});
-      sem.subTotal=normalizeMoney(
-        (sem.tuition?.total||0)+
-        (sem.exam?.total||0)+
-        (sem.erp?.total||0)+
-        (sem.book?.total||0)+
-        (sem.lab?.total||0)
+    // Step 1: Semester gross calculation
+    [odd, even].forEach((sem) => {
+      if (!sem) return;
+
+      sem.tuition = normalizeAmountSchema(sem.tuition || {});
+      sem.exam = normalizeAmountSchema(sem.exam || {});
+      sem.erp = normalizeAmountSchema(sem.erp || {});
+      sem.book = normalizeAmountSchema(sem.book || {});
+      sem.lab = normalizeAmountSchema(sem.lab || {});
+
+      sem.subTotal = normalizeMoney(
+        (sem.tuition?.total || 0) +
+        (sem.exam?.total || 0) +
+        (sem.erp?.total || 0) +
+        (sem.book?.total || 0) +
+        (sem.lab?.total || 0)
       );
     });
 
-    // ── Step 2: distribute academicSpecialConcession across odd / even ───
-    // Split proportionally by gross subTotal; if only one semester exists
-    // apply the full concession to that one.
-    academic.academicSpecialConcession=normalizeMoney(academic.academicSpecialConcession||0);
-    const totalConcession=academic.academicSpecialConcession;
-    const oddGross =normalizeMoney(odd?.subTotal||0);
-    const evenGross=normalizeMoney(even?.subTotal||0);
-    const grossSum =normalizeMoney(oddGross+evenGross);
+    // Step 2: Academic concession distribution (UNCHANGED)
+    academic.academicSpecialConcession = normalizeMoney(
+      academic.academicSpecialConcession || 0
+    );
 
-    let oddConcession=0;
-    let evenConcession=0;
-    if(grossSum>0){
-      oddConcession =normalizeMoney(totalConcession*(oddGross/grossSum));
-      evenConcession=normalizeMoney(Math.max(0,totalConcession-oddConcession));
+    const totalConcession = academic.academicSpecialConcession;
+    const oddGross = normalizeMoney(odd?.subTotal || 0);
+    const evenGross = normalizeMoney(even?.subTotal || 0);
+    const grossSum = normalizeMoney(oddGross + evenGross);
+
+    let oddConcession = 0;
+    let evenConcession = 0;
+
+    if (grossSum > 0) {
+      oddConcession = normalizeMoney(
+        totalConcession * (oddGross / grossSum)
+      );
+      evenConcession = normalizeMoney(
+        Math.max(0, totalConcession - oddConcession)
+      );
     }
 
-    // ── Step 3: apply net cap to each semester ────────────────────────────
-    const applyNetToSem=(sem,concession)=>{
-      if(!sem) return;
-      const netTotal=normalizeMoney(Math.max(0,sem.subTotal-concession));
-      sem.total=normalizeAmountSchema(sem.total||{});
-      sem.total.total=netTotal;
-      const semPaid=normalizeMoney(
-        (sem.tuition?.paid||0)+
-        (sem.exam?.paid||0)+
-        (sem.erp?.paid||0)+
-        (sem.book?.paid||0)+
-        (sem.lab?.paid||0)
+    const applyNetToSem = (sem, concession) => {
+      if (!sem) return;
+
+      const netTotal = normalizeMoney(
+        Math.max(0, sem.subTotal - concession)
       );
-      sem.total.paid=Math.min(semPaid,netTotal);
-      if(netTotal===0)              sem.total.status="Paid";
-      else if(sem.total.paid>=netTotal) sem.total.status="Paid";
-      else if(sem.total.paid>0)     sem.total.status="Partially Paid";
-      else                          sem.total.status="Unpaid";
+
+      sem.total = normalizeAmountSchema(sem.total || {});
+      sem.total.total = netTotal;
+
+      const semPaid = normalizeMoney(
+        (sem.tuition?.paid || 0) +
+        (sem.exam?.paid || 0) +
+        (sem.erp?.paid || 0) +
+        (sem.book?.paid || 0) +
+        (sem.lab?.paid || 0)
+      );
+
+      sem.total.paid = Math.min(semPaid, netTotal);
+
+      if (netTotal === 0) sem.total.status = "Paid";
+      else if (sem.total.paid >= netTotal) sem.total.status = "Paid";
+      else if (sem.total.paid > 0) sem.total.status = "Partially Paid";
+      else sem.total.status = "Unpaid";
     };
 
-    applyNetToSem(odd,oddConcession);
-    applyNetToSem(even,evenConcession);
+    applyNetToSem(odd, oddConcession);
+    applyNetToSem(even, evenConcession);
 
-    // ── Step 4: year-level academic total ────────────────────────────────
-    // subTotal = gross sum (for reference); total.total = net payable
-    academic.subTotal=normalizeMoney(oddGross+evenGross);
-    const academicNetTotal=normalizeMoney(Math.max(0,academic.subTotal-totalConcession));
-    academic.total=normalizeAmountSchema(academic.total||{});
-    academic.total.total=academicNetTotal;
+    // Step 3: Academic year total
+    academic.subTotal = normalizeMoney(oddGross + evenGross);
 
-    const academicPaid=normalizeMoney((odd?.total?.paid||0)+(even?.total?.paid||0));
-    academic.total.paid=Math.min(academicPaid,academicNetTotal);
+    const academicNetTotal = normalizeMoney(
+      Math.max(0, academic.subTotal - totalConcession)
+    );
 
-    if(academicNetTotal===0)                    academic.total.status="Paid";
-    else if(academic.total.paid>=academicNetTotal) academic.total.status="Paid";
-    else if(academic.total.paid>0)              academic.total.status="Partially Paid";
-    else                                        academic.total.status="Unpaid";
+    academic.total = normalizeAmountSchema(academic.total || {});
+    academic.total.total = academicNetTotal;
 
-    if(yearRecord.transport){
-      yearRecord.transport.subTotal=normalizeMoney(yearRecord.transport.subTotal||0);
-      yearRecord.transport.transportSpecialConcession=normalizeMoney(yearRecord.transport.transportSpecialConcession||0);
-      yearRecord.transport.total=normalizeAmountSchema(yearRecord.transport.total||{});
-      yearRecord.transport.total.total=normalizeMoney(
-        Math.max(0,yearRecord.transport.subTotal-yearRecord.transport.transportSpecialConcession)
+    const academicPaid = normalizeMoney(
+      (odd?.total?.paid || 0) +
+      (even?.total?.paid || 0)
+    );
+
+    academic.total.paid = Math.min(academicPaid, academicNetTotal);
+
+    if (academicNetTotal === 0) academic.total.status = "Paid";
+    else if (academic.total.paid >= academicNetTotal) academic.total.status = "Paid";
+    else if (academic.total.paid > 0) academic.total.status = "Partially Paid";
+    else academic.total.status = "Unpaid";
+
+    // Transport (UNCHANGED)
+    if (yearRecord.transport) {
+      yearRecord.transport.subTotal = normalizeMoney(yearRecord.transport.subTotal || 0);
+      yearRecord.transport.transportSpecialConcession = normalizeMoney(yearRecord.transport.transportSpecialConcession || 0);
+
+      yearRecord.transport.total = normalizeAmountSchema(yearRecord.transport.total || {});
+      yearRecord.transport.total.total = normalizeMoney(
+        Math.max(0, yearRecord.transport.subTotal - yearRecord.transport.transportSpecialConcession)
       );
-      yearRecord.transport.total.paid=Math.min(
-        normalizeMoney(yearRecord.transport.total.paid||0),
+
+      yearRecord.transport.total.paid = Math.min(
+        normalizeMoney(yearRecord.transport.total.paid || 0),
         yearRecord.transport.total.total
       );
-      yearRecord.transport.total=normalizeAmountSchema(yearRecord.transport.total);
+
+      yearRecord.transport.total = normalizeAmountSchema(yearRecord.transport.total);
     }
 
-    if(yearRecord.hostel){
-      yearRecord.hostel.subTotal=normalizeMoney(yearRecord.hostel.subTotal||0);
-      yearRecord.hostel.hostelSpecialConcession=normalizeMoney(yearRecord.hostel.hostelSpecialConcession||0);
-      yearRecord.hostel.total=normalizeAmountSchema(yearRecord.hostel.total||{});
-      yearRecord.hostel.total.total=normalizeMoney(
-        Math.max(0,yearRecord.hostel.subTotal-yearRecord.hostel.hostelSpecialConcession)
+    // Hostel (UNCHANGED)
+    if (yearRecord.hostel) {
+      yearRecord.hostel.subTotal = normalizeMoney(yearRecord.hostel.subTotal || 0);
+      yearRecord.hostel.hostelSpecialConcession = normalizeMoney(yearRecord.hostel.hostelSpecialConcession || 0);
+
+      yearRecord.hostel.total = normalizeAmountSchema(yearRecord.hostel.total || {});
+      yearRecord.hostel.total.total = normalizeMoney(
+        Math.max(0, yearRecord.hostel.subTotal - yearRecord.hostel.hostelSpecialConcession)
       );
-      yearRecord.hostel.total.paid=Math.min(
-        normalizeMoney(yearRecord.hostel.total.paid||0),
+
+      yearRecord.hostel.total.paid = Math.min(
+        normalizeMoney(yearRecord.hostel.total.paid || 0),
         yearRecord.hostel.total.total
       );
-      yearRecord.hostel.total=normalizeAmountSchema(yearRecord.hostel.total);
+
+      yearRecord.hostel.total = normalizeAmountSchema(yearRecord.hostel.total);
     }
 
-    if(yearRecord.concessions){
-      yearRecord.concessions.tuition=normalizeMoney(yearRecord.concessions.tuition||0);
-      yearRecord.concessions.exam=normalizeMoney(yearRecord.concessions.exam||0);
-      yearRecord.concessions.erp=normalizeMoney(yearRecord.concessions.erp||0);
-      yearRecord.concessions.book=normalizeMoney(yearRecord.concessions.book||0);
-      yearRecord.concessions.lab=normalizeMoney(yearRecord.concessions.lab||0);
-      yearRecord.concessions.transport=normalizeMoney(yearRecord.concessions.transport||0);
-      yearRecord.concessions.hostel=normalizeMoney(yearRecord.concessions.hostel||0);
-      yearRecord.concessions.totalConcession=normalizeMoney(
-        (yearRecord.concessions.tuition||0)+
-        (yearRecord.concessions.exam||0)+
-        (yearRecord.concessions.erp||0)+
-        (yearRecord.concessions.book||0)+
-        (yearRecord.concessions.lab||0)+
-        (yearRecord.concessions.transport||0)+
-        (yearRecord.concessions.hostel||0)
+    // Concessions aggregation (UNCHANGED)
+    if (yearRecord.concessions) {
+      yearRecord.concessions.tuition = normalizeMoney(yearRecord.concessions.tuition || 0);
+      yearRecord.concessions.exam = normalizeMoney(yearRecord.concessions.exam || 0);
+      yearRecord.concessions.erp = normalizeMoney(yearRecord.concessions.erp || 0);
+      yearRecord.concessions.book = normalizeMoney(yearRecord.concessions.book || 0);
+      yearRecord.concessions.lab = normalizeMoney(yearRecord.concessions.lab || 0);
+      yearRecord.concessions.transport = normalizeMoney(yearRecord.concessions.transport || 0);
+      yearRecord.concessions.hostel = normalizeMoney(yearRecord.concessions.hostel || 0);
+
+      yearRecord.concessions.totalConcession = normalizeMoney(
+        (yearRecord.concessions.tuition || 0) +
+        (yearRecord.concessions.exam || 0) +
+        (yearRecord.concessions.erp || 0) +
+        (yearRecord.concessions.book || 0) +
+        (yearRecord.concessions.lab || 0) +
+        (yearRecord.concessions.transport || 0) +
+        (yearRecord.concessions.hostel || 0)
       );
     }
 
-    const recalculatedYearTotal=normalizeMoney(
-      (academic.total?.total||0)+
-      (yearRecord.transport?.total?.total||0)+
-      (yearRecord.hostel?.total?.total||0)
+    // Final Year Net Total
+    const recalculatedYearTotal = normalizeMoney(
+      (academic.total?.total || 0) +
+      (yearRecord.transport?.total?.total || 0) +
+      (yearRecord.hostel?.total?.total || 0)
     );
 
-    yearRecord.total=normalizeAmountSchema(yearRecord.total||{});
-    yearRecord.total.total=recalculatedYearTotal;
+    yearRecord.total = normalizeAmountSchema(yearRecord.total || {});
+    yearRecord.total.total = recalculatedYearTotal;
 
-    const recalculatedYearPaid=normalizeMoney(
-      (academic.total?.paid||0)+
-      (yearRecord.transport?.total?.paid||0)+
-      (yearRecord.hostel?.total?.paid||0)
+    const recalculatedYearPaid = normalizeMoney(
+      (academic.total?.paid || 0) +
+      (yearRecord.transport?.total?.paid || 0) +
+      (yearRecord.hostel?.total?.paid || 0)
     );
-    yearRecord.total.paid=Math.min(recalculatedYearPaid,recalculatedYearTotal);
-    yearRecord.total=normalizeAmountSchema(yearRecord.total);
+
+    yearRecord.total.paid = Math.min(recalculatedYearPaid, recalculatedYearTotal);
+    yearRecord.total = normalizeAmountSchema(yearRecord.total);
   });
 });
 
-module.exports=mongoose.model("StudentFeeTracking",studentFeeTrackingSchema);
+module.exports = mongoose.model("StudentFeeTracking", studentFeeTrackingSchema);

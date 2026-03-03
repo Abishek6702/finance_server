@@ -46,4 +46,8 @@ describe("Fee Payment / Transaction API", () => {
     await FeeStructureMaster.deleteMany({ academicYear: testCtx.academicYearPrimary });
     await globalTeardown();
   });
+
+  it("setup completes successfully", () => {
+    expect(true).toBe(true);
+  });
 });

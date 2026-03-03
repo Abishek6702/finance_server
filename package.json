@@ -33,6 +33,10 @@
     "supertest": "^7.1.4"
   },
   "jest": {
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "silent": true,
+    "reporters": [
+      "./src/test/reporter.js"
+    ]
   }
 }
