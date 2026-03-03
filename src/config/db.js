@@ -1,16 +1,27 @@
-const mongoose = require('mongoose');
-const dontenv = require('dotenv');
+const mongoose = require("mongoose");
 
-dontenv.config();
+let isConnected = false;
 
-const connectDB = async()=>{
-    try{
-        await mongoose.connect(process.env.MONGO_URI); 
-        console.log('MongoDB Connected Sucessfully');
-    } catch (error){
-        console.error('MongoDb Connection Failed :', error.moessage || error);
-        process.exit(1);
-    }
+const connectDB = async () => {
+  if (isConnected) return;
+
+  if (!process.env.MONGO_URI) {
+    throw new Error("MONGO_URI not defined");
+  }
+
+  await mongoose.connect(process.env.MONGO_URI, {
+    autoIndex: false,
+  });
+
+  isConnected = true;
+
+  mongoose.connection.on("error", (err) => {
+    console.error("MongoDB error:", err);
+  });
+
+  mongoose.connection.on("disconnected", () => {
+    isConnected = false;
+  });
 };
 
-module.exports = connectDB
+module.exports = connectDB;

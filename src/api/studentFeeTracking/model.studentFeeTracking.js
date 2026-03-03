@@ -21,7 +21,35 @@ function normalizeAmountSchema(amount) {
   return target;
 }
 
+function normalizeComponentSchema(comp) {
+  const target = comp || {};
+  target.concession = normalizeMoney(target.concession);
+  target.subTotal = normalizeMoney(target.subTotal);
+  target.total = normalizeMoney(Math.max(0, target.subTotal - target.concession));
+  target.paid = normalizeMoney(target.paid);
+  target.paid = Math.min(target.paid, target.total);
+
+  if (target.total === 0) target.status = "Paid";
+  else if (target.paid >= target.total) target.status = "Paid";
+  else if (target.paid > 0) target.status = "Partially Paid";
+  else target.status = "Unpaid";
+
+  return target;
+}
+
 const amountSchema = new mongoose.Schema({
+  total: { type: Number, default: 0, min: 0 },
+  paid: { type: Number, default: 0, min: 0 },
+  status: {
+    type: String,
+    enum: ["Paid", "Partially Paid", "Unpaid"],
+    default: "Unpaid",
+  },
+}, { _id: false });
+
+const academicComponentSchema = new mongoose.Schema({
+  concession: { type: Number, default: 0, min: 0 },
+  subTotal: { type: Number, default: 0, min: 0 },
   total: { type: Number, default: 0, min: 0 },
   paid: { type: Number, default: 0, min: 0 },
   status: {
@@ -33,11 +61,11 @@ const amountSchema = new mongoose.Schema({
 
 const semesterLedgerSchema = new mongoose.Schema({
   semesterNumber: { type: Number, min: 1, max: 8 },
-  tuition: { type: amountSchema, default: () => ({}) },
-  exam: { type: amountSchema, default: () => ({}) },
-  erp: { type: amountSchema, default: () => ({}) },
-  book: { type: amountSchema, default: () => ({}) },
-  lab: { type: amountSchema, default: () => ({}) },
+  tuition: { type: academicComponentSchema, default: () => ({}) },
+  exam: { type: academicComponentSchema, default: () => ({}) },
+  erp: { type: academicComponentSchema, default: () => ({}) },
+  book: { type: academicComponentSchema, default: () => ({}) },
+  lab: { type: academicComponentSchema, default: () => ({}) },
   subTotal: { type: Number, default: 0 },
   total: { type: amountSchema, default: () => ({}) },
 }, { _id: false });
@@ -49,7 +77,6 @@ const transportLedgerSchema = new mongoose.Schema({
   stop: { type: String, trim: true },
   fee: { type: Number, min: 0 },
   subTotal: { type: Number, default: 0 },
-  transportSpecialConcession: { type: Number, default: 0 },
   total: { type: amountSchema, default: () => ({}) },
 }, { _id: false });
 
@@ -92,6 +119,7 @@ const academicYearWiseRecordSchema = new mongoose.Schema({
   transport: transportLedgerSchema,
   hostel: hostelLedgerSchema,
   concessions: concessionSchema,
+  subTotal: { type: Number, default: 0 },
   total: { type: amountSchema, default: () => ({}) },
 }, { _id: false });
 
@@ -139,32 +167,33 @@ studentFeeTrackingSchema.pre("save", function () {
     }
 
     /* ──────────────────────────────────────────────
-       Step 1: Normalize component amountSchemas and
-       recalculate semester subTotals.
-       Component totals are already NET (set at
-       creation by generateLedger). Do NOT re-apply
-       concessions here — that would double-subtract.
+       Step 1: Normalize academic component schemas.
+       Each component: concession, subTotal, total, paid, status.
+       total = subTotal − concession (enforced by normalizeComponentSchema).
     ────────────────────────────────────────────── */
     const ACADEMIC_FIELDS = ["tuition", "exam", "erp", "book", "lab"];
 
     [odd, even].forEach((sem) => {
       if (!sem) return;
       ACADEMIC_FIELDS.forEach((f) => {
-        sem[f] = normalizeAmountSchema(sem[f] || {});
+        sem[f] = normalizeComponentSchema(sem[f] || {});
       });
+      // subTotal = GROSS (sum of component subTotals)
       sem.subTotal = normalizeMoney(
-        ACADEMIC_FIELDS.reduce((sum, f) => sum + (sem[f]?.total || 0), 0)
+        ACADEMIC_FIELDS.reduce((sum, f) => sum + (sem[f]?.subTotal || 0), 0)
       );
     });
 
     /* ──────────────────────────────────────────────
-       Step 2: Semester total = subTotal (NET).
+       Step 2: Semester total = NET (sum of component totals).
        Recalculate paid and status.
     ────────────────────────────────────────────── */
     const finalizeSemester = (sem) => {
       if (!sem) return;
 
-      const netTotal = sem.subTotal;
+      const netTotal = normalizeMoney(
+        ACADEMIC_FIELDS.reduce((sum, f) => sum + (sem[f]?.total || 0), 0)
+      );
 
       sem.total = normalizeAmountSchema(sem.total || {});
       sem.total.total = netTotal;
@@ -186,11 +215,12 @@ studentFeeTrackingSchema.pre("save", function () {
 
     /* ──────────────────────────────────────────────
        Step 3: Academic year totals.
-       academic.subTotal = gross sum of both semesters
-       (preserved from creation — not re-derived here).
-       academic.total.total = sum of net semester totals.
+       academic.subTotal = GROSS (sum of semester subTotals).
+       academic.total.total = NET (sum of semester net totals).
     ────────────────────────────────────────────── */
-    academic.subTotal = normalizeMoney(academic.subTotal || 0);
+    academic.subTotal = normalizeMoney(
+      (odd?.subTotal || 0) + (even?.subTotal || 0)
+    );
 
     const academicNetTotal = normalizeMoney(
       (odd?.total?.total || 0) + (even?.total?.total || 0)
@@ -212,32 +242,17 @@ studentFeeTrackingSchema.pre("save", function () {
 
     /* ──────────────────────────────────────────────
        Step 4: Transport.
-       Net total = subTotal - transportSpecialConcession
-       (enrollment concession already baked into
-       total.total by generateLedger — we keep it).
-       If transportSpecialConcession > 0 (admin-set),
-       we re-apply it against subTotal, but we must
-       not re-apply the enrollment concession.
-       Simplest idempotent rule: trust stored total.total
-       — only cap paid and refresh status.
+       Net = subTotal − enrollment concession.
     ────────────────────────────────────────────── */
     if (yearRecord.transport) {
       yearRecord.transport.subTotal = normalizeMoney(yearRecord.transport.subTotal || 0);
-      yearRecord.transport.transportSpecialConcession = normalizeMoney(
-        yearRecord.transport.transportSpecialConcession || 0
-      );
-
       yearRecord.transport.total = normalizeAmountSchema(yearRecord.transport.total || {});
 
-      /* Net = subTotal − enrollmentConcession − specialConcession.
-         Since enrollmentConcession is baked into total.total already,
-         recalculate cleanly as: subTotal − all concessions. */
       const transportEnrollConc = normalizeMoney((yearRecord.concessions?.transport) || 0);
       const transportNetTotal = normalizeMoney(
         Math.max(0,
           yearRecord.transport.subTotal
           - transportEnrollConc
-          - yearRecord.transport.transportSpecialConcession
         )
       );
 
@@ -278,8 +293,16 @@ studentFeeTrackingSchema.pre("save", function () {
     }
 
     /* ──────────────────────────────────────────────
-       Step 6: Final Year Net Total
+       Step 6: Year-Level Totals.
+       subTotal = GROSS (academic + transport + hostel).
+       total = NET.
     ────────────────────────────────────────────── */
+    yearRecord.subTotal = normalizeMoney(
+      (academic.subTotal || 0) +
+      (yearRecord.transport?.subTotal || 0) +
+      (yearRecord.hostel?.subTotal || 0)
+    );
+
     const recalculatedYearTotal = normalizeMoney(
       (academic.total?.total || 0) +
       (yearRecord.transport?.total?.total || 0) +

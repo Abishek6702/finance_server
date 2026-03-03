@@ -67,38 +67,24 @@ const propagateFeeStructureUpdate = async (academicYear, updatedFeeStructure) =>
     const oddSemNo = studyYear * 2 - 1;
     const evenSemNo = studyYear * 2;
 
-    const specialTuitionConcession = normalizeMoney(student.enrollment?.specialConcession?.tuition || 0);
-
-    // Update odd semester fees
+    // Update odd semester fees (set subTotal = new gross; pre-save hook recalculates total = subTotal - concession)
     const oddSemFee = dept.semesters?.find(s => s.isActive && s.semesterNumber === oddSemNo);
     if (yearRecord.academic.odd && oddSemFee) {
-      yearRecord.academic.odd.tuition.total = normalizeMoney(oddSemFee.tuition?.fee || 0);
-      yearRecord.academic.odd.exam.total = normalizeMoney(oddSemFee.exam?.fee || 0);
-      yearRecord.academic.odd.erp.total = normalizeMoney(oddSemFee.erp?.fee || 0);
-      yearRecord.academic.odd.book.total = normalizeMoney(oddSemFee.book?.fee || 0);
-      yearRecord.academic.odd.lab.total = normalizeMoney(oddSemFee.lab?.fee || 0);
-
-      const newSubTotal = normalizeMoney(
-        (oddSemFee.tuition?.fee || 0) + (oddSemFee.exam?.fee || 0) +
-        (oddSemFee.erp?.fee || 0) + (oddSemFee.book?.fee || 0) + (oddSemFee.lab?.fee || 0)
-      );
-      yearRecord.academic.odd.total.total = normalizeMoney(Math.max(0, newSubTotal - specialTuitionConcession));
+      yearRecord.academic.odd.tuition.subTotal = normalizeMoney(oddSemFee.tuition?.fee || 0);
+      yearRecord.academic.odd.exam.subTotal = normalizeMoney(oddSemFee.exam?.fee || 0);
+      yearRecord.academic.odd.erp.subTotal = normalizeMoney(oddSemFee.erp?.fee || 0);
+      yearRecord.academic.odd.book.subTotal = normalizeMoney(oddSemFee.book?.fee || 0);
+      yearRecord.academic.odd.lab.subTotal = normalizeMoney(oddSemFee.lab?.fee || 0);
     }
 
     // Update even semester fees
     const evenSemFee = dept.semesters?.find(s => s.isActive && s.semesterNumber === evenSemNo);
     if (yearRecord.academic.even && evenSemFee) {
-      yearRecord.academic.even.tuition.total = normalizeMoney(evenSemFee.tuition?.fee || 0);
-      yearRecord.academic.even.exam.total = normalizeMoney(evenSemFee.exam?.fee || 0);
-      yearRecord.academic.even.erp.total = normalizeMoney(evenSemFee.erp?.fee || 0);
-      yearRecord.academic.even.book.total = normalizeMoney(evenSemFee.book?.fee || 0);
-      yearRecord.academic.even.lab.total = normalizeMoney(evenSemFee.lab?.fee || 0);
-
-      const newSubTotal = normalizeMoney(
-        (evenSemFee.tuition?.fee || 0) + (evenSemFee.exam?.fee || 0) +
-        (evenSemFee.erp?.fee || 0) + (evenSemFee.book?.fee || 0) + (evenSemFee.lab?.fee || 0)
-      );
-      yearRecord.academic.even.total.total = normalizeMoney(Math.max(0, newSubTotal - specialTuitionConcession));
+      yearRecord.academic.even.tuition.subTotal = normalizeMoney(evenSemFee.tuition?.fee || 0);
+      yearRecord.academic.even.exam.subTotal = normalizeMoney(evenSemFee.exam?.fee || 0);
+      yearRecord.academic.even.erp.subTotal = normalizeMoney(evenSemFee.erp?.fee || 0);
+      yearRecord.academic.even.book.subTotal = normalizeMoney(evenSemFee.book?.fee || 0);
+      yearRecord.academic.even.lab.subTotal = normalizeMoney(evenSemFee.lab?.fee || 0);
     }
 
     // Pre-save hook handles: academic.subTotal, academic.total.total, year total, all statuses

@@ -2,6 +2,7 @@ const {
   request, app, testCtx,
   buildFlatRow, toCSVBuffer, toXLSXBuffer, CSV_HEADERS,
   buildFeeStructurePayload,
+  createFeeStructure,
   globalSetup, globalTeardown,
   superadminAuth, adminAuth,
   Student, StudentFeeTracking, FeeStructureMaster,
@@ -11,10 +12,7 @@ const {
 describe("Students Bulk Import / Update API", () => {
   beforeAll(async () => {
     await globalSetup();
-    await request(app)
-      .post("/api/feeStructureMaster")
-      .set(superadminAuth())
-      .send(buildFeeStructurePayload(testCtx.academicYearPrimary));
+    await createFeeStructure(testCtx.academicYearPrimary);
   });
 
   afterAll(async () => {

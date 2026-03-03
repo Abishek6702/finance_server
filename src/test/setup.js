@@ -47,7 +47,14 @@ const testCtx = {
   testHostelId: null,
   studentRollConcSingle: `21CS${TS.slice(-3)}`,
   studentRollConcMulti: `22CS${TS.slice(-3)}`,
+  studentRollOverpay: `23CS${TS.slice(-3)}`,  // transaction inline test
   TS,
+  // Tracks MongoDB _ids of records created during this run — used for
+  // precise ID-based deletion in globalTeardown (safe on production DB).
+  createdIds: {
+    feeStructures: [],
+    students: [],
+  },
 };
 
 /* ======================================================
@@ -323,10 +330,32 @@ const toXLSXBuffer = (rows) => {
 };
 
 /* ======================================================
+   TRACKED CREATION HELPERS — auto-register _ids for cleanup
+====================================================== */
+const createFeeStructure = async (academicYear, opts = {}) => {
+  const res = await request(app)
+    .post("/api/feeStructureMaster")
+    .set(superadminAuth())
+    .send(buildFeeStructurePayload(academicYear, opts));
+  if (res.body?.data?._id) testCtx.createdIds.feeStructures.push(res.body.data._id);
+  return res;
+};
+
+const createStudent = async (rollNo, opts = {}) => {
+  const res = await request(app)
+    .post("/api/studentsManagement")
+    .set(superadminAuth())
+    .send(buildStudentPayload(rollNo, opts));
+  if (res.body?.data?._id) testCtx.createdIds.students.push(res.body.data._id);
+  return res;
+};
+
+/* ======================================================
    LIFECYCLE
 ====================================================== */
 const globalSetup = async () => {
-  await startServer();
+  // startServer() is already called once for all suites by globalLifecycle.js
+  // (setupFilesAfterEnv). Calling it again here would re-run seeding 9 times.
 
   const superadminLogin = await login("superadmin@sece.ac.in", "superadmin@123");
   expect(superadminLogin.status).toBe(200);
@@ -338,24 +367,51 @@ const globalSetup = async () => {
 };
 
 const globalTeardown = async () => {
+  // ── 1. ID-based deletion (primary: precise, safe on production DB) ────────
+  // Deletes exactly the documents we created, identified by their _id.
+  if (testCtx.createdIds.feeStructures.length) {
+    await FeeStructureMaster.deleteMany({ _id: { $in: testCtx.createdIds.feeStructures } });
+    testCtx.createdIds.feeStructures = [];
+  }
+  if (testCtx.createdIds.students.length) {
+    const docs = await Student.find(
+      { _id: { $in: testCtx.createdIds.students } },
+      { "personal.rollNo": 1 }
+    ).lean();
+    const trackedRolls = docs.map((s) => s.personal.rollNo);
+    if (trackedRolls.length) {
+      await StudentTransaction.deleteMany({ rollNo: { $in: trackedRolls } });
+      await StudentFeeTracking.deleteMany({ rollNo: { $in: trackedRolls } });
+      await ReceiptRecallRequest.deleteMany({ rollNo: { $in: trackedRolls } });
+    }
+    await Student.deleteMany({ _id: { $in: testCtx.createdIds.students } });
+    testCtx.createdIds.students = [];
+  }
+
+  // ── 2. Pattern-based deletion (fallback for inline/ad-hoc test creates) ──
+  // Covers any records not captured by the ID tracker above.
   const allRolls = [
-    testCtx.studentRollCrud, testCtx.studentRollFinance,
-    testCtx.studentRollHostel, testCtx.studentRollTransport,
+    testCtx.studentRollCrud,     testCtx.studentRollFinance,
+    testCtx.studentRollHostel,   testCtx.studentRollTransport,
     testCtx.studentRollDual,
-    testCtx.bulkRollA, testCtx.bulkRollB, testCtx.bulkRollC,
+    testCtx.bulkRollA,           testCtx.bulkRollB,           testCtx.bulkRollC,
     testCtx.studentRollConcSingle, testCtx.studentRollConcMulti,
+    testCtx.studentRollRecall,   // receipt-recall test student
+    testCtx.studentRollOverpay,  // transaction over-pay test student
   ];
   await StudentTransaction.deleteMany({ rollNo: { $in: allRolls } });
   await StudentFeeTracking.deleteMany({ rollNo: { $in: allRolls } });
+  await ReceiptRecallRequest.deleteMany({ rollNo: { $in: allRolls } });
   await Student.deleteMany({ "personal.rollNo": { $in: allRolls } });
   await FeeStructureMaster.deleteMany({
     academicYear: { $in: [testCtx.academicYearPrimary, testCtx.academicYearSecondary] },
   });
-  // Cleanup test transport/hostel if created
-  if (testCtx.testTransportId) await Transport.findOneAndDelete({ id: testCtx.testTransportId });
-  if (testCtx.testHostelId) await Hostel.findOneAndDelete({ id: testCtx.testHostelId });
 
-  await stopServer();
+  // ── 3. Seed-table cleanup (transport / hostel records added by tests) ─────
+  if (testCtx.testTransportId) await Transport.findOneAndDelete({ id: testCtx.testTransportId });
+  if (testCtx.testHostelId)    await Hostel.findOneAndDelete({ id: testCtx.testHostelId });
+  // Server lifecycle is managed globally by globalLifecycle.js (setupFilesAfterEnv),
+  // so stopServer() is NOT called here — avoids 9× reconnect overhead.
 };
 
 module.exports = {
@@ -374,6 +430,8 @@ module.exports = {
   authHeader,
   superadminAuth,
   adminAuth,
+  createFeeStructure,
+  createStudent,
   globalSetup,
   globalTeardown,
   // Models for direct DB assertions

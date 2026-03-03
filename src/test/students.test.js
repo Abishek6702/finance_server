@@ -1,6 +1,7 @@
 const {
   request, app, testCtx,
   buildFeeStructurePayload, buildStudentPayload,
+  createFeeStructure,
   globalSetup, globalTeardown,
   superadminAuth, adminAuth,
   Student, StudentFeeTracking, FeeStructureMaster,
@@ -10,10 +11,7 @@ describe("Students API", () => {
   beforeAll(async () => {
     await globalSetup();
     // Ensure fee structure exists
-    await request(app)
-      .post("/api/feeStructureMaster")
-      .set(superadminAuth())
-      .send(buildFeeStructurePayload(testCtx.academicYearPrimary));
+    await createFeeStructure(testCtx.academicYearPrimary);
   });
 
   afterAll(async () => {

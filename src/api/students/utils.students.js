@@ -143,8 +143,7 @@ async function generateLedger(studentDoc, options = {}) {
   const masters = await FeeStructureMaster.find({
     academicYear: { $in: years },
     isActive: true
-  }).session(session || null);
-
+  }).session(session || null); 
   const feeMasterMap = new Map(masters.map(m => [m.academicYear, m]));
 
   for (const academicYear of years) {
@@ -199,11 +198,11 @@ async function generateLedger(studentDoc, options = {}) {
 
       return {
         semesterNumber: s.semesterNumber,
-        tuition: { total: tuition },
-        exam: { total: exam },
-        erp: { total: erp },
-        book: { total: book },
-        lab: { total: lab },
+        tuition: { concession: 0, subTotal: tuition, total: tuition },
+        exam: { concession: 0, subTotal: exam, total: exam },
+        erp: { concession: 0, subTotal: erp, total: erp },
+        book: { concession: 0, subTotal: book, total: book },
+        lab: { concession: 0, subTotal: lab, total: lab },
         subTotal,
         total: { total: subTotal }
       };
@@ -227,25 +226,27 @@ async function generateLedger(studentDoc, options = {}) {
       const oddShare  = normalizeMoney(totalConc * oddRatio);
       const evenShare = normalizeMoney(Math.max(0, totalConc - oddShare));
 
-      oddLedger[field].total  = normalizeMoney(Math.max(0, oddLedger[field].total - oddShare));
-      evenLedger[field].total = normalizeMoney(Math.max(0, evenLedger[field].total - evenShare));
+      oddLedger[field].concession = oddShare;
+      oddLedger[field].total  = normalizeMoney(Math.max(0, oddLedger[field].subTotal - oddShare));
+
+      evenLedger[field].concession = evenShare;
+      evenLedger[field].total = normalizeMoney(Math.max(0, evenLedger[field].subTotal - evenShare));
     });
 
-    /* Recalculate net subTotals after concession application */
-    oddLedger.subTotal = normalizeMoney(
+    /* Recalculate NET semester totals after concession application.
+       subTotal stays GROSS (set in buildSemester). */
+    oddLedger.total.total = normalizeMoney(
       ACADEMIC_FIELDS.reduce((sum, f) => sum + oddLedger[f].total, 0)
     );
-    oddLedger.total.total = oddLedger.subTotal;
 
-    evenLedger.subTotal = normalizeMoney(
+    evenLedger.total.total = normalizeMoney(
       ACADEMIC_FIELDS.reduce((sum, f) => sum + evenLedger[f].total, 0)
     );
-    evenLedger.total.total = evenLedger.subTotal;
 
-    /* academicSubTotal = GROSS reference; academicTotal = NET */
-    const academicSubTotal = normalizeMoney(oddGross + evenGross);
+    /* academicSubTotal = GROSS (both semesters); academicTotal = NET */
+    const academicSubTotal = normalizeMoney(oddLedger.subTotal + evenLedger.subTotal);
     const academicTotal = normalizeMoney(
-      oddLedger.subTotal + evenLedger.subTotal
+      oddLedger.total.total + evenLedger.total.total
     );
 
     const transportLedger = transportDoc
@@ -270,6 +271,12 @@ async function generateLedger(studentDoc, options = {}) {
       (hostelLedger?.total.total || 0)
     );
 
+    const yearSubTotal = normalizeMoney(
+      academicSubTotal +
+      (transportLedger?.subTotal || 0) +
+      (hostelLedger?.subTotal || 0)
+    );
+
     tracking.academicYearWiseRecord.push({
       academicYear,
       academic: {
@@ -281,11 +288,12 @@ async function generateLedger(studentDoc, options = {}) {
       transport: transportLedger,
       hostel: hostelLedger,
       concessions,
+      subTotal: yearSubTotal,
       total: { total: yearTotal }
     });
   }
 
-  await tracking.save({ session }); 
+  await tracking.save({ session });  
   return tracking;
 }
 

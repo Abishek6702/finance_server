@@ -1,6 +1,7 @@
 const {
   request, app, testCtx,
   buildFeeStructurePayload, buildStudentPayload,
+  createFeeStructure, createStudent,
   globalSetup, globalTeardown,
   superadminAuth, adminAuth,
   Student, StudentFeeTracking, StudentTransaction, FeeStructureMaster,
@@ -10,16 +11,10 @@ describe("Student Fee Tracking API", () => {
   beforeAll(async () => {
     await globalSetup();
     // Create fee structure + student + payment so tracking record exists
-    const fsRes = await request(app)
-      .post("/api/feeStructureMaster")
-      .set(superadminAuth())
-      .send(buildFeeStructurePayload(testCtx.academicYearPrimary));
+    const fsRes = await createFeeStructure(testCtx.academicYearPrimary);
     expect([200, 201, 409]).toContain(fsRes.status);
 
-    const stuRes = await request(app)
-      .post("/api/studentsManagement")
-      .set(superadminAuth())
-      .send(buildStudentPayload(testCtx.studentRollFinance, { academicYear: testCtx.academicYearPrimary }));
+    const stuRes = await createStudent(testCtx.studentRollFinance, { academicYear: testCtx.academicYearPrimary });
     expect([200, 201, 409]).toContain(stuRes.status);
 
     // Make a payment so fee tracking record has data (receiptNo is auto-generated)
@@ -296,6 +291,20 @@ describe("Student Fee Tracking API", () => {
 
       // Year total should reflect net academic
       expect(yr.total.total).toBeCloseTo(91000 - 5000, 1);
+
+      // Verify new component-level fields (concession, subTotal)
+      expect(yr.academic.odd.tuition.subTotal).toBe(40000);
+      expect(yr.academic.odd.tuition.concession).toBeGreaterThan(0);
+      expect(yr.academic.even.tuition.subTotal).toBe(41000);
+      expect(yr.academic.even.tuition.concession).toBeGreaterThan(0);
+
+      // Concession splits must sum to yearly concession amount
+      const oddTuitionConc = yr.academic.odd.tuition.concession;
+      const evenTuitionConc = yr.academic.even.tuition.concession;
+      expect(Math.abs(oddTuitionConc + evenTuitionConc - 5000)).toBeLessThan(0.02);
+
+      // Year subTotal = GROSS (before concessions)
+      expect(yr.subTotal).toBe(91000);
     });
 
     it("sums concessions from multiple applicable schemes", async () => {
@@ -445,6 +454,15 @@ describe("Student Fee Tracking API", () => {
       // Sem 1: tuition=40000, Sem 2: tuition=41000
       expect(yr.academic.odd.tuition.total).toBe(40000);
       expect(yr.academic.even.tuition.total).toBe(41000);
+
+      // subTotal equals total for zero-concession components
+      expect(yr.academic.odd.tuition.subTotal).toBe(40000);
+      expect(yr.academic.odd.tuition.concession).toBe(0);
+      expect(yr.academic.even.tuition.subTotal).toBe(41000);
+      expect(yr.academic.even.tuition.concession).toBe(0);
+
+      // Year subTotal = total.total for zero-concession students
+      expect(yr.subTotal).toBe(yr.total.total);
     });
   });
 });

@@ -7,7 +7,7 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "build": "echo Build step not required",
-    "test": "jest --runInBand --testPathPatterns=\"src/test/.*\\.test\\.js$\""
+    "test": "jest --runInBand --forceExit --testPathPatterns=\"src/test/.*\\.test\\.js$\""
   },
   "keywords": [],
   "author": "",
@@ -37,6 +37,9 @@
     "silent": true,
     "reporters": [
       "./src/test/reporter.js"
+    ],
+    "setupFilesAfterEnv": [
+      "./src/test/globalLifecycle.js"
     ]
   }
 }

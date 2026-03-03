@@ -67,13 +67,13 @@ class FailureReporter {
     const fp = shortPath(fileResult.testFilePath);
 
     if (hasFailed || suiteFailed) {
-      this._suiteLines.push(
-        `${BOLD}${RED}  ✗ FAIL${RESET}  ${DIM}${fp}${RESET}`
-      );
+      const line = `${BOLD}${RED}  ✗ FAIL${RESET}  ${DIM}${fp}${RESET}`;
+      this._suiteLines.push(line);
+      process.stdout.write(line + "\n");
     } else {
-      this._suiteLines.push(
-        `${BOLD}${GREEN}  ✓ PASS${RESET}  ${DIM}${fp}${RESET}`
-      );
+      const line = `${BOLD}${GREEN}  ✓ PASS${RESET}  ${DIM}${fp}${RESET}`;
+      this._suiteLines.push(line);
+      process.stdout.write(line + "\n");
     }
 
     // ── Build failure block ──────────────────────────────────────────────
@@ -135,10 +135,6 @@ class FailureReporter {
       numPendingTests, numTotalTests,
       numTotalTestSuites,
     } = results;
-
-    // ── Suite list ───────────────────────────────────────────────────────
-    process.stdout.write("\n");
-    this._suiteLines.forEach((l) => process.stdout.write(l + "\n"));
 
     // ── Failure blocks ───────────────────────────────────────────────────
     this._failureBlocks.forEach((b) => process.stdout.write(b));

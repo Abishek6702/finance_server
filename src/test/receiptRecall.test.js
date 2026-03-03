@@ -1,6 +1,7 @@
 const {
   request, app, testCtx,
   buildFeeStructurePayload, buildStudentPayload,
+  createFeeStructure, createStudent,
   globalSetup, globalTeardown,
   superadminAuth, adminAuth,
   Student, StudentFeeTracking, StudentTransaction, FeeStructureMaster,
@@ -19,16 +20,10 @@ describe("Receipt Recall API", () => {
     recallRollNo = testCtx.studentRollRecall;
 
     // Create fee structure (reuse primary academic year)
-    await request(app)
-      .post("/api/feeStructureMaster")
-      .set(superadminAuth())
-      .send(buildFeeStructurePayload(testCtx.academicYearPrimary));
+    await createFeeStructure(testCtx.academicYearPrimary);
 
     // Create a student for recall tests
-    await request(app)
-      .post("/api/studentsManagement")
-      .set(superadminAuth())
-      .send(buildStudentPayload(recallRollNo, { academicYear: testCtx.academicYearPrimary }));
+    await createStudent(recallRollNo, { academicYear: testCtx.academicYearPrimary });
 
     // Snapshot fee tracking BEFORE any payment
     const trackingPre = await StudentFeeTracking.findOne({ rollNo: recallRollNo }).lean();
