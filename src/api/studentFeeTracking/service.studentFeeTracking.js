@@ -19,9 +19,16 @@ const getStudents = async (query = {}) => {
   const trackings = await StudentFeeTracking.find({ rollNo: { $in: rollNos } }).lean();
   const trackingMap = trackings.reduce((acc, t) => { acc[t.rollNo] = t; return acc; }, {});
 
+  // Strip internal fields that are redundant alongside the already-returned student object
+  const stripTracking = (t) => {
+    if (!t) return null;
+    const { _id, student, rollNo, ...rest } = t;
+    return rest;
+  };
+
   return students.map((s) => ({
     student: s,
-    feeTracking: trackingMap[s.personal?.rollNo] || null,
+    feeTracking: stripTracking(trackingMap[s.personal?.rollNo] || null),
   }));
 };
 

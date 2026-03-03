@@ -32,6 +32,9 @@ const createPayment = async (data) => {
 
   let grandTotal = 0;
 
+  // Track proposed academic payments per year to validate against net total (after concessions)
+  const proposedAcademicByYear = {};
+
   // Detect duplicate breakdowns for same year+semester/hostel/transport in one request
   const seenAcademicKeys = new Set();
   const seenHostelKeys = new Set();
@@ -73,6 +76,7 @@ const createPayment = async (data) => {
       }
 
       const fields = ['tuition', 'exam', 'erp', 'book', 'lab'];
+      let semAcademicPayment = 0;
       for (const field of fields) {
         const payAmount = normalizeMoney(bd.academic[field] || 0);
         if (payAmount > 0) {
@@ -85,8 +89,12 @@ const createPayment = async (data) => {
             );
           }
           grandTotal += payAmount;
+          semAcademicPayment += payAmount;
         }
       }
+      proposedAcademicByYear[bd.academicYear] = normalizeMoney(
+        (proposedAcademicByYear[bd.academicYear] || 0) + semAcademicPayment
+      );
     }
 
     // Validate hostel payment
@@ -127,6 +135,21 @@ const createPayment = async (data) => {
         );
       }
       grandTotal += normalizeMoney(bd.transport);
+    }
+  }
+
+  // Validate proposed academic payments against the net academic total (post-concession) per year
+  for (const [academicYear, proposedAmount] of Object.entries(proposedAcademicByYear)) {
+    if (proposedAmount <= 0) continue;
+    const yearRecord = tracking.academicYearWiseRecord.find(r => r.academicYear === academicYear);
+    if (!yearRecord?.academic) continue;
+    const netAcademicTotal = normalizeMoney(yearRecord.academic.total?.total || 0);
+    const alreadyPaid = normalizeMoney(yearRecord.academic.total?.paid || 0);
+    const academicRemaining = normalizeMoney(netAcademicTotal - alreadyPaid);
+    if (proposedAmount > academicRemaining) {
+      throw new AppError(
+        `Academic payment ₹${proposedAmount} exceeds net remaining due ₹${academicRemaining} for ${academicYear} (after concessions)`, 400
+      );
     }
   }
 

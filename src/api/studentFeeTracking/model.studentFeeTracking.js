@@ -122,15 +122,14 @@ studentFeeTrackingSchema.pre("save",function(){
     const odd=academic.odd;
     const even=academic.even;
 
+    // ── Step 1: compute gross subTotal per semester ──────────────────────
     [odd,even].forEach(sem=>{
       if(!sem) return;
-
       sem.tuition=normalizeAmountSchema(sem.tuition||{});
-      sem.exam=normalizeAmountSchema(sem.exam||{});
-      sem.erp=normalizeAmountSchema(sem.erp||{});
-      sem.book=normalizeAmountSchema(sem.book||{});
-      sem.lab=normalizeAmountSchema(sem.lab||{});
-
+      sem.exam   =normalizeAmountSchema(sem.exam||{});
+      sem.erp    =normalizeAmountSchema(sem.erp||{});
+      sem.book   =normalizeAmountSchema(sem.book||{});
+      sem.lab    =normalizeAmountSchema(sem.lab||{});
       sem.subTotal=normalizeMoney(
         (sem.tuition?.total||0)+
         (sem.exam?.total||0)+
@@ -138,42 +137,61 @@ studentFeeTrackingSchema.pre("save",function(){
         (sem.book?.total||0)+
         (sem.lab?.total||0)
       );
+    });
 
+    // ── Step 2: distribute academicSpecialConcession across odd / even ───
+    // Split proportionally by gross subTotal; if only one semester exists
+    // apply the full concession to that one.
+    academic.academicSpecialConcession=normalizeMoney(academic.academicSpecialConcession||0);
+    const totalConcession=academic.academicSpecialConcession;
+    const oddGross =normalizeMoney(odd?.subTotal||0);
+    const evenGross=normalizeMoney(even?.subTotal||0);
+    const grossSum =normalizeMoney(oddGross+evenGross);
+
+    let oddConcession=0;
+    let evenConcession=0;
+    if(grossSum>0){
+      oddConcession =normalizeMoney(totalConcession*(oddGross/grossSum));
+      evenConcession=normalizeMoney(Math.max(0,totalConcession-oddConcession));
+    }
+
+    // ── Step 3: apply net cap to each semester ────────────────────────────
+    const applyNetToSem=(sem,concession)=>{
+      if(!sem) return;
+      const netTotal=normalizeMoney(Math.max(0,sem.subTotal-concession));
       sem.total=normalizeAmountSchema(sem.total||{});
-      sem.total.total=sem.subTotal;
-
-      const semesterPaid=normalizeMoney(
+      sem.total.total=netTotal;
+      const semPaid=normalizeMoney(
         (sem.tuition?.paid||0)+
         (sem.exam?.paid||0)+
         (sem.erp?.paid||0)+
         (sem.book?.paid||0)+
         (sem.lab?.paid||0)
       );
+      sem.total.paid=Math.min(semPaid,netTotal);
+      if(netTotal===0)              sem.total.status="Paid";
+      else if(sem.total.paid>=netTotal) sem.total.status="Paid";
+      else if(sem.total.paid>0)     sem.total.status="Partially Paid";
+      else                          sem.total.status="Unpaid";
+    };
 
-      sem.total.paid=Math.min(semesterPaid,sem.total.total);
-      if(sem.total.total===0) sem.total.status="Paid";
-      else if(sem.total.paid>=sem.total.total) sem.total.status="Paid";
-      else if(sem.total.paid>0) sem.total.status="Partially Paid";
-      else sem.total.status="Unpaid";
-    });
+    applyNetToSem(odd,oddConcession);
+    applyNetToSem(even,evenConcession);
 
-    academic.subTotal=normalizeMoney(
-      (odd?.total?.total||0)+
-      (even?.total?.total||0)
-    );
-
-    academic.academicSpecialConcession=normalizeMoney(academic.academicSpecialConcession||0);
-
+    // ── Step 4: year-level academic total ────────────────────────────────
+    // subTotal = gross sum (for reference); total.total = net payable
+    academic.subTotal=normalizeMoney(oddGross+evenGross);
+    const academicNetTotal=normalizeMoney(Math.max(0,academic.subTotal-totalConcession));
     academic.total=normalizeAmountSchema(academic.total||{});
-    academic.total.total=academic.subTotal;
+    academic.total.total=academicNetTotal;
 
     const academicPaid=normalizeMoney((odd?.total?.paid||0)+(even?.total?.paid||0));
-    academic.total.paid=Math.min(academicPaid,academic.total.total);
+    academic.total.paid=Math.min(academicPaid,academicNetTotal);
 
-    if(academic.total.total===0) academic.total.status="Paid";
-    else if(academic.total.paid>=academic.total.total) academic.total.status="Paid";
-    else if(academic.total.paid>0) academic.total.status="Partially Paid";
-    else academic.total.status="Unpaid";
+    if(academicNetTotal===0)                    academic.total.status="Paid";
+    else if(academic.total.paid>=academicNetTotal) academic.total.status="Paid";
+    else if(academic.total.paid>0)              academic.total.status="Partially Paid";
+    else                                        academic.total.status="Unpaid";
 
     if(yearRecord.transport){
       yearRecord.transport.subTotal=normalizeMoney(yearRecord.transport.subTotal||0);
