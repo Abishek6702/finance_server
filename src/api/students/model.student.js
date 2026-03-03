@@ -29,13 +29,13 @@ const personalSchema=new mongoose.Schema({
 /* ======================================================
    ACADEMIC
 ====================================================== */
-const dpartments=["CSE","IT","AIML","AIDS","ECE","EEE","MECH","CIVIL"];
+const departments=["CSE","IT","AIML","AIDS","ECE","EEE","MECH","CIVIL"];
 
 const academicSchema=new mongoose.Schema({
   educationType:{type:String,enum:["UG","PG"]},
   academicType:{type:String,enum:["REG","PART_TIME"]},
   isLateralEntry:{type:Boolean,default:false},
-  departmentName:{type:String,trim:true,enum:dpartments},
+  departmentName:{type:String,trim:true,enum:departments},
   degreeProgram:{type:String,enum:["BE","BTech","ME","MTech"],required:true},
   yearStudying:{type:Number,enum:[1,2,3,4]},
   currentSemesterNumber:{type:Number,enum:[1,2,3,4,5,6,7,8]},

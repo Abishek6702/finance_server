@@ -42,6 +42,7 @@ The **Transaction** module handles fee payment recording, receipt generation, an
 | `paymentType` | string | Yes | `Cash`, `Card`, `UPI`, `NetBanking`, `Cheque`, `DD` |
 | `bankName` | string | No | Bank name (for Cheque/DD/NetBanking) |
 | `bankLocation` | string | No | Bank branch location |
+| `billingDate` | string / Date | No | Billing date — `dd/mm/yyyy`, ISO 8601, or Date object. Defaults to current date/time if omitted |
 | `remarks` | string | No | Free-text remarks |
 | `breakdowns` | array | Yes | Payment breakdown per academic year (see below) |
 
@@ -66,6 +67,7 @@ The **Transaction** module handles fee payment recording, receipt generation, an
   "rollNo": "25CS101",
   "receiptNo": "REC-2025-001",
   "paymentType": "Cash",
+  "billingDate": "15/08/2025",
   "remarks": "First semester fee payment",
   "breakdowns": [
     {
@@ -109,6 +111,7 @@ The **Transaction** module handles fee payment recording, receipt generation, an
   "data": {
     "receiptNo": "REC-2025-001",
     "paymentType": "Cash",
+    "billingDate": "2025-08-15T00:00:00.000Z",
     "paidOn": "2025-06-01T10:00:00.000Z",
     "totalAmount": 162000,
     "breakdowns": [
@@ -320,7 +323,8 @@ GET /api/transaction?department=CSE&paymentMode=Cash&fromDate=2025-06-01&toDate=
 
 ## 3. Edge Cases
 
-- **Overpayment prevention:** Before saving, the service computes the remaining due for each fee component (`total - paid`). If any breakdown amount exceeds the remaining due, the entire transaction is rejected with a descriptive error.
+- **`billingDate` flexible input:** Accepts `dd/mm/yyyy` (e.g. `15/08/2025`), ISO 8601 strings (e.g. `2025-08-15T00:00:00.000Z`), or a JavaScript Date object. If omitted, defaults to the current date/time at the moment of the request.
+- **Overpayment prevention:**** Before saving, the service computes the remaining due for each fee component (`total - paid`). If any breakdown amount exceeds the remaining due, the entire transaction is rejected with a descriptive error.
 - **Single receipt, multiple years:** A single `POST /pay` can include breakdowns for multiple `academicYear` entries, allowing payment of arrears and current year fees in one receipt.
 - **`totalAmount` auto-calculation:** The sum of all breakdown totals in a receipt is computed automatically via a Mongoose pre-validate hook; do not include `totalAmount` in the request body.
 - **Status transitions:** After a payment, each affected fee component's `status` is recalculated: `Unpaid → Partially Paid → Paid`.

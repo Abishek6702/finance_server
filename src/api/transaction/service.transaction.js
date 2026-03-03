@@ -3,6 +3,20 @@ const StudentFeeTracking = require("../studentFeeTracking/model.studentFeeTracki
 const Student = require("../students/model.student");
 const AppError = require("../../utils/AppError");
 
+const parseBillingDate = (billingDate) => {
+  if (!billingDate) return new Date();
+  // Support dd/mm/yyyy format
+  if (typeof billingDate === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(billingDate)) {
+    const [dd, mm, yyyy] = billingDate.split('/');
+    const d = new Date(`${yyyy}-${mm}-${dd}`);
+    if (!isNaN(d.getTime())) return d;
+  }
+  // Support ISO string or Date object
+  const d = new Date(billingDate);
+  if (!isNaN(d.getTime())) return d;
+  return new Date();
+};
+
 const normalizeMoney = (value) => {
   const number = Number(value);
   if (!Number.isFinite(number) || number < 0) return 0;
@@ -18,7 +32,7 @@ const setStatus = (target) => {
 };
 
 const createPayment = async (data) => {
-  const { rollNo, receiptNo, paymentType, bankName, bankLocation, remarks, breakdowns } = data;
+  const { rollNo, receiptNo, paymentType, bankName, bankLocation, billingDate, remarks, breakdowns } = data;
 
   const tracking = await StudentFeeTracking.findOne({ rollNo });
   if (!tracking) throw new AppError("Fee tracking not found for this student", 404);
@@ -211,6 +225,7 @@ const createPayment = async (data) => {
     paymentType,
     bankName,
     bankLocation,
+    billingDate: parseBillingDate(billingDate),
     remarks,
     breakdowns: mappedBreakdowns
   });

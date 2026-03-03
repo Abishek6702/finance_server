@@ -27,9 +27,9 @@ const semesterWiseFeeSchema=new mongoose.Schema({
 /* ======================================================
    DEPARTMENT
 ====================================================== */
-const dpartments=["CSE","IT","AIML","AIDS","ECE","EEE","MECH","CIVIL"];
+const departments=["CSE","IT","AIML","AIDS","ECE","EEE","MECH","CIVIL"];
 const departmentWiseFeeSchema=new mongoose.Schema({
-  departmentName:{type:String,required:true,enum:dpartments},
+  departmentName:{type:String,required:true,enum:departments},
   semesters:{type:[semesterWiseFeeSchema],
   validate:arr=>arr.length==8 ,
   required:true

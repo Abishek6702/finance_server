@@ -451,6 +451,88 @@ describe("Fee Payment / Transaction API", () => {
     expect(yr.academic.odd.tuition.paid).toBe(500);
   });
 
+  /* ─── BILLING DATE ───── */
+
+  it("records payment with billingDate in dd/mm/yyyy format and stores correct date", async () => {
+    const res = await request(app)
+      .post("/api/feePayment/pay")
+      .set(adminAuth())
+      .send({
+        rollNo: testCtx.studentRollFinance,
+        receiptNo: `BDATE-${testCtx.TS.slice(-5)}`,
+        paymentType: "Cash",
+        billingDate: "15/08/2025",
+        remarks: "billing date test",
+        breakdowns: [{
+          academicYear: testCtx.academicYearPrimary,
+          academic: { semesterNumber: 1, tuition: 1 },
+        }],
+      });
+    expect(res.status).toBe(201);
+
+    const txnDoc = await StudentTransaction.findOne({ rollNo: testCtx.studentRollFinance });
+    const savedTxn = txnDoc.transactions.find((t) => t.receiptNo === `BDATE-${testCtx.TS.slice(-5)}`);
+    expect(savedTxn).toBeDefined();
+    expect(savedTxn.billingDate).toBeDefined();
+    const stored = new Date(savedTxn.billingDate);
+    expect(stored.getFullYear()).toBe(2025);
+    expect(stored.getMonth()).toBe(7); // August = 7 (0-indexed)
+    expect(stored.getDate()).toBe(15);
+  });
+
+  it("records payment without billingDate and defaults to today", async () => {
+    const receiptId = `BDEF-${testCtx.TS.slice(-5)}`;
+    const before = Date.now();
+    const res = await request(app)
+      .post("/api/feePayment/pay")
+      .set(adminAuth())
+      .send({
+        rollNo: testCtx.studentRollFinance,
+        receiptNo: receiptId,
+        paymentType: "Cash",
+        remarks: "no billing date",
+        breakdowns: [{
+          academicYear: testCtx.academicYearPrimary,
+          academic: { semesterNumber: 1, tuition: 1 },
+        }],
+      });
+    const after = Date.now();
+    expect(res.status).toBe(201);
+
+    const txnDoc = await StudentTransaction.findOne({ rollNo: testCtx.studentRollFinance });
+    const savedTxn = txnDoc.transactions.find((t) => t.receiptNo === receiptId);
+    expect(savedTxn).toBeDefined();
+    const billingTime = new Date(savedTxn.billingDate).getTime();
+    expect(billingTime).toBeGreaterThanOrEqual(before);
+    expect(billingTime).toBeLessThanOrEqual(after);
+  });
+
+  it("records payment with billingDate as ISO date string", async () => {
+    const receiptId = `BISO-${testCtx.TS.slice(-5)}`;
+    const res = await request(app)
+      .post("/api/feePayment/pay")
+      .set(adminAuth())
+      .send({
+        rollNo: testCtx.studentRollFinance,
+        receiptNo: receiptId,
+        paymentType: "UPI",
+        billingDate: "2025-03-20T00:00:00.000Z",
+        breakdowns: [{
+          academicYear: testCtx.academicYearPrimary,
+          academic: { semesterNumber: 1, tuition: 1 },
+        }],
+      });
+    expect(res.status).toBe(201);
+
+    const txnDoc = await StudentTransaction.findOne({ rollNo: testCtx.studentRollFinance });
+    const savedTxn = txnDoc.transactions.find((t) => t.receiptNo === receiptId);
+    expect(savedTxn).toBeDefined();
+    const stored = new Date(savedTxn.billingDate);
+    expect(stored.getFullYear()).toBe(2025);
+    expect(stored.getMonth()).toBe(2); // March = 2 (0-indexed)
+    expect(stored.getDate()).toBe(20);
+  });
+
   /* ─── FEE TRACKING STATUS TRANSITIONS ───── */
 
   it("updates fee tracking paid totals after payments", async () => {

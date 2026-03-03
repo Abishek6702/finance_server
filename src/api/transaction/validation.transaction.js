@@ -89,6 +89,7 @@ const validatePayment = (req, res, next) => {
     paymentType,
     bankName: req.body.bankName,
     bankLocation: req.body.bankLocation,
+    billingDate: req.body.billingDate,
     remarks: req.body.remarks,
     breakdowns: sanitizedBreakdowns
   };
