@@ -6,10 +6,8 @@ A comprehensive fee management system for educational institutions. Built with *
 
 ## Table of Contents
 
-- [Architecture](#architecture)
-- [Modules](#modules)
-- [Database Schema](#database-schema)
-- [Application Flow](#application-flow)
+- [Architecture](#architecture) 
+- [Database Schema](#database-schema) 
 - [Getting Started](#getting-started)
 - [Module Documentation](#module-documentation)
 - [API Reference](#api-reference)
@@ -57,55 +55,7 @@ Each API module follows a consistent pattern:
 - `validation.*.js` — Input validation middleware
 
 ---
-
-## Modules
-
-### 1. Auth
-- JWT-based authentication with cookie + Bearer header support
-- Three roles: `user`, `admin`, `superadmin`
-- Seeded accounts: `admin@sece.ac.in` / `superadmin@sece.ac.in`
-
-### 2. Fee Structure Master (Superadmin only)
-- Hierarchical fee definition: Academic Year → Quota → Education Type → Department → Semester
-- Per-semester breakdown: tuition, exam, ERP, book, lab
-- Hostel fee structures: block, room type, sharing, attached bathroom
-- Auto-computed totals via pre-validate hooks
-
-### 3. Students Management (Superadmin only)
-- Full CRUD for individual students
-- Bulk create/update via CSV or Excel upload
-- Student data: personal, academic, contact, family, address, enrollment, transport, hostel
-- On creation: auto-generates `StudentFeeTracking` record with fee ledger
-
-### 4. Student Fee Tracking (Admin+)
-- Per-student, per-academic-year fee ledger with semester-level granularity
-- Summary views with filters: name, rollNo, department, status, studentType
-- Individual student detail with overall totals across all years
-- Concession management (firstGraduate, scheme7.5%, PMSS, Sakthi)
-- Receipt editing (paymentType, bankName, bankLocation, remarks)
-- Audit logging via `ActivityLog` model
-
-### 5. Payment Transactions (Admin+)
-- Multi-component payment in single receipt (academic + hostel + transport)
-- Overpayment prevention — validates against remaining due per component
-- Payment modes: Cash, Card, UPI, NetBanking, Cheque, DD
-- Recent payments with filters: name, rollNo, year, department, paymentMode, feeHead, date range
-- **Reports:**
-  - Individual student report — receipts with per-fee-head demand/paid/balance
-  - Date-wise report — flattened rows sorted by date
-
-### 6. Hostel
-- Block-room type-fee mapping (A–F blocks, 2–5 sharing, attached/non-attached)
-- Seeded with 48 configurations on startup
-- Lookup by block → room types, or room type → blocks → fees
-
-### 7. Transport
-- Route-bus-stop-fee mapping
-- Seeded with 9 routes and ~78 stop records on startup
-- Lookup by route → stops, route → buses, or specific fee
-
----
-
+ 
 ## Database Schema
 
 ### Collections Overview
@@ -120,119 +70,7 @@ Each API module follows a consistent pattern:
 | `hostels` | Hostel | block, sharing, isAttached (compound unique), fee |
 | `transports` | Transport | route, busNo, stop (compound unique), fee |
 | `activitylogs` | ActivityLog | user (ref), endpoint, method, before, after |
-
-### Entity Relationship
-
-```
-User (admin/superadmin)
-  │
-  ├──▶ FeeStructureMaster (defines fee template per academic year)
-  │
-  ├──▶ Student ◀──────────────────────────────────┐
-  │      │                                         │
-  │      ├──▶ StudentFeeTracking (1:1)             │
-  │      │      └── academicYearWiseRecord[]       │
-  │      │            ├── academic (odd/even sems)  │
-  │      │            ├── hostel                    │
-  │      │            ├── transport                 │
-  │      │            └── concessions               │
-  │      │                                          │
-  │      └──▶ StudentTransaction (1:1)              │
-  │             └── transactions[]                  │
-  │                   └── breakdowns[]              │
-  │                                                 │
-  ├──▶ Hostel ◀─────────────────────────────────────┤
-  │                                                 │
-  └──▶ Transport ◀──────────────────────────────────┘
-```
-
-### Fee Tracking Structure (per student, per year)
-
-```
-academicYearWiseRecord
-├── academicYear: "2025-2026"
-├── academic
-│   ├── odd (semester 1/3/5/7)
-│   │   ├── tuition: { total, paid, status }
-│   │   ├── exam: { total, paid, status }
-│   │   ├── erp: { total, paid, status }
-│   │   ├── book: { total, paid, status }
-│   │   ├── lab: { total, paid, status }
-│   │   └── total: { total, paid, status }
-│   ├── even (semester 2/4/6/8)
-│   │   └── (same as odd)
-│   ├── academicSpecialConcession
-│   └── total: { total, paid, status }
-├── hostel
-│   ├── block, sharing, isAttached, fee
-│   ├── hostelSpecialConcession
-│   └── total: { total, paid, status }
-├── transport
-│   ├── route, busNo, stop, fee
-│   ├── transportSpecialConcession
-│   └── total: { total, paid, status }
-├── concessions
-│   ├── firstGraduate, scheme7point5, pmss, sakthi
-│   └── totalConcession
-└── total: { total, paid, status }
-```
-
----
-
-## Application Flow
-
-### Startup Sequence
-1. Connect to MongoDB
-2. Seed admin & superadmin users (if not exist)
-3. Start Express server on port **5010**
-4. Seed transport data (9 routes, ~78 stops)
-5. Seed hostel data (48 block/room configurations)
-
-### Fee Management Flow
-
-```
-1. Superadmin creates Fee Structure
-   └── Defines fees per academic year, quota, department, semester + hostel
-
-2. Superadmin creates Student (individual or bulk CSV/Excel)
-   └── Auto-generates StudentFeeTracking with fee ledger
-       └── Maps semester fees from FeeStructure to tracking record
-       └── If hostel applicable → maps hostel fees
-       └── If transport applicable → maps transport fees
-
-3. Admin records Payment
-   ├── Validates: rollNo exists, amounts don't exceed remaining due
-   ├── Creates transaction record with receipt
-   ├── Updates fee tracking (paid amounts, status per component)
-   └── Status auto-transitions: Unpaid → Partially Paid → Paid
-
-4. Admin views Reports
-   ├── Fee Summary: aggregate view with filters
-   ├── Individual Summary: per-student detail with overall totals
-   ├── Recent Payments: filterable payment history
-   ├── Student Report: receipt-level fee breakdown
-   └── Datewise Report: chronological payment rows
-```
-
-### Authentication Flow
-```
-POST /api/auth/login { email, password }
-  └── Returns JWT token (also set as httpOnly cookie)
-      └── Include in subsequent requests:
-          - Header: Authorization: Bearer <token>
-          - Or: Cookie (automatic)
-```
-
-### Middleware Stack (request order)
-1. `express.json()` — Parse JSON body
-2. `cookieParser()` — Parse cookies
-3. `corsMiddleware` — CORS headers
-4. Route handlers
-5. `notFoundHandler` — 404 for unmatched routes
-6. `errorHandler` — Centralized error response
-
----
-
+   
 ## Getting Started
 
 ### Prerequisites
@@ -314,60 +152,13 @@ Error responses:
   "message": "Error description"
 }
 ```
-
-### Route Summary
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/api/auth/login` | None | Login |
-| POST | `/api/auth/logout` | User | Logout |
-| POST | `/api/feeStructureMaster` | Superadmin | Create fee structure |
-| GET | `/api/feeStructureMaster` | Superadmin | Get all fee structures |
-| GET | `/api/feeStructureMaster/:year` | Superadmin | Get fee structure by year |
-| PUT | `/api/feeStructureMaster/:year` | Superadmin | Update fee structure |
-| DELETE | `/api/feeStructureMaster/:year` | Superadmin | Delete fee structure |
-| POST | `/api/studentsManagement` | Superadmin | Create student |
-| POST | `/api/studentsManagement/bulk` | Superadmin | Bulk create students |
-| PUT | `/api/studentsManagement/bulk` | Superadmin | Bulk update students |
-| GET | `/api/studentsManagement` | Superadmin | Get all students |
-| GET | `/api/studentsManagement/:rollNo` | Superadmin | Get student by roll no |
-| PUT | `/api/studentsManagement/:rollNo` | Superadmin | Update student |
-| DELETE | `/api/studentsManagement/:rollNo` | Superadmin | Delete student | 
-| GET | `/api/hostel` | Admin | Full hostel mapping |
-| POST | `/api/hostel/blocks` | Superadmin | Get blocks |
-| POST | `/api/hostel/roomTypes` | Superadmin | Get room types |
-| POST | `/api/hostel/fees` | Superadmin | Get hostel fees |
-| POST | `/api/hostel/add` | Superadmin | Add hostel entry |
-| POST | `/api/hostel/bulk` | Superadmin | Bulk add hostel |
-| PUT | `/api/hostel/:id` | Superadmin | Update hostel entry |
-| GET | `/api/transport` | Admin | Full transport mapping |
-| POST | `/api/transport/stops` | Superadmin | Get stops |
-| POST | `/api/transport/buses` | Superadmin | Get buses |
-| POST | `/api/transport/fees` | Superadmin | Get transport fees |
-| POST | `/api/transport/add` | Superadmin | Add transport entry |
-| POST | `/api/transport/bulk` | Superadmin | Bulk add transport |
-| PUT | `/api/transport/:id` | Superadmin | Update transport entry |
-
-See [API_DOCUMENTATION.md](API_DOCUMENTATION.md) for detailed request/response schemas.
-
----
-
+ 
 ## Testing
 
 The test suite uses **Jest 30** and **Supertest 7** with a shared setup:
 
-| Suite | File | Tests |
-|-------|------|-------|
-| Auth | `auth.test.js` | Login, logout, role validation |
-| Fee Structure | `feeStructure.test.js` | CRUD, validation, cascading totals |
-| Students | `students.test.js` | CRUD, validation, fee tracking auto-creation |
-| Students Bulk | `studentsBulk.test.js` | CSV/Excel upload, merge, validation |
-| Hostel | `hostel.test.js` | Lookup, add, bulk, update |
-| Transport | `transport.test.js` | Lookup, add, bulk, update |
-| Fee Tracking | `studentFeeTracking.test.js` | Summary, concessions, receipts |
-| Transactions | `transaction.test.js` | Payments, overpayment prevention, filters |
-| Reports | `reports.test.js` | Enhanced filters, student report, datewise report |
-
+RUN: npm test
+ 
 All tests use isolated test data (timestamp-based) to avoid conflicts with production data.
 
 ---
