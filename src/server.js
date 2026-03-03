@@ -42,23 +42,41 @@ app.use(errorHandler);
  
 const PORT = process.env.PORT || 5010;
 
+let _serverOwnedByThisInstance = false;
+
 const startServer=async()=>{
   if(server) return server;
 
   await connectDB();
   await seedUsers({ ensureDbConnection: false });
 
-  server=app.listen(PORT,'0.0.0.0',()=>{
-    console.log(`Server running on port ${PORT}`);
-    seedTransport();
-    seedHostel();
+  await new Promise((resolve) => {
+    const s = app.listen(PORT,'0.0.0.0',()=>{
+      console.log(`Server running on port ${PORT}`);
+      seedTransport();
+      seedHostel();
+      server = s;
+      _serverOwnedByThisInstance = true;
+      resolve();
+    });
+    s.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        // Port already in use (e.g. dev server or another Jest worker).
+        // Supertest uses the app object directly, so we can proceed without owning the port.
+        console.log(`Port ${PORT} already in use — reusing existing server for tests.`);
+        _serverOwnedByThisInstance = false;
+        resolve();
+      } else {
+        throw err;
+      }
+    });
   });
 
   return server;
 };
 
 const stopServer=async()=>{
-  if(server){
+  if(server && _serverOwnedByThisInstance){
     await new Promise((resolve,reject)=>{
       server.close((error)=>{
         if(error) return reject(error);
@@ -66,6 +84,7 @@ const stopServer=async()=>{
       });
     });
     server=null;
+    _serverOwnedByThisInstance = false;
   }
 
   if(mongoose.connection.readyState!==0){

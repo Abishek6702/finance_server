@@ -22,7 +22,7 @@ const getStudents = async (query = {}) => {
   // Strip internal fields that are redundant alongside the already-returned student object
   const stripTracking = (t) => {
     if (!t) return null;
-    const { _id, student, rollNo, ...rest } = t;
+    const { _id, student, ...rest } = t;
     return rest;
   };
 
