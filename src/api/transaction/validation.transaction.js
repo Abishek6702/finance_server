@@ -55,6 +55,14 @@ const validatePayment = (req, res, next) => {
         }
         cleanAcademic[field] = toMoney(value);
       }
+
+      // Require semesterNumber when any academic fee amount is provided
+      if (cleanAcademic.semesterNumber === undefined) {
+        const hasAcademicFees = academicFields.some(f => cleanAcademic[f] > 0);
+        if (hasAcademicFees) {
+          return next(new AppError("academic.semesterNumber is required when academic fee amounts are provided", 400));
+        }
+      }
     }
 
     const hostelValue = bd.hostel === undefined ? 0 : bd.hostel;
@@ -88,4 +96,60 @@ const validatePayment = (req, res, next) => {
   next();
 };
 
-module.exports = { validatePayment };
+const validateAllTransactionsQuery = (req, res, next) => {
+  const { department, paymentMode, fromDate, toDate, page, limit } = req.query;
+
+  const validDepartments = ["CSE", "IT", "AIML", "AIDS", "ECE", "EEE", "MECH", "CIVIL"];
+  if (department && !validDepartments.includes(department)) {
+    return next(new AppError(`department must be one of: ${validDepartments.join(", ")}`, 400));
+  }
+
+  const validPaymentModes = ["Cash", "Card", "UPI", "NetBanking", "Cheque", "DD"];
+  if (paymentMode && !validPaymentModes.includes(paymentMode)) {
+    return next(new AppError(`paymentMode must be one of: ${validPaymentModes.join(", ")}`, 400));
+  }
+
+  if (fromDate && isNaN(Date.parse(fromDate))) {
+    return next(new AppError("fromDate must be a valid date", 400));
+  }
+  if (toDate && isNaN(Date.parse(toDate))) {
+    return next(new AppError("toDate must be a valid date", 400));
+  }
+  if (fromDate && toDate && new Date(fromDate) > new Date(toDate)) {
+    return next(new AppError("fromDate cannot be after toDate", 400));
+  }
+
+  if (page && (!Number.isInteger(Number(page)) || Number(page) < 1)) {
+    return next(new AppError("page must be a positive integer", 400));
+  }
+  if (limit && (!Number.isInteger(Number(limit)) || Number(limit) < 1)) {
+    return next(new AppError("limit must be a positive integer", 400));
+  }
+
+  next();
+};
+
+const validateStudentTransactionsQuery = (req, res, next) => {
+  const { fromDate, toDate, page, limit } = req.query;
+
+  if (fromDate && isNaN(Date.parse(fromDate))) {
+    return next(new AppError("fromDate must be a valid date", 400));
+  }
+  if (toDate && isNaN(Date.parse(toDate))) {
+    return next(new AppError("toDate must be a valid date", 400));
+  }
+  if (fromDate && toDate && new Date(fromDate) > new Date(toDate)) {
+    return next(new AppError("fromDate cannot be after toDate", 400));
+  }
+
+  if (page && (!Number.isInteger(Number(page)) || Number(page) < 1)) {
+    return next(new AppError("page must be a positive integer", 400));
+  }
+  if (limit && (!Number.isInteger(Number(limit)) || Number(limit) < 1)) {
+    return next(new AppError("limit must be a positive integer", 400));
+  }
+
+  next();
+};
+
+module.exports = { validatePayment, validateAllTransactionsQuery, validateStudentTransactionsQuery };

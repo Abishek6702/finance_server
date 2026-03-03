@@ -17,7 +17,7 @@ const setStatus = (target) => {
   else target.status = "Unpaid";
 };
 
-const recordPayment = async (data) => {
+const createPayment = async (data) => {
   const { rollNo, receiptNo, paymentType, bankName, bankLocation, remarks, breakdowns } = data;
 
   const tracking = await StudentFeeTracking.findOne({ rollNo });
@@ -32,14 +32,45 @@ const recordPayment = async (data) => {
 
   let grandTotal = 0;
 
+  // Detect duplicate breakdowns for same year+semester/hostel/transport in one request
+  const seenAcademicKeys = new Set();
+  const seenHostelKeys = new Set();
+  const seenTransportKeys = new Set();
+
   for (const bd of breakdowns) {
     const yearRecord = tracking.academicYearWiseRecord.find(r => r.academicYear === bd.academicYear);
     if (!yearRecord) throw new AppError(`Academic year ${bd.academicYear} not found in fee tracking`, 404);
 
+    // Reject academic fees without a semesterNumber — they'd be recorded but never tracked
+    if (bd.academic && !bd.academic.semesterNumber) {
+      const hasAcademicFees = ['tuition', 'exam', 'erp', 'book', 'lab'].some(
+        f => normalizeMoney(bd.academic[f] || 0) > 0
+      );
+      if (hasAcademicFees) {
+        throw new AppError("semesterNumber is required when academic fee amounts are provided", 400);
+      }
+    }
+
     // Validate academic fee components
     if (bd.academic && bd.academic.semesterNumber) {
-      const sem = bd.academic.semesterNumber % 2 === 1 ? yearRecord.academic?.odd : yearRecord.academic?.even;
+      const academicKey = `${bd.academicYear}-sem${bd.academic.semesterNumber}`;
+      if (seenAcademicKeys.has(academicKey)) {
+        throw new AppError(
+          `Duplicate breakdown for semester ${bd.academic.semesterNumber} in ${bd.academicYear}. Combine amounts into a single breakdown.`, 400
+        );
+      }
+      seenAcademicKeys.add(academicKey);
+      const semSlot = bd.academic.semesterNumber % 2 === 1 ? 'odd' : 'even';
+      const sem = yearRecord.academic?.[semSlot];
       if (!sem) throw new AppError(`Semester ${bd.academic.semesterNumber} not found in tracking for ${bd.academicYear}`, 404);
+
+      // Ensure the semester number matches the one stored in this academic year
+      if (sem.semesterNumber !== bd.academic.semesterNumber) {
+        throw new AppError(
+          `Semester ${bd.academic.semesterNumber} does not belong to academic year ${bd.academicYear}. ` +
+          `This year has semester ${sem.semesterNumber} in the ${semSlot} slot.`, 400
+        );
+      }
 
       const fields = ['tuition', 'exam', 'erp', 'book', 'lab'];
       for (const field of fields) {
@@ -60,6 +91,12 @@ const recordPayment = async (data) => {
 
     // Validate hostel payment
     if (bd.hostel && normalizeMoney(bd.hostel) > 0) {
+      if (seenHostelKeys.has(bd.academicYear)) {
+        throw new AppError(
+          `Duplicate hostel payment for ${bd.academicYear}. Combine amounts into a single breakdown.`, 400
+        );
+      }
+      seenHostelKeys.add(bd.academicYear);
       if (!yearRecord.hostel) throw new AppError(`No hostel fee record found for ${bd.academicYear}`, 404);
       const hostelRemaining = normalizeMoney(
         (yearRecord.hostel.total?.total || 0) - (yearRecord.hostel.total?.paid || 0)
@@ -74,6 +111,12 @@ const recordPayment = async (data) => {
 
     // Validate transport payment
     if (bd.transport && normalizeMoney(bd.transport) > 0) {
+      if (seenTransportKeys.has(bd.academicYear)) {
+        throw new AppError(
+          `Duplicate transport payment for ${bd.academicYear}. Combine amounts into a single breakdown.`, 400
+        );
+      }
+      seenTransportKeys.add(bd.academicYear);
       if (!yearRecord.transport) throw new AppError(`No transport fee record found for ${bd.academicYear}`, 404);
       const transportRemaining = normalizeMoney(
         (yearRecord.transport.total?.total || 0) - (yearRecord.transport.total?.paid || 0)
@@ -105,6 +148,12 @@ const recordPayment = async (data) => {
       rollNo,
       transactions: []
     });
+  }
+
+  // Reject duplicate receipt numbers
+  const receiptExists = transactionDoc.transactions.some(t => t.receiptNo === receiptNo);
+  if (receiptExists) {
+    throw new AppError(`Receipt number '${receiptNo}' has already been used for this student`, 400);
   }
 
   const mappedBreakdowns = breakdowns.map(bd => {
@@ -195,251 +244,220 @@ const recordPayment = async (data) => {
 
   return transactionDoc;
 };
+ 
+/**
+ * GET /
+ * Returns all transactions with student details.
+ * Filters: department, paymentMode, fromDate, toDate
+ * Pagination: page, limit (default: all)
+ * Sorted: newest first
+ */
+const getAllTransactions = async (query) => {
+  const { department, paymentMode, fromDate, toDate, page, limit } = query;
 
-const getStudentTransactions = async (rollNo) => {
-  const transactionDoc = await StudentTransaction.findOne({ rollNo }).populate("student");
-  if (!transactionDoc) throw new AppError("Transactions not found for this student", 404);
-  return transactionDoc;
-};
+  const pageNum = Math.max(1, parseInt(page) || 1);
+  const hasLimit = limit !== undefined && limit !== null && limit !== "";
+  const limitNum = hasLimit ? Math.min(500, Math.max(1, parseInt(limit) || 20)) : 0;
 
-const getRecentPayments = async (query = {}) => {
-  const pipeline = [
-    { $unwind: "$transactions" },
-    { $sort: { "transactions.paidOn": -1 } },
-    {
-      $lookup: {
-        from: "students",
-        localField: "student",
-        foreignField: "_id",
-        as: "studentData"
-      }
-    },
-    { $unwind: "$studentData" }
-  ];
+  const pipeline = [];
 
-  const matchFilters = {};
-  if (query.year) {
-    matchFilters["transactions.breakdowns.academicYear"] = query.year;
+  // Unwind transactions to work with individual payments
+  pipeline.push({ $unwind: "$transactions" });
+
+  // Build match filters on transaction-level fields
+  const matchStage = {};
+
+  if (paymentMode) {
+    matchStage["transactions.paymentType"] = paymentMode;
   }
-  if (query.department) {
-    matchFilters["studentData.academic.departmentName"] = { $regex: new RegExp(`^${query.department}$`, "i") };
-  }
-  if (query.paymentMode) {
-    matchFilters["transactions.paymentType"] = { $regex: new RegExp(`^${query.paymentMode}$`, "i") };
-  }
-  if (query.name) {
-    matchFilters["studentData.personal.studentName"] = { $regex: new RegExp(query.name, "i") };
-  }
-  if (query.rollNo) {
-    matchFilters["rollNo"] = { $regex: new RegExp(`^${query.rollNo}$`, "i") };
-  }
-  if (query.feeHead) {
-    const head = query.feeHead.toLowerCase();
-    const feeHeadFilter = [];
-    if (["tuition", "exam", "erp", "book", "lab"].includes(head)) {
-      feeHeadFilter.push({ [`transactions.breakdowns.academic.${head}`]: { $gt: 0 } });
+
+  if (fromDate || toDate) {
+    matchStage["transactions.paidOn"] = {};
+    if (fromDate) matchStage["transactions.paidOn"]["$gte"] = new Date(fromDate);
+    if (toDate) {
+      const endDate = new Date(toDate);
+      endDate.setHours(23, 59, 59, 999);
+      matchStage["transactions.paidOn"]["$lte"] = endDate;
     }
-    if (head === "hostel") feeHeadFilter.push({ "transactions.breakdowns.hostel": { $gt: 0 } });
-    if (head === "transport") feeHeadFilter.push({ "transactions.breakdowns.transport": { $gt: 0 } });
-    if (feeHeadFilter.length > 0) matchFilters["$or"] = feeHeadFilter;
-  }
-  if (query.fromDate && query.toDate) {
-    matchFilters["transactions.paidOn"] = {
-      $gte: new Date(query.fromDate),
-      $lte: new Date(query.toDate)
-    };
-  } else if (query.fromDate) {
-    matchFilters["transactions.paidOn"] = { $gte: new Date(query.fromDate) };
-  } else if (query.toDate) {
-    matchFilters["transactions.paidOn"] = { $lte: new Date(query.toDate) };
-  }
-  if (Object.keys(matchFilters).length > 0) {
-    pipeline.push({ $match: matchFilters });
   }
 
-  const limit = parseInt(query.limit) || 50;
-  pipeline.push({ $limit: limit });
+  if (Object.keys(matchStage).length > 0) {
+    pipeline.push({ $match: matchStage });
+  }
 
+  // Join with Student collection for student data
   pipeline.push({
-    $project: {
-      rollNo: 1,
-      transaction: "$transactions",
-      studentDetails: {
-        name: "$studentData.personal.studentName",
-        department: "$studentData.academic.departmentName",
-        year: "$studentData.academic.yearStudying",
-        photo: "$studentData.personal.studentPhoto"
-      }
+    $lookup: {
+      from: "students",
+      localField: "student",
+      foreignField: "_id",
+      as: "studentData"
     }
   });
+  pipeline.push({ $unwind: "$studentData" });
 
-  return await StudentTransaction.aggregate(pipeline).exec();
-};
-
-/* ===================================================================
-   REPORTS
-=================================================================== */
-
-/**
- * Individual student report — receipts with per-fee-head demand / paid / balance
- */
-const getStudentReport = async (rollNo) => {
-  const student = await Student.findOne({ "personal.rollNo": rollNo })
-    .select("personal.rollNo personal.studentName academic.departmentName academic.yearStudying")
-    .lean();
-  if (!student) throw new AppError("Student not found", 404);
-
-  const txDoc = await StudentTransaction.findOne({ rollNo }).lean();
-  const tracking = await StudentFeeTracking.findOne({ rollNo }).lean();
-
-  const receipts = [];
-  if (txDoc) {
-    for (const tx of txDoc.transactions) {
-      for (const bd of tx.breakdowns) {
-        const yearRecord = tracking?.academicYearWiseRecord?.find(r => r.academicYear === bd.academicYear);
-        const sem = bd.academic?.semesterNumber
-          ? (bd.academic.semesterNumber % 2 === 1 ? yearRecord?.academic?.odd : yearRecord?.academic?.even)
-          : null;
-
-        const feeRows = [];
-        const academicFields = ["tuition", "exam", "erp", "book", "lab"];
-        for (const field of academicFields) {
-          const paidAmt = normalizeMoney(bd.academic?.[field] || 0);
-          if (paidAmt > 0 || (sem && (sem[field]?.total || 0) > 0)) {
-            feeRows.push({
-              feeHead: "Academic",
-              subHead: field,
-              demand: normalizeMoney(sem?.[field]?.total || 0),
-              paid: paidAmt,
-              balance: normalizeMoney((sem?.[field]?.total || 0) - (sem?.[field]?.paid || 0))
-            });
-          }
-        }
-        if (bd.hostel > 0 || (yearRecord?.hostel?.total?.total || 0) > 0) {
-          feeRows.push({
-            feeHead: "Hostel",
-            subHead: "hostel",
-            demand: normalizeMoney(yearRecord?.hostel?.total?.total || 0),
-            paid: normalizeMoney(bd.hostel || 0),
-            balance: normalizeMoney((yearRecord?.hostel?.total?.total || 0) - (yearRecord?.hostel?.total?.paid || 0))
-          });
-        }
-        if (bd.transport > 0 || (yearRecord?.transport?.total?.total || 0) > 0) {
-          feeRows.push({
-            feeHead: "Transport",
-            subHead: "transport",
-            demand: normalizeMoney(yearRecord?.transport?.total?.total || 0),
-            paid: normalizeMoney(bd.transport || 0),
-            balance: normalizeMoney((yearRecord?.transport?.total?.total || 0) - (yearRecord?.transport?.total?.paid || 0))
-          });
-        }
-
-        receipts.push({
-          receiptNo: tx.receiptNo,
-          academicYear: bd.academicYear,
-          semesterNumber: bd.academic?.semesterNumber || null,
-          semesterPeriod: bd.academic?.semesterNumber
-            ? (bd.academic.semesterNumber % 2 === 1 ? "Odd" : "Even")
-            : null,
-          paymentDate: tx.paidOn,
-          paymentMode: tx.paymentType,
-          bankName: tx.bankName,
-          totalAmount: normalizeMoney(bd.total || 0),
-          feeBreakdown: feeRows
-        });
-      }
-    }
+  // Filter by department (from student data)
+  if (department) {
+    pipeline.push({
+      $match: { "studentData.academic.departmentName": department }
+    });
   }
 
+  // Sort by payment date descending (newest first)
+  pipeline.push({ $sort: { "transactions.paidOn": -1 } });
+
+  // Shape output
+  const projectStage = {
+    $project: {
+      _id: 0,
+      rollNo: 1,
+      transaction: "$transactions",
+      student: {
+        _id: "$studentData._id",
+        personal: "$studentData.personal",
+        academic: "$studentData.academic",
+        contact: "$studentData.contact"
+      }
+    }
+  };
+
+  // Use $facet for efficient count + data in one query
+  if (hasLimit) {
+    const facetPipeline = {
+      $facet: {
+        metadata: [{ $count: "total" }],
+        data: [
+          { $skip: (pageNum - 1) * limitNum },
+          { $limit: limitNum },
+          projectStage
+        ]
+      }
+    };
+    pipeline.push(facetPipeline);
+
+    const [result] = await StudentTransaction.aggregate(pipeline);
+    const total = result.metadata[0]?.total || 0;
+
+    return {
+      transactions: result.data,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum)
+      }
+    };
+  }
+
+  // No limit — return all results
+  pipeline.push(projectStage);
+  const results = await StudentTransaction.aggregate(pipeline);
+
   return {
-    student: {
-      rollNo: student.personal?.rollNo,
-      name: student.personal?.studentName,
-      department: student.academic?.departmentName,
-      year: student.academic?.yearStudying
-    },
-    receipts
+    transactions: results,
+    pagination: {
+      total: results.length,
+      page: 1,
+      limit: results.length,
+      totalPages: 1
+    }
   };
 };
 
 /**
- * Date-wise payment report — flattened rows sorted by date
+ * GET /:rollNo
+ * Returns complete transactions for one student.
+ * Features: pagination, newest first, optional date filter, receipt breakdown
  */
-const getDatewiseReport = async (query = {}) => {
-  const pipeline = [
-    { $unwind: "$transactions" },
-    { $sort: { "transactions.paidOn": -1 } },
-    { $unwind: "$transactions.breakdowns" },
-    {
-      $lookup: {
-        from: "students",
-        localField: "student",
-        foreignField: "_id",
-        as: "studentData"
+const getStudentTransactions = async (rollNo, query = {}) => {
+  const { fromDate, toDate, page, limit } = query;
+
+  const student = await Student.findOne({ "personal.rollNo": rollNo }).lean();
+  if (!student) throw new AppError("Student not found", 404);
+
+  const txnDoc = await StudentTransaction.findOne({ rollNo }).lean();
+
+  let transactions = txnDoc?.transactions ? [...txnDoc.transactions] : [];
+
+  // Filter by date range
+  if (fromDate || toDate) {
+    transactions = transactions.filter((t) => {
+      const paidOn = new Date(t.paidOn);
+      if (fromDate && paidOn < new Date(fromDate)) return false;
+      if (toDate) {
+        const endDate = new Date(toDate);
+        endDate.setHours(23, 59, 59, 999);
+        if (paidOn > endDate) return false;
       }
+      return true;
+    });
+  }
+
+  // Sort newest first
+  transactions.sort((a, b) => new Date(b.paidOn) - new Date(a.paidOn));
+
+  // Pagination
+  const total = transactions.length;
+  const pageNum = Math.max(1, parseInt(page) || 1);
+  const hasLimit = limit !== undefined && limit !== null && limit !== "";
+  const limitNum = hasLimit ? Math.min(500, Math.max(1, parseInt(limit) || 20)) : total;
+
+  const start = (pageNum - 1) * limitNum;
+  const paginatedTransactions = hasLimit ? transactions.slice(start, start + limitNum) : transactions;
+
+  return {
+    student: {
+      personal: student.personal,
+      academic: student.academic,
+      contact: student.contact
     },
-    { $unwind: "$studentData" }
-  ];
-
-  const matchFilters = {};
-  if (query.academicYear) {
-    matchFilters["transactions.breakdowns.academicYear"] = query.academicYear;
-  }
-  if (query.fromDate && query.toDate) {
-    matchFilters["transactions.paidOn"] = {
-      $gte: new Date(query.fromDate),
-      $lte: new Date(query.toDate)
-    };
-  } else if (query.fromDate) {
-    matchFilters["transactions.paidOn"] = { $gte: new Date(query.fromDate) };
-  } else if (query.toDate) {
-    matchFilters["transactions.paidOn"] = { $lte: new Date(query.toDate) };
-  }
-  if (Object.keys(matchFilters).length > 0) {
-    pipeline.push({ $match: matchFilters });
-  }
-
-  const limit = parseInt(query.limit) || 100;
-  pipeline.push({ $limit: limit });
-
-  pipeline.push({
-    $project: {
-      rollNo: 1,
-      studentName: "$studentData.personal.studentName",
-      department: "$studentData.academic.departmentName",
-      year: "$studentData.academic.yearStudying",
-      academicYear: "$transactions.breakdowns.academicYear",
-      semesterNumber: "$transactions.breakdowns.academic.semesterNumber",
-      semesterPeriod: {
-        $cond: {
-          if: { $eq: [{ $mod: [{ $ifNull: ["$transactions.breakdowns.academic.semesterNumber", 0] }, 2] }, 1] },
-          then: "Odd", else: "Even"
-        }
-      },
-      feeHead: {
-        tuition: "$transactions.breakdowns.academic.tuition",
-        exam: "$transactions.breakdowns.academic.exam",
-        erp: "$transactions.breakdowns.academic.erp",
-        book: "$transactions.breakdowns.academic.book",
-        lab: "$transactions.breakdowns.academic.lab",
-        hostel: "$transactions.breakdowns.hostel",
-        transport: "$transactions.breakdowns.transport"
-      },
-      amount: "$transactions.breakdowns.total",
-      date: "$transactions.paidOn",
-      paymentMode: "$transactions.paymentType",
-      bankName: "$transactions.bankName",
-      receiptNo: "$transactions.receiptNo"
+    transactions: paginatedTransactions,
+    pagination: {
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: limitNum > 0 ? Math.ceil(total / limitNum) : 1
     }
-  });
+  };
+};
 
-  return await StudentTransaction.aggregate(pipeline).exec();
+/**
+ * GET /nextReceiptNo
+ * Returns the next unique receipt number for today.
+ * Format: REC-YYYYMMDD-NNN (e.g. REC-20260302-001)
+ * NNN = count of today's receipts + 1
+ * NOTE: This format function will be changed in the future.
+ */
+const getNextReceiptNo = async () => {
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+  // Count all receipts created today across all students
+  const result = await StudentTransaction.aggregate([
+    { $unwind: "$transactions" },
+    { $match: { "transactions.paidOn": { $gte: startOfDay, $lte: endOfDay } } },
+    { $count: "count" }
+  ]);
+
+  const todayCount = result.length > 0 ? result[0].count : 0;
+  const nextCount = todayCount + 1;
+
+  // Format date as YYYYMMDD
+  const yyyy = String(now.getFullYear());
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  const dateStr = `${yyyy}${mm}${dd}`;
+
+  // Format count as 3-digit padded number
+  const countStr = String(nextCount).padStart(3, "0");
+
+  return { receiptNo: `REC-${dateStr}-${countStr}` };
 };
 
 module.exports = {
-  recordPayment,
+  createPayment,
+  getAllTransactions,
   getStudentTransactions,
-  getRecentPayments,
-  getStudentReport,
-  getDatewiseReport
+  getNextReceiptNo,
 };

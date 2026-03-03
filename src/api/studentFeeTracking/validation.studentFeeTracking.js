@@ -1,51 +1,23 @@
 const AppError = require("../../utils/AppError");
 
-const MONEY_MAX = 1e12;
+const VALID_DEPARTMENTS = ["CSE", "IT", "AIML", "AIDS", "ECE", "EEE", "MECH", "CIVIL"];
 
-const isValidMoney = (value) => {
-  return typeof value === "number"
-    && Number.isFinite(value)
-    && value >= 0
-    && value <= MONEY_MAX
-    && Math.round(value * 100) === value * 100;
-};
+const validateGetQuery = (req, res, next) => {
+  const { batch, department, rollNo } = req.query;
 
-const toMoney = (value) => Math.round(value * 100) / 100;
-
-const validateUpdateReceipt = (req, res, next) => {
-  const { paymentType, bankName, bankLocation, remarks } = req.body;
-  if (!paymentType && !bankName && !bankLocation && !remarks) {
-    return next(new AppError("No valid fields provided for update", 400));
+  if (department && !VALID_DEPARTMENTS.includes(department.toUpperCase())) {
+    return next(new AppError(`department must be one of: ${VALID_DEPARTMENTS.join(", ")}`, 400));
   }
-  const validPaymentTypes = ["Cash", "Card", "UPI", "NetBanking", "Cheque", "DD"];
-  if (paymentType && !validPaymentTypes.includes(paymentType)) {
-    return next(new AppError("Valid paymentType is required", 400));
+
+  if (batch && !/^\d{4}-\d{4}$/.test(batch)) {
+    return next(new AppError("batch must be in YYYY-YYYY format", 400));
   }
+
+  if (rollNo && !/^[A-Za-z0-9]+$/.test(rollNo)) {
+    return next(new AppError("rollNo must be alphanumeric", 400));
+  }
+
   next();
 };
 
-const validateUpdateConcession = (req, res, next) => {
-  const { concessions } = req.body;
-  if (!concessions || typeof concessions !== "object") {
-    return next(new AppError("concessions object is required", 400));
-  }
-
-  const allowed = ["firstGraduate", "scheme7point5", "pmss", "sakthi"];
-  const sanitized = {};
-
-  for (const key of allowed) {
-    if (concessions[key] === undefined) continue;
-    if (!isValidMoney(concessions[key])) {
-      return next(new AppError(`${key} must be a non-negative number with up to 2 decimals`, 400));
-    }
-    sanitized[key] = toMoney(concessions[key]);
-  }
-
-  req.body.concessions = sanitized;
-  next();
-};
-
-module.exports = {
-  validateUpdateReceipt,
-  validateUpdateConcession
-};
+module.exports = { validateGetQuery };

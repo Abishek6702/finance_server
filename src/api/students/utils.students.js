@@ -27,16 +27,35 @@ function getYearsToGenerate(student){
   return years;
 }
 
-function calcSemesterTotals(sem,concession=0){
-  const subTotal=
-    (sem.tuition?.total||0)+
-    (sem.exam?.total||0)+
-    (sem.erp?.total||0)+
-    (sem.book?.total||0)+
-    (sem.lab?.total||0);
+function calculateComponentConcessions(enrollment){
+  const schemes=['firstGraduate','scheme7point5','pmssScheme','sakthiScheme','specialConcession'];
+  const components={
+    tuition:'yearlyTuitionConcessionAmount',
+    exam:'yearlyExamConcessionAmount',
+    erp:'yearlyErpConcessionAmount',
+    book:'yearlyBookConcessionAmount',
+    lab:'yearlyLabConcessionAmount',
+    transport:'yearlyTransportConcessionAmount',
+    hostel:'yearlyHostelConcessionAmount'
+  };
 
-  const total=Math.max(0,subTotal-concession);
-  return {subTotal,total};
+  const result={};
+  for(const [comp,field] of Object.entries(components)){
+    result[comp]=0;
+    for(const scheme of schemes){
+      const schemeData=enrollment?.[scheme];
+      if(schemeData?.isApplicable){
+        result[comp]=normalizeMoney(result[comp]+normalizeMoney(schemeData[field]||0));
+      }
+    }
+  }
+
+  result.totalConcession=normalizeMoney(
+    result.tuition+result.exam+result.erp+
+    result.book+result.lab+result.transport+result.hostel
+  );
+
+  return result;
 }
 async function generateLedger(studentDoc,options={}){
 
@@ -154,6 +173,8 @@ async function generateLedger(studentDoc,options={}){
       continue;
     }
 
+    const concessions=calculateComponentConcessions(studentDoc.enrollment);
+
     [oddSemester,evenSemester].forEach(s=>{
 
       const tuition=normalizeMoney(s.tuition?.fee||0);
@@ -162,43 +183,40 @@ async function generateLedger(studentDoc,options={}){
       const book=normalizeMoney(s.book?.fee||0);
       const lab=normalizeMoney(s.lab?.fee||0);
 
-      const special=normalizeMoney(studentDoc.enrollment?.specialConcession?.tuition||0);
+      const tuitionPayable=normalizeMoney(Math.max(0,tuition-normalizeMoney(concessions.tuition/2)));
+      const examPayable=normalizeMoney(Math.max(0,exam-normalizeMoney(concessions.exam/2)));
+      const erpPayable=normalizeMoney(Math.max(0,erp-normalizeMoney(concessions.erp/2)));
+      const bookPayable=normalizeMoney(Math.max(0,book-normalizeMoney(concessions.book/2)));
+      const labPayable=normalizeMoney(Math.max(0,lab-normalizeMoney(concessions.lab/2)));
 
-      const {subTotal,total}=calcSemesterTotals({
-        tuition:{total:tuition},
-        exam:{total:exam},
-        erp:{total:erp},
-        book:{total:book},
-        lab:{total:lab}
-      },special);
+      const subTotal=normalizeMoney(tuitionPayable+examPayable+erpPayable+bookPayable+labPayable);
 
       const ledger={
         semesterNumber:s.semesterNumber,
-        tuition:{total:tuition},
-        exam:{total:exam},
-        erp:{total:erp},
-        book:{total:book},
-        lab:{total:lab},
-        subTotal:normalizeMoney(subTotal),
-        total:{total:normalizeMoney(total)}
+        tuition:{total:tuitionPayable},
+        exam:{total:examPayable},
+        erp:{total:erpPayable},
+        book:{total:bookPayable},
+        lab:{total:labPayable},
+        subTotal,
+        total:{total:subTotal}
       };
 
       if(s.semesterNumber%2===1) semesterLedgers.odd=ledger;
       else semesterLedgers.even=ledger;
     });
 
-    const academicSubTotal=
+    const academicSubTotal=normalizeMoney(
       (semesterLedgers.odd?.total?.total||0)+
-      (semesterLedgers.even?.total?.total||0);
-
-    const yearlyConcession=normalizeMoney(
-      (studentDoc.enrollment?.firstGraduate?.concessionAmount||0)+
-      (studentDoc.enrollment?.scheme7point5?.concessionAmount||0)+
-      (studentDoc.enrollment?.pmssScheme?.concessionAmount||0)+
-      (studentDoc.enrollment?.sakthiScheme?.concessionAmount||0)
+      (semesterLedgers.even?.total?.total||0)
     );
 
-    const academicTotal=normalizeMoney(Math.max(0,academicSubTotal-yearlyConcession));
+    const academicConcession=normalizeMoney(
+      concessions.tuition+concessions.exam+concessions.erp+
+      concessions.book+concessions.lab
+    );
+
+    const academicTotal=academicSubTotal;
 
     /* ---------- TRANSPORT ---------- */
 
@@ -207,7 +225,7 @@ async function generateLedger(studentDoc,options={}){
     if(studentDoc.transport?.isApplicable && studentDoc.transport.transport){
       if(transportDoc){
         const subTotal=normalizeMoney(transportDoc.fee||0);
-        const special=normalizeMoney(studentDoc.enrollment?.specialConcession?.transport||0);
+        const transportConcession=normalizeMoney(concessions.transport);
 
         transportLedger={
           transport:transportDoc.id,
@@ -216,8 +234,8 @@ async function generateLedger(studentDoc,options={}){
           stop:transportDoc.stop,
           fee:transportDoc.fee,
           subTotal,
-          transportSpecialConcession:special,
-          total:{total:normalizeMoney(Math.max(0,subTotal-special))}
+          transportSpecialConcession:transportConcession,
+          total:{total:normalizeMoney(Math.max(0,subTotal-transportConcession))}
         };
       }
     }else if(studentDoc.transport?.isApplicable){
@@ -231,7 +249,7 @@ async function generateLedger(studentDoc,options={}){
     if(studentDoc.hostel?.isApplicable && studentDoc.hostel.hostel){
       if(hostelDoc){
         const subTotal=normalizeMoney(hostelDoc.fee||0);
-        const special=normalizeMoney(studentDoc.enrollment?.specialConcession?.hostel||0);
+        const hostelConcession=normalizeMoney(concessions.hostel);
 
         hostelLedger={
           hostel:hostelDoc.id,
@@ -240,8 +258,8 @@ async function generateLedger(studentDoc,options={}){
           isAttached:hostelDoc.isAttached,
           fee:hostelDoc.fee,
           subTotal,
-          hostelSpecialConcession:special,
-          total:{total:normalizeMoney(Math.max(0,subTotal-special))}
+          hostelSpecialConcession:hostelConcession,
+          total:{total:normalizeMoney(Math.max(0,subTotal-hostelConcession))}
         };
       }
     }else if(studentDoc.hostel?.isApplicable){
@@ -257,18 +275,21 @@ async function generateLedger(studentDoc,options={}){
       academicYear,
       academic:{
         ...semesterLedgers,
-        academicSpecialConcession:yearlyConcession,
+        academicSpecialConcession:academicConcession,
         subTotal:normalizeMoney(academicSubTotal),
         total:{total:academicTotal}
       },
       transport:transportLedger,
       hostel:hostelLedger,
       concessions:{
-        firstGraduate:normalizeMoney(studentDoc.enrollment?.firstGraduate?.concessionAmount||0),
-        scheme7point5:normalizeMoney(studentDoc.enrollment?.scheme7point5?.concessionAmount||0),
-        pmss:normalizeMoney(studentDoc.enrollment?.pmssScheme?.concessionAmount||0),
-        sakthi:normalizeMoney(studentDoc.enrollment?.sakthiScheme?.concessionAmount||0),
-        totalConcession:yearlyConcession
+        tuition:concessions.tuition,
+        exam:concessions.exam,
+        erp:concessions.erp,
+        book:concessions.book,
+        lab:concessions.lab,
+        transport:concessions.transport,
+        hostel:concessions.hostel,
+        totalConcession:concessions.totalConcession
       },
       total:{total:normalizeMoney(yearTotal)}
     });
@@ -277,4 +298,4 @@ async function generateLedger(studentDoc,options={}){
   await tracking.save({session});
 }
 
-module.exports={generateLedger};
+module.exports={generateLedger,calculateComponentConcessions};

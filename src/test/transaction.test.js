@@ -462,108 +462,264 @@ describe("Fee Payment / Transaction API", () => {
     expect(yr.total.status).toBe("Partially Paid");
   });
 
-  /* ─── GET TRANSACTIONS ───── */
+  /* ─── GET ALL TRANSACTIONS (GET /api/feePayment/) ───── */
 
-  it("gets student transactions (200)", async () => {
+  it("gets all transactions without filters (default, returns all)", async () => {
+    const res = await request(app)
+      .get("/api/feePayment/")
+      .set(adminAuth());
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.data.transactions)).toBe(true);
+    expect(res.body.data.pagination).toBeDefined();
+    expect(res.body.data.pagination.total).toBeGreaterThanOrEqual(1);
+    // Each result should include student data
+    if (res.body.data.transactions.length > 0) {
+      expect(res.body.data.transactions[0].student).toBeDefined();
+      expect(res.body.data.transactions[0].transaction).toBeDefined();
+    }
+  });
+
+  it("filters all transactions by department", async () => {
+    const res = await request(app)
+      .get("/api/feePayment/")
+      .set(adminAuth())
+      .query({ department: "CSE" });
+    expect(res.status).toBe(200);
+    expect(res.body.data.transactions.length).toBeGreaterThanOrEqual(1);
+    res.body.data.transactions.forEach((item) => {
+      expect(item.student.academic.departmentName).toBe("CSE");
+    });
+  });
+
+  it("filters all transactions by paymentMode", async () => {
+    const res = await request(app)
+      .get("/api/feePayment/")
+      .set(adminAuth())
+      .query({ paymentMode: "UPI" });
+    expect(res.status).toBe(200);
+    expect(res.body.data.transactions.length).toBeGreaterThanOrEqual(1);
+    res.body.data.transactions.forEach((item) => {
+      expect(item.transaction.paymentType).toBe("UPI");
+    });
+  });
+
+  it("filters all transactions by date range (fromDate + toDate)", async () => {
+    const today = new Date();
+    const res = await request(app)
+      .get("/api/feePayment/")
+      .set(adminAuth())
+      .query({
+        fromDate: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1).toISOString().split("T")[0],
+        toDate: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString().split("T")[0],
+      });
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.data.transactions)).toBe(true);
+    expect(res.body.data.transactions.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("paginates all transactions with page and limit", async () => {
+    const res = await request(app)
+      .get("/api/feePayment/")
+      .set(adminAuth())
+      .query({ page: 1, limit: 2 });
+    expect(res.status).toBe(200);
+    expect(res.body.data.transactions.length).toBeLessThanOrEqual(2);
+    expect(res.body.data.pagination.page).toBe(1);
+    expect(res.body.data.pagination.limit).toBe(2);
+    expect(res.body.data.pagination.totalPages).toBeGreaterThanOrEqual(1);
+  });
+
+  it("combines multiple filters on all transactions", async () => {
+    const res = await request(app)
+      .get("/api/feePayment/")
+      .set(adminAuth())
+      .query({
+        department: "CSE",
+        paymentMode: "Cash",
+        limit: 5,
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.data.transactions.length).toBeLessThanOrEqual(5);
+    res.body.data.transactions.forEach((item) => {
+      expect(item.transaction.paymentType).toBe("Cash");
+      expect(item.student.academic.departmentName).toBe("CSE");
+    });
+  });
+
+  it("returns newest first in all transactions", async () => {
+    const res = await request(app)
+      .get("/api/feePayment/")
+      .set(adminAuth());
+    expect(res.status).toBe(200);
+    const txns = res.body.data.transactions;
+    if (txns.length >= 2) {
+      const dates = txns.map((t) => new Date(t.transaction.paidOn).getTime());
+      for (let i = 1; i < dates.length; i++) {
+        expect(dates[i - 1]).toBeGreaterThanOrEqual(dates[i]);
+      }
+    }
+  });
+
+  it("rejects invalid department in all transactions", async () => {
+    const res = await request(app)
+      .get("/api/feePayment/")
+      .set(adminAuth())
+      .query({ department: "INVALID" });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects invalid paymentMode in all transactions", async () => {
+    const res = await request(app)
+      .get("/api/feePayment/")
+      .set(adminAuth())
+      .query({ paymentMode: "Crypto" });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects fromDate after toDate in all transactions", async () => {
+    const res = await request(app)
+      .get("/api/feePayment/")
+      .set(adminAuth())
+      .query({ fromDate: "2026-12-31", toDate: "2025-01-01" });
+    expect(res.status).toBe(400);
+  });
+
+  /* ─── GET STUDENT TRANSACTIONS (GET /api/feePayment/:rollNo) ───── */
+
+  it("gets student transactions with student details", async () => {
     const res = await request(app)
       .get(`/api/feePayment/${testCtx.studentRollFinance}`)
       .set(adminAuth());
     expect(res.status).toBe(200);
+    expect(res.body.data.student).toBeDefined();
+    expect(res.body.data.student.personal).toBeDefined();
+    expect(res.body.data.student.academic).toBeDefined();
+    expect(res.body.data.student.contact).toBeDefined();
+    expect(Array.isArray(res.body.data.transactions)).toBe(true);
     expect(res.body.data.transactions.length).toBeGreaterThanOrEqual(3);
+    expect(res.body.data.pagination).toBeDefined();
   });
 
-  it("returns 404 for missing transactions", async () => {
+  it("includes receipt breakdowns in student transactions", async () => {
     const res = await request(app)
-      .get("/api/feePayment/95CS995")
+      .get(`/api/feePayment/${testCtx.studentRollFinance}`)
+      .set(adminAuth());
+    expect(res.status).toBe(200);
+    const firstTxn = res.body.data.transactions[0];
+    expect(firstTxn.breakdowns).toBeDefined();
+    expect(Array.isArray(firstTxn.breakdowns)).toBe(true);
+    expect(firstTxn.breakdowns.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("returns newest first for student transactions", async () => {
+    const res = await request(app)
+      .get(`/api/feePayment/${testCtx.studentRollFinance}`)
+      .set(adminAuth());
+    expect(res.status).toBe(200);
+    const txns = res.body.data.transactions;
+    if (txns.length >= 2) {
+      const dates = txns.map((t) => new Date(t.paidOn).getTime());
+      for (let i = 1; i < dates.length; i++) {
+        expect(dates[i - 1]).toBeGreaterThanOrEqual(dates[i]);
+      }
+    }
+  });
+
+  it("filters student transactions by date range", async () => {
+    const today = new Date();
+    const res = await request(app)
+      .get(`/api/feePayment/${testCtx.studentRollFinance}`)
+      .set(adminAuth())
+      .query({
+        fromDate: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1).toISOString().split("T")[0],
+        toDate: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString().split("T")[0],
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.data.transactions.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("paginates student transactions", async () => {
+    const res = await request(app)
+      .get(`/api/feePayment/${testCtx.studentRollFinance}`)
+      .set(adminAuth())
+      .query({ page: 1, limit: 2 });
+    expect(res.status).toBe(200);
+    expect(res.body.data.transactions.length).toBeLessThanOrEqual(2);
+    expect(res.body.data.pagination.page).toBe(1);
+    expect(res.body.data.pagination.limit).toBe(2);
+  });
+
+  it("returns 404 for student transactions of unknown rollNo", async () => {
+    const res = await request(app)
+      .get("/api/feePayment/99CS999")
       .set(adminAuth());
     expect(res.status).toBe(404);
   });
 
-  /* ─── RECENT PAYMENTS ───── */
-
-  it("gets recent payments without filters", async () => {
+  it("returns empty transactions for valid student with no matching date filter", async () => {
     const res = await request(app)
-      .get("/api/feePayment/recent")
+      .get(`/api/feePayment/${testCtx.studentRollFinance}`)
+      .set(adminAuth())
+      .query({ fromDate: "2010-01-01", toDate: "2010-12-31" });
+    expect(res.status).toBe(200);
+    expect(res.body.data.transactions.length).toBe(0);
+  });
+
+  it("rejects fromDate after toDate in student transactions", async () => {
+    const res = await request(app)
+      .get(`/api/feePayment/${testCtx.studentRollFinance}`)
+      .set(adminAuth())
+      .query({ fromDate: "2026-12-31", toDate: "2025-01-01" });
+    expect(res.status).toBe(400);
+  });
+
+  /* ─── GET NEXT RECEIPT NO (GET /api/feePayment/nextReceiptNo) ───── */
+
+  it("returns a receipt number in REC-DATE-COUNT format", async () => {
+    const res = await request(app)
+      .get("/api/feePayment/nextReceiptNo")
       .set(adminAuth());
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.receiptNo).toBeDefined();
+    expect(res.body.data.receiptNo).toMatch(/^REC-\d{8}-\d{3,}$/);
   });
 
-  it("gets recent payments filtered by year", async () => {
-    const res = await request(app)
-      .get("/api/feePayment/recent")
-      .set(adminAuth())
-      .query({ year: testCtx.academicYearPrimary });
-    expect(res.status).toBe(200);
-    expect(Array.isArray(res.body.data)).toBe(true);
-  });
+  it("receipt number increments after a payment", async () => {
+    const res1 = await request(app)
+      .get("/api/feePayment/nextReceiptNo")
+      .set(adminAuth());
+    expect(res1.status).toBe(200);
+    const firstReceiptNo = res1.body.data.receiptNo;
 
-  it("gets recent payments filtered by department", async () => {
-    const res = await request(app)
-      .get("/api/feePayment/recent")
+    // Make a payment
+    await request(app)
+      .post("/api/feePayment/pay")
       .set(adminAuth())
-      .query({ department: "CSE" });
-    expect(res.status).toBe(200);
-  });
-
-  it("gets recent payments filtered by paymentMode", async () => {
-    const res = await request(app)
-      .get("/api/feePayment/recent")
-      .set(adminAuth())
-      .query({ paymentMode: "UPI" });
-    expect(res.status).toBe(200);
-    expect(res.body.data.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it("gets recent payments filtered by limit", async () => {
-    const res = await request(app)
-      .get("/api/feePayment/recent")
-      .set(adminAuth())
-      .query({ limit: 1 });
-    expect(res.status).toBe(200);
-    expect(res.body.data.length).toBeLessThanOrEqual(1);
-  });
-
-  it("gets recent payments with combined filters", async () => {
-    const res = await request(app)
-      .get("/api/feePayment/recent")
-      .set(adminAuth())
-      .query({
-        year: testCtx.academicYearPrimary,
-        department: "CSE",
-        paymentMode: "Cash",
-        limit: 2,
+      .send({
+        rollNo: testCtx.studentRollFinance,
+        receiptNo: testCtx.receiptFour,
+        paymentType: "Cash",
+        breakdowns: [{
+          academicYear: testCtx.academicYearPrimary,
+          academic: { semesterNumber: 1, tuition: 100 },
+        }],
       });
-    expect(res.status).toBe(200);
-    expect(res.body.data.length).toBeLessThanOrEqual(2);
+
+    const res2 = await request(app)
+      .get("/api/feePayment/nextReceiptNo")
+      .set(adminAuth());
+    expect(res2.status).toBe(200);
+    const secondReceiptNo = res2.body.data.receiptNo;
+
+    // Extract the count portion and verify it incremented
+    const count1 = parseInt(firstReceiptNo.split("-").pop());
+    const count2 = parseInt(secondReceiptNo.split("-").pop());
+    expect(count2).toBe(count1 + 1);
   });
 
-  it("gets recent payments filtered by date range", async () => {
-    const today = new Date();
-    const res = await request(app)
-      .get("/api/feePayment/recent")
-      .set(adminAuth())
-      .query({
-        fromDate: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1).toISOString(),
-        toDate: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString(),
-      });
-    expect(res.status).toBe(200);
-    expect(Array.isArray(res.body.data)).toBe(true);
-  });
-
-  it("gets recent payments with only fromDate", async () => {
-    const res = await request(app)
-      .get("/api/feePayment/recent")
-      .set(adminAuth())
-      .query({ fromDate: "2020-01-01" });
-    expect(res.status).toBe(200);
-  });
-
-  it("gets recent payments with only toDate", async () => {
-    const res = await request(app)
-      .get("/api/feePayment/recent")
-      .set(adminAuth())
-      .query({ toDate: new Date().toISOString() });
-    expect(res.status).toBe(200);
+  it("rejects nextReceiptNo without auth token", async () => {
+    const res = await request(app).get("/api/feePayment/nextReceiptNo");
+    expect(res.status).toBe(401);
   });
 });

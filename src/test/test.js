@@ -145,11 +145,11 @@ const buildStudentPayload = (rollNo, { academicYear } = {}) => ({
   },
   enrollment: {
     quota: "Government Quota",
-    firstGraduate: { isApplicable: false, concessionAmount: 0 },
-    scheme7point5: { isApplicable: false, concessionAmount: 0 },
-    pmssScheme: { isApplicable: false, concessionAmount: 0 },
-    sakthiScheme: { isApplicable: false, concessionAmount: 0 },
-    specialConcession: { isApplicable: false, transport: 0, hostel: 0, tuition: 0 },
+    firstGraduate: { isApplicable: false },
+    scheme7point5: { isApplicable: false },
+    pmssScheme: { isApplicable: false },
+    sakthiScheme: { isApplicable: false },
+    specialConcession: { isApplicable: false },
   },
   transport: { isApplicable: false },
   hostel: { isApplicable: false },
@@ -163,11 +163,11 @@ describe("QPulse API integration (full coverage)", () => {
 
     const superadminLogin = await login("superadmin@sece.ac.in", "superadmin@123");
     expect(superadminLogin.status).toBe(200);
-    testCtx.superadminToken = superadminLogin.body.token;
+    testCtx.superadminToken = superadminLogin.body.data.token;
 
     const adminLogin = await login("admin@sece.ac.in", "admin@123");
     expect(adminLogin.status).toBe(200);
-    testCtx.adminToken = adminLogin.body.token;
+    testCtx.adminToken = adminLogin.body.data.token;
   });
 
   afterAll(async () => {
@@ -186,15 +186,15 @@ describe("QPulse API integration (full coverage)", () => {
     it("logs in superadmin and sets token cookie", async () => {
       const response = await login("superadmin@sece.ac.in", "superadmin@123");
       expect(response.status).toBe(200);
-      expect(response.body.role).toBe("superadmin");
-      expect(response.body.token).toBeDefined();
+      expect(response.body.data.role).toBe("superadmin");
+      expect(response.body.data.token).toBeDefined();
       expect(response.headers["set-cookie"]).toBeDefined();
     });
 
     it("logs in admin successfully", async () => {
       const response = await login("admin@sece.ac.in", "admin@123");
       expect(response.status).toBe(200);
-      expect(response.body.role).toBe("admin");
+      expect(response.body.data.role).toBe("admin");
     });
 
     it("rejects login for wrong password", async () => {
@@ -290,7 +290,7 @@ describe("QPulse API integration (full coverage)", () => {
         .set("Authorization", `Bearer ${testCtx.superadminToken}`)
         .send(buildFeeStructurePayload(testCtx.academicYearPrimary));
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(409);
     });
 
     it("rejects invalid academicYear format", async () => {
@@ -335,7 +335,7 @@ describe("QPulse API integration (full coverage)", () => {
         .send(buildFeeStructurePayload(testCtx.academicYearPrimary, { isActive: false }));
 
       expect(response.status).toBe(200);
-      expect(response.body.data.isActive).toBe(false);
+      expect(response.body.data.feeStructure.isActive).toBe(false);
     });
 
     it("reactivates fee structure for student ledger generation", async () => {
@@ -345,7 +345,7 @@ describe("QPulse API integration (full coverage)", () => {
         .send(buildFeeStructurePayload(testCtx.academicYearPrimary, { isActive: true }));
 
       expect(response.status).toBe(200);
-      expect(response.body.data.isActive).toBe(true);
+      expect(response.body.data.feeStructure.isActive).toBe(true);
     });
 
     it("rejects invalid update payload", async () => {
@@ -357,13 +357,13 @@ describe("QPulse API integration (full coverage)", () => {
       expect(response.status).toBe(400);
     });
 
-    it("returns 400 updating unknown year", async () => {
+    it("returns 404 updating unknown year", async () => {
       const response = await request(app)
         .put(`/api/feeStructureMaster/${testCtx.academicYearMissing}`)
         .set("Authorization", `Bearer ${testCtx.superadminToken}`)
         .send(buildFeeStructurePayload(testCtx.academicYearMissing));
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(404);
     });
 
     it("returns 404 deleting unknown year", async () => {
@@ -570,11 +570,21 @@ describe("QPulse API integration (full coverage)", () => {
       "permDoorNo","permStreet","permTaluk","permDistrict","permState","permPincode",
       "commDoorNo","commStreet","commTaluk","commDistrict","commState","commPincode",
       "quota",
-      "firstGraduateApplicable","firstGraduateConcession",
-      "scheme7point5Applicable","scheme7point5Concession",
-      "pmssApplicable","pmssConcession",
-      "sakthiApplicable","sakthiConcession",
-      "specialApplicable","specialTransport","specialHostel","specialTuition",
+      "firstGraduateApplicable",
+      "firstGraduateLab","firstGraduateBook","firstGraduateErp","firstGraduateExam",
+      "firstGraduateTransport","firstGraduateHostel","firstGraduateTuition",
+      "scheme7point5Applicable",
+      "scheme7point5Lab","scheme7point5Book","scheme7point5Erp","scheme7point5Exam",
+      "scheme7point5Transport","scheme7point5Hostel","scheme7point5Tuition",
+      "pmssApplicable",
+      "pmssLab","pmssBook","pmssErp","pmssExam",
+      "pmssTransport","pmssHostel","pmssTuition",
+      "sakthiApplicable",
+      "sakthiLab","sakthiBook","sakthiErp","sakthiExam",
+      "sakthiTransport","sakthiHostel","sakthiTuition",
+      "specialApplicable",
+      "specialLab","specialBook","specialErp","specialExam",
+      "specialTransport","specialHostel","specialTuition",
       "transportApplicable","transportRoute","transportStop",
       "hostelApplicable","hostelBlock","hostelSharing","hostelAttached",
     ];
@@ -631,17 +641,45 @@ describe("QPulse API integration (full coverage)", () => {
       commPincode: "638001",
       quota: "Government Quota",
       firstGraduateApplicable: "FALSE",
-      firstGraduateConcession: 0,
+      firstGraduateLab: "",
+      firstGraduateBook: "",
+      firstGraduateErp: "",
+      firstGraduateExam: "",
+      firstGraduateTransport: "",
+      firstGraduateHostel: "",
+      firstGraduateTuition: "",
       scheme7point5Applicable: "FALSE",
-      scheme7point5Concession: 0,
+      scheme7point5Lab: "",
+      scheme7point5Book: "",
+      scheme7point5Erp: "",
+      scheme7point5Exam: "",
+      scheme7point5Transport: "",
+      scheme7point5Hostel: "",
+      scheme7point5Tuition: "",
       pmssApplicable: "FALSE",
-      pmssConcession: 0,
+      pmssLab: "",
+      pmssBook: "",
+      pmssErp: "",
+      pmssExam: "",
+      pmssTransport: "",
+      pmssHostel: "",
+      pmssTuition: "",
       sakthiApplicable: "FALSE",
-      sakthiConcession: 0,
+      sakthiLab: "",
+      sakthiBook: "",
+      sakthiErp: "",
+      sakthiExam: "",
+      sakthiTransport: "",
+      sakthiHostel: "",
+      sakthiTuition: "",
       specialApplicable: "FALSE",
-      specialTransport: 0,
-      specialHostel: 0,
-      specialTuition: 0,
+      specialLab: "",
+      specialBook: "",
+      specialErp: "",
+      specialExam: "",
+      specialTransport: "",
+      specialHostel: "",
+      specialTuition: "",
       transportApplicable: "FALSE",
       transportRoute: "",
       transportStop: "",
@@ -720,10 +758,10 @@ describe("QPulse API integration (full coverage)", () => {
         .attach("file", csvBuf, "students.csv");
 
       expect(res.status).toBe(201);
-      expect(res.body.summary.total).toBe(2);
-      expect(res.body.summary.created).toBe(2);
-      expect(res.body.summary.failed).toBe(0);
-      expect(res.body.created).toHaveLength(2);
+      expect(res.body.data.summary.total).toBe(2);
+      expect(res.body.data.summary.created).toBe(2);
+      expect(res.body.data.summary.failed).toBe(0);
+      expect(res.body.data.created).toHaveLength(2);
 
       // Verify students exist in DB
       const studentA = await Student.findOne({ "personal.rollNo": testCtx.bulkRollA });
@@ -748,10 +786,10 @@ describe("QPulse API integration (full coverage)", () => {
         .attach("file", xlsxBuf, "students.xlsx");
 
       expect(res.status).toBe(207);
-      expect(res.body.summary.created).toBe(1);
-      expect(res.body.summary.failed).toBe(1);
-      expect(res.body.failed[0].rollNo).toBe(testCtx.bulkRollA);
-      expect(res.body.failed[0].reason).toMatch(/already exists/i);
+      expect(res.body.data.summary.created).toBe(1);
+      expect(res.body.data.summary.failed).toBe(1);
+      expect(res.body.data.failed[0].rollNo).toBe(testCtx.bulkRollA);
+      expect(res.body.data.failed[0].reason).toMatch(/already exists/i);
     });
 
     it("handles CSV with null / missing columns gracefully", async () => {
@@ -768,7 +806,7 @@ describe("QPulse API integration (full coverage)", () => {
       // Should attempt creation — may succeed or fail depending on model validations,
       // but must NOT crash (500). Expect 201 or 207.
       expect([201, 207]).toContain(res.status);
-      expect(res.body.summary).toBeDefined();
+      expect(res.body.data.summary).toBeDefined();
 
       // Cleanup this one-off student if it was created
       await StudentFeeTracking.deleteMany({ rollNo: `20CS${TS.slice(-3)}` });
@@ -786,7 +824,7 @@ describe("QPulse API integration (full coverage)", () => {
         .attach("file", csvBuf, "misaligned.csv");
 
       expect([201, 207]).toContain(res.status);
-      expect(res.body.summary).toBeDefined();
+      expect(res.body.data.summary).toBeDefined();
 
       // Cleanup
       await StudentFeeTracking.deleteMany({ rollNo: `21CS${TS.slice(-3)}` });
@@ -826,8 +864,8 @@ describe("QPulse API integration (full coverage)", () => {
         .attach("file", csvBuf, "update.csv");
 
       expect(res.status).toBe(200);
-      expect(res.body.summary.updated).toBe(2);
-      expect(res.body.summary.failed).toBe(0);
+      expect(res.body.data.summary.updated).toBe(2);
+      expect(res.body.data.summary.failed).toBe(0);
 
       // Verify the names were actually updated
       const a = await Student.findOne({ "personal.rollNo": testCtx.bulkRollA });
@@ -848,10 +886,10 @@ describe("QPulse API integration (full coverage)", () => {
         .attach("file", xlsxBuf, "update.xlsx");
 
       expect(res.status).toBe(207);
-      expect(res.body.summary.updated).toBe(1);
-      expect(res.body.summary.failed).toBe(1);
-      expect(res.body.failed[0].rollNo).toBe("99CS999");
-      expect(res.body.failed[0].reason).toMatch(/not found/i);
+      expect(res.body.data.summary.updated).toBe(1);
+      expect(res.body.data.summary.failed).toBe(1);
+      expect(res.body.data.failed[0].rollNo).toBe("99CS999");
+      expect(res.body.data.failed[0].reason).toMatch(/not found/i);
     });
 
     it("bulk update handles rows missing rollNo", async () => {
@@ -867,8 +905,8 @@ describe("QPulse API integration (full coverage)", () => {
         .attach("file", csvBuf, "noroll.csv");
 
       expect(res.status).toBe(207);
-      expect(res.body.summary.failed).toBe(1);
-      expect(res.body.failed[0].reason).toMatch(/rollNo.*required/i);
+      expect(res.body.data.summary.failed).toBe(1);
+      expect(res.body.data.failed[0].reason).toMatch(/rollNo.*required/i);
     });
 
     /* ----------  BULK CLEANUP  ---------- */
@@ -965,7 +1003,7 @@ describe("QPulse API integration (full coverage)", () => {
           breakdowns: [{ academicYear: testCtx.academicYearPrimary, academic: { semesterNumber: 1, tuition: 100 } }],
         });
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(404);
     });
 
     it("records first payment", async () => {
@@ -1031,31 +1069,6 @@ describe("QPulse API integration (full coverage)", () => {
       expect(response.status).toBe(404);
     });
 
-    it("gets recent payments without filters", async () => {
-      const response = await request(app)
-        .get("/api/feePayment/recent")
-        .set("Authorization", `Bearer ${testCtx.adminToken}`);
-
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body.data)).toBe(true);
-    });
-
-    it("gets recent payments with filters", async () => {
-      const response = await request(app)
-        .get("/api/feePayment/recent")
-        .set("Authorization", `Bearer ${testCtx.adminToken}`)
-        .query({
-          year: testCtx.academicYearPrimary,
-          department: "CSE",
-          paymentMode: "UPI",
-          limit: 1,
-        });
-
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body.data)).toBe(true);
-      expect(response.body.data.length).toBeLessThanOrEqual(1);
-    });
-
     it("updates fee tracking paid total after payment", async () => {
       const trackingDoc = await StudentFeeTracking.findOne({ rollNo: testCtx.studentRollFinance });
       const yearRecord = trackingDoc.academicYearWiseRecord.find((item) => item.academicYear === testCtx.academicYearPrimary);
@@ -1064,208 +1077,143 @@ describe("QPulse API integration (full coverage)", () => {
   });
 
   describe("Fee Tracking API", () => {
-    it("rejects summary access without token", async () => {
-      const response = await request(app).get("/api/studentFeeTracking/summary");
+    it("rejects access without token", async () => {
+      const response = await request(app).get("/api/studentFeeTracking");
       expect(response.status).toBe(401);
     });
 
-    it("gets year summary", async () => {
+    it("returns students with fee tracking data", async () => {
       const response = await request(app)
-        .get("/api/studentFeeTracking/summary")
+        .get("/api/studentFeeTracking")
         .set("Authorization", `Bearer ${testCtx.adminToken}`)
-        .query({ year: testCtx.academicYearPrimary });
+        .query({ rollNo: testCtx.studentRollFinance });
 
       expect(response.status).toBe(200);
-      expect(response.body.data.aggregate).toBeDefined();
+      expect(Array.isArray(response.body.data)).toBe(true);
+      expect(response.body.data.length).toBeGreaterThanOrEqual(1);
+      expect(response.body.data[0].student.personal.rollNo).toBe(testCtx.studentRollFinance);
+      expect(response.body.data[0].feeTracking).toBeDefined();
     });
 
-    it("gets student fee summary", async () => {
+    it("filters by department", async () => {
       const response = await request(app)
-        .get(`/api/studentFeeTracking/summary/${testCtx.studentRollFinance}`)
-        .set("Authorization", `Bearer ${testCtx.adminToken}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body.data.studentProfile.personal.rollNo).toBe(testCtx.studentRollFinance);
-    });
-
-    it("returns 404 for unknown fee summary student", async () => {
-      const response = await request(app)
-        .get("/api/studentFeeTracking/summary/94CS994")
-        .set("Authorization", `Bearer ${testCtx.adminToken}`);
-
-      expect(response.status).toBe(404);
-    });
-
-    it("filters students by department and year", async () => {
-      const response = await request(app)
-        .get("/api/studentFeeTracking/students")
+        .get("/api/studentFeeTracking")
         .set("Authorization", `Bearer ${testCtx.adminToken}`)
-        .query({ department: "CSE", year: 1 });
+        .query({ department: "CSE" });
 
       expect(response.status).toBe(200);
       expect(Array.isArray(response.body.data)).toBe(true);
     });
 
-    it("filters students by name", async () => {
+    it("returns empty for non-existent rollNo", async () => {
       const response = await request(app)
-        .get("/api/studentFeeTracking/students")
+        .get("/api/studentFeeTracking")
         .set("Authorization", `Bearer ${testCtx.adminToken}`)
-        .query({ name: "Jest" });
+        .query({ rollNo: "99ZZ999" });
 
       expect(response.status).toBe(200);
-      expect(Array.isArray(response.body.data)).toBe(true);
-    });
-
-    it("rejects receipt update with no fields", async () => {
-      const response = await request(app)
-        .put(`/api/studentFeeTracking/receipt/${testCtx.receiptOne}`)
-        .set("Authorization", `Bearer ${testCtx.adminToken}`)
-        .send({});
-
-      expect(response.status).toBe(400);
-    });
-
-    it("rejects receipt update with invalid paymentType", async () => {
-      const response = await request(app)
-        .put(`/api/studentFeeTracking/receipt/${testCtx.receiptOne}`)
-        .set("Authorization", `Bearer ${testCtx.adminToken}`)
-        .send({ paymentType: "WIRE" });
-
-      expect(response.status).toBe(400);
-    });
-
-    it("returns 400 for unknown receipt update", async () => {
-      const response = await request(app)
-        .put("/api/studentFeeTracking/receipt/UNKNOWN-REC")
-        .set("Authorization", `Bearer ${testCtx.adminToken}`)
-        .send({ remarks: "x" });
-
-      expect(response.status).toBe(400);
-    });
-
-    it("updates receipt successfully", async () => {
-      const response = await request(app)
-        .put(`/api/studentFeeTracking/receipt/${testCtx.receiptOne}`)
-        .set("Authorization", `Bearer ${testCtx.adminToken}`)
-        .send({ paymentType: "Card", bankName: "SBI", remarks: "updated" });
-
-      expect(response.status).toBe(200);
-      expect(response.body.data.paymentType).toBe("Card");
-
-      const log = await ActivityLog.findOne({ endpoint: `/api/studentFeeTracking/receipt/${testCtx.receiptOne}` });
-      expect(log).toBeTruthy();
-    });
-
-    it("rejects concession update when concessions missing", async () => {
-      const response = await request(app)
-        .put(`/api/studentFeeTracking/concession/${testCtx.studentRollFinance}/${testCtx.academicYearPrimary}`)
-        .set("Authorization", `Bearer ${testCtx.adminToken}`)
-        .send({});
-
-      expect(response.status).toBe(400);
-    });
-
-    it("rejects concession update with invalid precision", async () => {
-      const response = await request(app)
-        .put(`/api/studentFeeTracking/concession/${testCtx.studentRollFinance}/${testCtx.academicYearPrimary}`)
-        .set("Authorization", `Bearer ${testCtx.adminToken}`)
-        .send({ concessions: { firstGraduate: 100.257 } });
-
-      expect(response.status).toBe(400);
-    });
-
-    it("returns 400 for unknown student concession update", async () => {
-      const response = await request(app)
-        .put(`/api/studentFeeTracking/concession/93CS993/${testCtx.academicYearPrimary}`)
-        .set("Authorization", `Bearer ${testCtx.adminToken}`)
-        .send({ concessions: { firstGraduate: 100 } });
-
-      expect(response.status).toBe(400);
-    });
-
-    it("returns 400 for unknown academic year concession", async () => {
-      const response = await request(app)
-        .put(`/api/studentFeeTracking/concession/${testCtx.studentRollFinance}/${testCtx.academicYearMissing}`)
-        .set("Authorization", `Bearer ${testCtx.adminToken}`)
-        .send({ concessions: { firstGraduate: 100 } });
-
-      expect(response.status).toBe(400);
-    });
-
-    it("updates concession successfully", async () => {
-      const response = await request(app)
-        .put(`/api/studentFeeTracking/concession/${testCtx.studentRollFinance}/${testCtx.academicYearPrimary}`)
-        .set("Authorization", `Bearer ${testCtx.adminToken}`)
-        .send({ concessions: { firstGraduate: 1000, scheme7point5: 500, pmss: 250, sakthi: 250 } });
-
-      expect(response.status).toBe(200);
-      expect(response.body.data.totalConcession).toBe(2000);
+      expect(response.body.data).toHaveLength(0);
     });
   });
 
   describe("Transport API", () => {
     it("returns full mapping", async () => {
-      const response = await request(app).get("/api/transport");
+      const response = await request(app)
+        .get("/api/transport")
+        .set("Authorization", `Bearer ${testCtx.adminToken}`);
       expect(response.status).toBe(200);
       expect(Array.isArray(response.body.data)).toBe(true);
     });
 
     it("returns stops without filters", async () => {
-      const response = await request(app).post("/api/transport/stops").send({});
+      const response = await request(app)
+        .post("/api/transport/stops")
+        .set("Authorization", `Bearer ${testCtx.superadminToken}`)
+        .send({});
       expect(response.status).toBe(200);
       expect(Array.isArray(response.body.data)).toBe(true);
     });
 
     it("returns stops by route", async () => {
-      const response = await request(app).post("/api/transport/stops").send({ route: "Bharathiyar University" });
+      const response = await request(app)
+        .post("/api/transport/stops")
+        .set("Authorization", `Bearer ${testCtx.superadminToken}`)
+        .send({ route: "Bharathiyar University" });
       expect(response.status).toBe(200);
     });
 
     it("rejects stops route non-string", async () => {
-      const response = await request(app).post("/api/transport/stops").send({ route: 123 });
+      const response = await request(app)
+        .post("/api/transport/stops")
+        .set("Authorization", `Bearer ${testCtx.superadminToken}`)
+        .send({ route: 123 });
       expect(response.status).toBe(400);
     });
 
     it("rejects buses when stop missing", async () => {
-      const response = await request(app).post("/api/transport/buses").send({});
+      const response = await request(app)
+        .post("/api/transport/buses")
+        .set("Authorization", `Bearer ${testCtx.superadminToken}`)
+        .send({});
       expect(response.status).toBe(400);
     });
 
     it("rejects buses for blank stop", async () => {
-      const response = await request(app).post("/api/transport/buses").send({ stop: "   " });
+      const response = await request(app)
+        .post("/api/transport/buses")
+        .set("Authorization", `Bearer ${testCtx.superadminToken}`)
+        .send({ stop: "   " });
       expect(response.status).toBe(400);
     });
 
     it("returns buses for valid stop", async () => {
-      const response = await request(app).post("/api/transport/buses").send({ stop: "Kinathukadavu" });
+      const response = await request(app)
+        .post("/api/transport/buses")
+        .set("Authorization", `Bearer ${testCtx.superadminToken}`)
+        .send({ stop: "Kinathukadavu" });
       expect(response.status).toBe(200);
       expect(Array.isArray(response.body.data)).toBe(true);
     });
 
     it("rejects fees without filters", async () => {
-      const response = await request(app).post("/api/transport/fees").send({});
+      const response = await request(app)
+        .post("/api/transport/fees")
+        .set("Authorization", `Bearer ${testCtx.superadminToken}`)
+        .send({});
       expect(response.status).toBe(400);
     });
 
     it("rejects fees with non-string busNo", async () => {
-      const response = await request(app).post("/api/transport/fees").send({ busNo: 9 });
+      const response = await request(app)
+        .post("/api/transport/fees")
+        .set("Authorization", `Bearer ${testCtx.superadminToken}`)
+        .send({ busNo: 9 });
       expect(response.status).toBe(400);
     });
 
     it("returns fees by busNo", async () => {
-      const response = await request(app).post("/api/transport/fees").send({ busNo: "1" });
+      const response = await request(app)
+        .post("/api/transport/fees")
+        .set("Authorization", `Bearer ${testCtx.superadminToken}`)
+        .send({ busNo: "1" });
       expect(response.status).toBe(200);
       expect(Array.isArray(response.body.data)).toBe(true);
     });
 
     it("returns fees by stop", async () => {
-      const response = await request(app).post("/api/transport/fees").send({ stop: "Kinathukadavu" });
+      const response = await request(app)
+        .post("/api/transport/fees")
+        .set("Authorization", `Bearer ${testCtx.superadminToken}`)
+        .send({ stop: "Kinathukadavu" });
       expect(response.status).toBe(200);
       expect(Array.isArray(response.body.data)).toBe(true);
     });
 
     it("returns fees by busNo and stop", async () => {
-      const response = await request(app).post("/api/transport/fees").send({ busNo: "1", stop: "Kinathukadavu" });
+      const response = await request(app)
+        .post("/api/transport/fees")
+        .set("Authorization", `Bearer ${testCtx.superadminToken}`)
+        .send({ busNo: "1", stop: "Kinathukadavu" });
       expect(response.status).toBe(200);
       expect(Array.isArray(response.body.data)).toBe(true);
     });

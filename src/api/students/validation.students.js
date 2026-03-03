@@ -32,14 +32,26 @@ const pushEnum = (errors, value, allowed, field) => {
   }
 };
 
+const YEARLY_CONCESSION_FIELDS = [
+  "yearlyLabConcessionAmount",
+  "yearlyBookConcessionAmount",
+  "yearlyErpConcessionAmount",
+  "yearlyExamConcessionAmount",
+  "yearlyTransportConcessionAmount",
+  "yearlyHostelConcessionAmount",
+  "yearlyTuitionConcessionAmount",
+];
+
 const validateConcession = (errors, obj, field) => {
   if (!obj || typeof obj !== "object") return;
   if (!isUndefined(obj.isApplicable) && typeof obj.isApplicable !== "boolean") {
     errors.push(`${field}.isApplicable must be a boolean`);
   }
-  if (!isUndefined(obj.concessionAmount) && !isNonNegativeNumber(obj.concessionAmount)) {
-    errors.push(`${field}.concessionAmount must be a non-negative number`);
-  }
+  YEARLY_CONCESSION_FIELDS.forEach((f) => {
+    if (!isUndefined(obj[f]) && !isNonNegativeNumber(obj[f])) {
+      errors.push(`${field}.${f} must be a non-negative number`);
+    }
+  });
 };
 
 const validateStudentPayload = (payload, { partial = false } = {}) => {
@@ -115,19 +127,7 @@ const validateStudentPayload = (payload, { partial = false } = {}) => {
     validateConcession(errors, enrollment.scheme7point5, "enrollment.scheme7point5");
     validateConcession(errors, enrollment.pmssScheme, "enrollment.pmssScheme");
     validateConcession(errors, enrollment.sakthiScheme, "enrollment.sakthiScheme");
-
-    if (enrollment.specialConcession && typeof enrollment.specialConcession === "object") {
-      if (!isUndefined(enrollment.specialConcession.isApplicable) && typeof enrollment.specialConcession.isApplicable !== "boolean") {
-        errors.push("enrollment.specialConcession.isApplicable must be a boolean");
-      }
-
-      ["transport", "hostel", "tuition"].forEach((field) => {
-        const value = enrollment.specialConcession[field];
-        if (!isUndefined(value) && !isNonNegativeNumber(value)) {
-          errors.push(`enrollment.specialConcession.${field} must be a non-negative number`);
-        }
-      });
-    }
+    validateConcession(errors, enrollment.specialConcession, "enrollment.specialConcession");
   }
 
   if (transport && typeof transport === "object") {

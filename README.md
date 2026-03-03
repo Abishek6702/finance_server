@@ -11,6 +11,7 @@ A comprehensive fee management system for educational institutions. Built with *
 - [Database Schema](#database-schema)
 - [Application Flow](#application-flow)
 - [Getting Started](#getting-started)
+- [Module Documentation](#module-documentation)
 - [API Reference](#api-reference)
 - [Testing](#testing)
 - [Postman Collection](#postman-collection)
@@ -277,6 +278,22 @@ Runs 9 test suites with 275+ tests covering all modules.
 
 ---
 
+## Module Documentation
+
+Detailed API documentation for each module — request/response schemas, validation rules, edge cases, and full JSON examples.
+
+| Module | Documentation |
+|---|---|
+| Auth | [src/api/auth/doc.auth.md](src/api/auth/doc.auth.md) |
+| Fee Structure | [src/api/feeStructure/doc.feeStructure.md](src/api/feeStructure/doc.feeStructure.md) |
+| Students | [src/api/students/doc.students.md](src/api/students/doc.students.md) |
+| Student Fee Tracking | [src/api/studentFeeTracking/doc.studentFeeTracking.md](src/api/studentFeeTracking/doc.studentFeeTracking.md) |
+| Transactions | [src/api/transaction/doc.transaction.md](src/api/transaction/doc.transaction.md) |
+| Hostel | [src/api/hostel/doc.hostel.md](src/api/hostel/doc.hostel.md) |
+| Transport | [src/api/transport/doc.transport.md](src/api/transport/doc.transport.md) |
+
+---
+
 ## API Reference
 
 All endpoints return standardized responses:
@@ -315,31 +332,21 @@ Error responses:
 | GET | `/api/studentsManagement` | Superadmin | Get all students |
 | GET | `/api/studentsManagement/:rollNo` | Superadmin | Get student by roll no |
 | PUT | `/api/studentsManagement/:rollNo` | Superadmin | Update student |
-| DELETE | `/api/studentsManagement/:rollNo` | Superadmin | Delete student |
-| POST | `/api/feePayment/pay` | Admin | Record payment |
-| GET | `/api/feePayment/recent` | Admin | Recent payments |
-| GET | `/api/feePayment/reports/datewise` | Admin | Date-wise report |
-| GET | `/api/feePayment/reports/student/:rollNo` | Admin | Student report |
-| GET | `/api/feePayment/:rollNo` | Admin | Student transactions |
-| GET | `/api/feePayment/summary` | Admin | Fee summary |
-| GET | `/api/feePayment/summary/:rollNo` | Admin | Student fee summary |
-| GET | `/api/feePayment/students` | Admin | Students for filter |
-| PUT | `/api/feePayment/receipt/:receiptNo` | Admin | Update receipt |
-| PUT | `/api/feePayment/concession/:rollNo/:year` | Admin | Update concession |
-| GET | `/api/hostel` | None | Full hostel mapping |
-| POST | `/api/hostel/blocks` | None | Get blocks |
-| POST | `/api/hostel/roomTypes` | None | Get room types |
-| POST | `/api/hostel/fees` | None | Get hostel fees |
-| POST | `/api/hostel/add` | Admin | Add hostel entry |
-| POST | `/api/hostel/bulk` | Admin | Bulk add hostel |
-| PUT | `/api/hostel/:id` | Admin | Update hostel entry |
-| GET | `/api/transport` | None | Full transport mapping |
-| POST | `/api/transport/stops` | None | Get stops |
-| POST | `/api/transport/buses` | None | Get buses |
-| POST | `/api/transport/fees` | None | Get transport fees |
-| POST | `/api/transport/add` | Admin | Add transport entry |
-| POST | `/api/transport/bulk` | Admin | Bulk add transport |
-| PUT | `/api/transport/:id` | Admin | Update transport entry |
+| DELETE | `/api/studentsManagement/:rollNo` | Superadmin | Delete student | 
+| GET | `/api/hostel` | Admin | Full hostel mapping |
+| POST | `/api/hostel/blocks` | Superadmin | Get blocks |
+| POST | `/api/hostel/roomTypes` | Superadmin | Get room types |
+| POST | `/api/hostel/fees` | Superadmin | Get hostel fees |
+| POST | `/api/hostel/add` | Superadmin | Add hostel entry |
+| POST | `/api/hostel/bulk` | Superadmin | Bulk add hostel |
+| PUT | `/api/hostel/:id` | Superadmin | Update hostel entry |
+| GET | `/api/transport` | Admin | Full transport mapping |
+| POST | `/api/transport/stops` | Superadmin | Get stops |
+| POST | `/api/transport/buses` | Superadmin | Get buses |
+| POST | `/api/transport/fees` | Superadmin | Get transport fees |
+| POST | `/api/transport/add` | Superadmin | Add transport entry |
+| POST | `/api/transport/bulk` | Superadmin | Bulk add transport |
+| PUT | `/api/transport/:id` | Superadmin | Update transport entry |
 
 See [API_DOCUMENTATION.md](API_DOCUMENTATION.md) for detailed request/response schemas.
 

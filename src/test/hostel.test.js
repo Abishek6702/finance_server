@@ -53,10 +53,15 @@ describe("Hostel API", () => {
     await globalTeardown();
   });
 
-  /* ─── READ APIs ───── */
+  /* ─── READ APIs (Admin) ───── */
 
-  it("returns full mapping (GET /)", async () => {
+  it("rejects full mapping without auth (GET /)", async () => {
     const res = await request(app).get("/api/hostel");
+    expect(res.status).toBe(401);
+  });
+
+  it("returns full mapping with admin auth (GET /)", async () => {
+    const res = await request(app).get("/api/hostel").set(adminAuth());
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.data)).toBe(true);
     if (res.body.data.length) {
@@ -70,118 +75,133 @@ describe("Hostel API", () => {
     }
   });
 
-  /* ─── BLOCKS ───── */
+  /* ─── BLOCKS (Superadmin) ───── */
+
+  it("rejects blocks without auth", async () => {
+    const res = await request(app).post("/api/hostel/blocks").send({});
+    expect(res.status).toBe(401);
+  });
 
   it("returns blocks without filters", async () => {
-    const res = await request(app).post("/api/hostel/blocks").send({});
+    const res = await request(app).post("/api/hostel/blocks").set(superadminAuth()).send({});
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.data)).toBe(true);
   });
 
   it("returns blocks filtered by sharing", async () => {
-    const res = await request(app).post("/api/hostel/blocks").send({ sharing: 2 });
+    const res = await request(app).post("/api/hostel/blocks").set(superadminAuth()).send({ sharing: 2 });
     expect(res.status).toBe(200);
   });
 
   it("returns blocks filtered by isAttached", async () => {
-    const res = await request(app).post("/api/hostel/blocks").send({ isAttached: true });
+    const res = await request(app).post("/api/hostel/blocks").set(superadminAuth()).send({ isAttached: true });
     expect(res.status).toBe(200);
   });
 
   it("rejects blocks with invalid sharing", async () => {
-    const res = await request(app).post("/api/hostel/blocks").send({ sharing: 7 });
+    const res = await request(app).post("/api/hostel/blocks").set(superadminAuth()).send({ sharing: 7 });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/sharing/i);
   });
 
   it("rejects blocks with non-number sharing", async () => {
-    const res = await request(app).post("/api/hostel/blocks").send({ sharing: "two" });
+    const res = await request(app).post("/api/hostel/blocks").set(superadminAuth()).send({ sharing: "two" });
     expect(res.status).toBe(400);
   });
 
   it("rejects blocks with non-boolean isAttached", async () => {
-    const res = await request(app).post("/api/hostel/blocks").send({ isAttached: "yes" });
+    const res = await request(app).post("/api/hostel/blocks").set(superadminAuth()).send({ isAttached: "yes" });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/isAttached.*boolean/i);
   });
 
-  /* ─── ROOM TYPES ───── */
+  /* ─── ROOM TYPES (Superadmin) ───── */
+
+  it("rejects roomTypes without auth", async () => {
+    const res = await request(app).post("/api/hostel/roomTypes").send({});
+    expect(res.status).toBe(401);
+  });
 
   it("returns roomTypes without filter", async () => {
-    const res = await request(app).post("/api/hostel/roomTypes").send({});
+    const res = await request(app).post("/api/hostel/roomTypes").set(superadminAuth()).send({});
     expect(res.status).toBe(200);
   });
 
   it("returns roomTypes for block A", async () => {
-    const res = await request(app).post("/api/hostel/roomTypes").send({ block: "A" });
+    const res = await request(app).post("/api/hostel/roomTypes").set(superadminAuth()).send({ block: "A" });
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.data)).toBe(true);
   });
 
   it("rejects roomTypes with non-string block", async () => {
-    const res = await request(app).post("/api/hostel/roomTypes").send({ block: 123 });
+    const res = await request(app).post("/api/hostel/roomTypes").set(superadminAuth()).send({ block: 123 });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/block.*string/i);
   });
 
   it("rejects roomTypes with empty block", async () => {
-    const res = await request(app).post("/api/hostel/roomTypes").send({ block: "   " });
+    const res = await request(app).post("/api/hostel/roomTypes").set(superadminAuth()).send({ block: "   " });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/block.*empty/i);
   });
 
-  /* ─── FEES ───── */
+  /* ─── FEES (Superadmin) ───── */
+
+  it("rejects fees without auth", async () => {
+    const res = await request(app).post("/api/hostel/fees").send({});
+    expect(res.status).toBe(401);
+  });
 
   it("rejects fees without filters", async () => {
-    const res = await request(app).post("/api/hostel/fees").send({});
+    const res = await request(app).post("/api/hostel/fees").set(superadminAuth()).send({});
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/at least one/i);
   });
 
   it("returns fees by block", async () => {
-    const res = await request(app).post("/api/hostel/fees").send({ block: "A" });
+    const res = await request(app).post("/api/hostel/fees").set(superadminAuth()).send({ block: "A" });
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.data)).toBe(true);
   });
 
   it("returns fees by sharing", async () => {
-    const res = await request(app).post("/api/hostel/fees").send({ sharing: 3 });
+    const res = await request(app).post("/api/hostel/fees").set(superadminAuth()).send({ sharing: 3 });
     expect(res.status).toBe(200);
   });
 
   it("returns fees by isAttached", async () => {
-    const res = await request(app).post("/api/hostel/fees").send({ isAttached: false });
+    const res = await request(app).post("/api/hostel/fees").set(superadminAuth()).send({ isAttached: false });
     expect(res.status).toBe(200);
   });
 
   it("returns fees by block + sharing + isAttached", async () => {
-    const res = await request(app).post("/api/hostel/fees").send({ block: "A", sharing: 2, isAttached: true });
+    const res = await request(app).post("/api/hostel/fees").set(superadminAuth()).send({ block: "A", sharing: 2, isAttached: true });
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(1);
     expect(res.body.data[0].fee).toBe(80000);
   });
 
   it("rejects fees with non-string block", async () => {
-    const res = await request(app).post("/api/hostel/fees").send({ block: true });
+    const res = await request(app).post("/api/hostel/fees").set(superadminAuth()).send({ block: true });
     expect(res.status).toBe(400);
   });
 
   it("rejects fees with empty block", async () => {
-    const res = await request(app).post("/api/hostel/fees").send({ block: "  " });
+    const res = await request(app).post("/api/hostel/fees").set(superadminAuth()).send({ block: "  " });
     expect(res.status).toBe(400);
   });
 
   it("rejects fees with invalid sharing", async () => {
-    const res = await request(app).post("/api/hostel/fees").send({ sharing: 6 });
+    const res = await request(app).post("/api/hostel/fees").set(superadminAuth()).send({ sharing: 6 });
     expect(res.status).toBe(400);
   });
 
   it("rejects fees with non-boolean isAttached", async () => {
-    const res = await request(app).post("/api/hostel/fees").send({ isAttached: 1 });
+    const res = await request(app).post("/api/hostel/fees").set(superadminAuth()).send({ isAttached: 1 });
     expect(res.status).toBe(400);
   });
 
-  /* ─── ADD SINGLE HOSTEL ───── */
+  /* ─── ADD SINGLE HOSTEL (Superadmin) ───── */
 
   it("rejects add hostel without auth", async () => {
     const res = await request(app).post("/api/hostel/add").send({
@@ -190,10 +210,18 @@ describe("Hostel API", () => {
     expect(res.status).toBe(401);
   });
 
-  it("rejects add hostel with missing block", async () => {
+  it("rejects add hostel with admin auth (must be superadmin)", async () => {
     const res = await request(app)
       .post("/api/hostel/add")
       .set(adminAuth())
+      .send({ block: "F", sharing: 5, isAttached: false, fee: 50000 });
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects add hostel with missing block", async () => {
+    const res = await request(app)
+      .post("/api/hostel/add")
+      .set(superadminAuth())
       .send({ sharing: 2, isAttached: true, fee: 50000 });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/block/i);
@@ -202,7 +230,7 @@ describe("Hostel API", () => {
   it("rejects add hostel with missing sharing", async () => {
     const res = await request(app)
       .post("/api/hostel/add")
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({ block: "A", isAttached: true, fee: 50000 });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/sharing/i);
@@ -211,7 +239,7 @@ describe("Hostel API", () => {
   it("rejects add hostel with invalid sharing (6)", async () => {
     const res = await request(app)
       .post("/api/hostel/add")
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({ block: "A", sharing: 6, isAttached: true, fee: 50000 });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/sharing/i);
@@ -220,7 +248,7 @@ describe("Hostel API", () => {
   it("rejects add hostel with missing isAttached", async () => {
     const res = await request(app)
       .post("/api/hostel/add")
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({ block: "A", sharing: 2, fee: 50000 });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/isAttached/i);
@@ -229,7 +257,7 @@ describe("Hostel API", () => {
   it("rejects add hostel with non-boolean isAttached", async () => {
     const res = await request(app)
       .post("/api/hostel/add")
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({ block: "A", sharing: 2, isAttached: "yes", fee: 50000 });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/isAttached/i);
@@ -238,7 +266,7 @@ describe("Hostel API", () => {
   it("rejects add hostel with missing fee", async () => {
     const res = await request(app)
       .post("/api/hostel/add")
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({ block: "A", sharing: 2, isAttached: true });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/fee/i);
@@ -247,7 +275,7 @@ describe("Hostel API", () => {
   it("rejects add hostel with negative fee", async () => {
     const res = await request(app)
       .post("/api/hostel/add")
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({ block: "A", sharing: 2, isAttached: true, fee: -100 });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/fee/i);
@@ -256,7 +284,7 @@ describe("Hostel API", () => {
   it("rejects add hostel with non-numeric fee", async () => {
     const res = await request(app)
       .post("/api/hostel/add")
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({ block: "A", sharing: 2, isAttached: true, fee: "abc" });
     expect(res.status).toBe(400);
   });
@@ -264,7 +292,7 @@ describe("Hostel API", () => {
   it("rejects add hostel with empty block string", async () => {
     const res = await request(app)
       .post("/api/hostel/add")
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({ block: "   ", sharing: 2, isAttached: true, fee: 5000 });
     expect(res.status).toBe(400);
   });
@@ -273,7 +301,7 @@ describe("Hostel API", () => {
     // We deleted F/5/false in beforeAll, so we can add it back
     const res = await request(app)
       .post("/api/hostel/add")
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({ block: "F", sharing: 5, isAttached: false, fee: 99000 });
     expect(res.status).toBe(201);
     expect(res.body.data.block).toBe("F");
@@ -287,7 +315,7 @@ describe("Hostel API", () => {
     // F/5/false was just added above
     const res = await request(app)
       .post("/api/hostel/add")
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({ block: "F", sharing: 5, isAttached: false, fee: 99000 });
     expect(res.status).toBe(409);
     expect(res.body.message).toMatch(/already exists/i);
@@ -297,17 +325,32 @@ describe("Hostel API", () => {
     // A/2/true already exists in seed
     const res = await request(app)
       .post("/api/hostel/add")
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({ block: "A", sharing: 2, isAttached: true, fee: 80000 });
     expect(res.status).toBe(409);
   });
 
-  /* ─── BULK ADD HOSTEL ───── */
+  /* ─── BULK ADD HOSTEL (Superadmin) ───── */
+
+  it("rejects bulk add without auth", async () => {
+    const res = await request(app)
+      .post("/api/hostel/bulk")
+      .send({ records: [] });
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects bulk add with admin auth (must be superadmin)", async () => {
+    const res = await request(app)
+      .post("/api/hostel/bulk")
+      .set(adminAuth())
+      .send({ records: [] });
+    expect(res.status).toBe(401);
+  });
 
   it("rejects bulk add with empty records", async () => {
     const res = await request(app)
       .post("/api/hostel/bulk")
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({ records: [] });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/records/i);
@@ -316,7 +359,7 @@ describe("Hostel API", () => {
   it("rejects bulk add when records is not array", async () => {
     const res = await request(app)
       .post("/api/hostel/bulk")
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({ records: "not" });
     expect(res.status).toBe(400);
   });
@@ -324,7 +367,7 @@ describe("Hostel API", () => {
   it("rejects bulk add with invalid record (missing fee)", async () => {
     const res = await request(app)
       .post("/api/hostel/bulk")
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({ records: [{ block: "A", sharing: 2, isAttached: true }] });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/records\[0\].*fee/i);
@@ -333,7 +376,7 @@ describe("Hostel API", () => {
   it("rejects bulk add with invalid sharing in record", async () => {
     const res = await request(app)
       .post("/api/hostel/bulk")
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({ records: [{ block: "A", sharing: 7, isAttached: true, fee: 5000 }] });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/records\[0\].*sharing/i);
@@ -343,7 +386,7 @@ describe("Hostel API", () => {
     // F/5/true was also deleted in beforeAll
     const res = await request(app)
       .post("/api/hostel/bulk")
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({
         records: [
           { block: "F", sharing: 5, isAttached: true, fee: 88000 },
@@ -359,7 +402,7 @@ describe("Hostel API", () => {
   it("bulk add with 1 duplicate → 207", async () => {
     const res = await request(app)
       .post("/api/hostel/bulk")
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({
         records: [
           { block: "F", sharing: 5, isAttached: true, fee: 88000 }, // dup: just added above
@@ -371,13 +414,30 @@ describe("Hostel API", () => {
     expect(res.body.data.failed[0].reason).toMatch(/duplicate|already exists/i);
   });
 
-  /* ─── UPDATE HOSTEL ───── */
+  /* ─── UPDATE HOSTEL (Superadmin) ───── */
+
+  it("rejects update without auth", async () => {
+    const existing = await Hostel.findOne({ block: "A", sharing: 2, isAttached: true });
+    const res = await request(app)
+      .put(`/api/hostel/${existing.id}`)
+      .send({ fee: 1000 });
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects update with admin auth (must be superadmin)", async () => {
+    const existing = await Hostel.findOne({ block: "A", sharing: 2, isAttached: true });
+    const res = await request(app)
+      .put(`/api/hostel/${existing.id}`)
+      .set(adminAuth())
+      .send({ fee: 1000 });
+    expect(res.status).toBe(401);
+  });
 
   it("rejects update with no fields", async () => {
     const existing = await Hostel.findOne({ block: "A", sharing: 2, isAttached: true });
     const res = await request(app)
       .put(`/api/hostel/${existing.id}`)
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({});
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/at least one/i);
@@ -387,7 +447,7 @@ describe("Hostel API", () => {
     const existing = await Hostel.findOne({ block: "A", sharing: 2, isAttached: true });
     const res = await request(app)
       .put(`/api/hostel/${existing.id}`)
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({ fee: -500 });
     expect(res.status).toBe(400);
   });
@@ -396,7 +456,7 @@ describe("Hostel API", () => {
     const existing = await Hostel.findOne({ block: "A", sharing: 2, isAttached: true });
     const res = await request(app)
       .put(`/api/hostel/${existing.id}`)
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({ sharing: 10 });
     expect(res.status).toBe(400);
   });
@@ -405,7 +465,7 @@ describe("Hostel API", () => {
     const existing = await Hostel.findOne({ block: "A", sharing: 2, isAttached: true });
     const res = await request(app)
       .put(`/api/hostel/${existing.id}`)
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({ isAttached: "true" });
     expect(res.status).toBe(400);
   });
@@ -414,7 +474,7 @@ describe("Hostel API", () => {
     const existing = await Hostel.findOne({ block: "A", sharing: 2, isAttached: true });
     const res = await request(app)
       .put(`/api/hostel/${existing.id}`)
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({ block: "  " });
     expect(res.status).toBe(400);
   });
@@ -423,7 +483,7 @@ describe("Hostel API", () => {
     const existing = await Hostel.findOne({ block: "A", sharing: 2, isAttached: true });
     const res = await request(app)
       .put(`/api/hostel/${existing.id}`)
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({ block: 999 });
     expect(res.status).toBe(400);
   });
@@ -433,7 +493,7 @@ describe("Hostel API", () => {
     const originalFee = existing.fee;
     const res = await request(app)
       .put(`/api/hostel/${existing.id}`)
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({ fee: 77777 });
     expect(res.status).toBe(200);
     expect(res.body.data.hostel.fee).toBe(77777);
@@ -446,7 +506,7 @@ describe("Hostel API", () => {
     const originalFee = existing.fee;
     const res = await request(app)
       .put(`/api/hostel/${existing.id}`)
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({ fee: 0 });
     expect(res.status).toBe(200);
     expect(res.body.data.hostel.fee).toBe(0);
@@ -457,7 +517,7 @@ describe("Hostel API", () => {
   it("returns 404 for non-existent hostel ID", async () => {
     const res = await request(app)
       .put("/api/hostel/H999")
-      .set(adminAuth())
+      .set(superadminAuth())
       .send({ fee: 1000 });
     expect(res.status).toBe(404);
   });
@@ -494,7 +554,7 @@ describe("Hostel API", () => {
         // Update hostel fee → should propagate
         const updateRes = await request(app)
           .put(`/api/hostel/${hostelId}`)
-          .set(adminAuth())
+          .set(superadminAuth())
           .send({ fee: newFee });
         expect(updateRes.status).toBe(200);
         expect(updateRes.body.data.trackingRecordsUpdated).toBeGreaterThanOrEqual(1);
@@ -507,7 +567,7 @@ describe("Hostel API", () => {
         // Restore original fee
         await request(app)
           .put(`/api/hostel/${hostelId}`)
-          .set(adminAuth())
+          .set(superadminAuth())
           .send({ fee: beforeFee });
       }
 

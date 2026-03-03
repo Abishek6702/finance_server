@@ -201,7 +201,7 @@ describe("Students API", () => {
 
   it("rejects negative concessionAmount", async () => {
     const payload = buildStudentPayload(`85CS${testCtx.TS.slice(-3)}`, { academicYear: testCtx.academicYearPrimary });
-    payload.enrollment.firstGraduate = { isApplicable: true, concessionAmount: -500 };
+    payload.enrollment.firstGraduate = { isApplicable: true, yearlyTuitionConcessionAmount: -500 };
     const res = await request(app)
       .post("/api/studentsManagement")
       .set(superadminAuth())

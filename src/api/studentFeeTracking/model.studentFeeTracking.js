@@ -69,10 +69,13 @@ const hostelLedgerSchema=new mongoose.Schema({
 },{_id:false});
 
 const concessionSchema=new mongoose.Schema({
-  firstGraduate:{type:Number,default:0},
-  scheme7point5:{type:Number,default:0},
-  pmss:{type:Number,default:0},
-  sakthi:{type:Number,default:0},
+  tuition:{type:Number,default:0},
+  exam:{type:Number,default:0},
+  erp:{type:Number,default:0},
+  book:{type:Number,default:0},
+  lab:{type:Number,default:0},
+  transport:{type:Number,default:0},
+  hostel:{type:Number,default:0},
   totalConcession:{type:Number,default:0}
 },{_id:false});
 
@@ -137,6 +140,7 @@ studentFeeTrackingSchema.pre("save",function(){
       );
 
       sem.total=normalizeAmountSchema(sem.total||{});
+      sem.total.total=sem.subTotal;
 
       const semesterPaid=normalizeMoney(
         (sem.tuition?.paid||0)+
@@ -159,16 +163,15 @@ studentFeeTrackingSchema.pre("save",function(){
     );
 
     academic.academicSpecialConcession=normalizeMoney(academic.academicSpecialConcession||0);
-    const payable=normalizeMoney(Math.max(0,academic.subTotal-academic.academicSpecialConcession));
 
     academic.total=normalizeAmountSchema(academic.total||{});
-    academic.total.total=payable;
+    academic.total.total=academic.subTotal;
 
     const academicPaid=normalizeMoney((odd?.total?.paid||0)+(even?.total?.paid||0));
-    academic.total.paid=Math.min(academicPaid,payable);
+    academic.total.paid=Math.min(academicPaid,academic.total.total);
 
-    if(payable===0) academic.total.status="Paid";
-    else if(academic.total.paid>=payable) academic.total.status="Paid";
+    if(academic.total.total===0) academic.total.status="Paid";
+    else if(academic.total.paid>=academic.total.total) academic.total.status="Paid";
     else if(academic.total.paid>0) academic.total.status="Partially Paid";
     else academic.total.status="Unpaid";
 
@@ -201,15 +204,21 @@ studentFeeTrackingSchema.pre("save",function(){
     }
 
     if(yearRecord.concessions){
-      yearRecord.concessions.firstGraduate=normalizeMoney(yearRecord.concessions.firstGraduate||0);
-      yearRecord.concessions.scheme7point5=normalizeMoney(yearRecord.concessions.scheme7point5||0);
-      yearRecord.concessions.pmss=normalizeMoney(yearRecord.concessions.pmss||0);
-      yearRecord.concessions.sakthi=normalizeMoney(yearRecord.concessions.sakthi||0);
+      yearRecord.concessions.tuition=normalizeMoney(yearRecord.concessions.tuition||0);
+      yearRecord.concessions.exam=normalizeMoney(yearRecord.concessions.exam||0);
+      yearRecord.concessions.erp=normalizeMoney(yearRecord.concessions.erp||0);
+      yearRecord.concessions.book=normalizeMoney(yearRecord.concessions.book||0);
+      yearRecord.concessions.lab=normalizeMoney(yearRecord.concessions.lab||0);
+      yearRecord.concessions.transport=normalizeMoney(yearRecord.concessions.transport||0);
+      yearRecord.concessions.hostel=normalizeMoney(yearRecord.concessions.hostel||0);
       yearRecord.concessions.totalConcession=normalizeMoney(
-        (yearRecord.concessions.firstGraduate||0)+
-        (yearRecord.concessions.scheme7point5||0)+
-        (yearRecord.concessions.pmss||0)+
-        (yearRecord.concessions.sakthi||0)
+        (yearRecord.concessions.tuition||0)+
+        (yearRecord.concessions.exam||0)+
+        (yearRecord.concessions.erp||0)+
+        (yearRecord.concessions.book||0)+
+        (yearRecord.concessions.lab||0)+
+        (yearRecord.concessions.transport||0)+
+        (yearRecord.concessions.hostel||0)
       );
     }
 

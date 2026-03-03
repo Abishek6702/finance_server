@@ -88,29 +88,60 @@ const enrollmentSchema=new mongoose.Schema({
 
   firstGraduate:{
     isApplicable:{type:Boolean,default:false},
-    concessionAmount:{type:Number,default:0}
+    yearlyLabConcessionAmount:{type:Number,default:0},
+    yearlyBookConcessionAmount:{type:Number,default:0},
+    yearlyErpConcessionAmount:{type:Number,default:0},
+    yearlyExamConcessionAmount:{type:Number,default:0},
+    yearlyTransportConcessionAmount:{type:Number,default:0},
+    yearlyHostelConcessionAmount:{type:Number,default:0},
+    yearlyTuitionConcessionAmount:{type:Number,default:0}
   },
 
   scheme7point5:{
     isApplicable:{type:Boolean,default:false},
-    concessionAmount:{type:Number,default:0}
+    
+    yearlyLabConcessionAmount:{type:Number,default:0},
+    yearlyBookConcessionAmount:{type:Number,default:0},
+    yearlyErpConcessionAmount:{type:Number,default:0},
+    yearlyExamConcessionAmount:{type:Number,default:0},
+    yearlyTransportConcessionAmount:{type:Number,default:0},
+    yearlyHostelConcessionAmount:{type:Number,default:0},
+    yearlyTuitionConcessionAmount:{type:Number,default:0}
   },
 
   pmssScheme:{
     isApplicable:{type:Boolean,default:false},
-    concessionAmount:{type:Number,default:0}
+    
+    yearlyLabConcessionAmount:{type:Number,default:0},
+    yearlyBookConcessionAmount:{type:Number,default:0},
+    yearlyErpConcessionAmount:{type:Number,default:0},
+    yearlyExamConcessionAmount:{type:Number,default:0},
+    yearlyTransportConcessionAmount:{type:Number,default:0},
+    yearlyHostelConcessionAmount:{type:Number,default:0},
+    yearlyTuitionConcessionAmount:{type:Number,default:0}
   },
 
   sakthiScheme:{
     isApplicable:{type:Boolean,default:false},
-    concessionAmount:{type:Number,default:0}
+    
+    yearlyLabConcessionAmount:{type:Number,default:0},
+    yearlyBookConcessionAmount:{type:Number,default:0},
+    yearlyErpConcessionAmount:{type:Number,default:0},
+    yearlyExamConcessionAmount:{type:Number,default:0},
+    yearlyTransportConcessionAmount:{type:Number,default:0},
+    yearlyHostelConcessionAmount:{type:Number,default:0},
+    yearlyTuitionConcessionAmount:{type:Number,default:0}
   },
 
   specialConcession:{
     isApplicable:{type:Boolean,default:false},
-    transport:{type:Number,default:0},
-    hostel:{type:Number,default:0},
-    tuition:{type:Number,default:0}
+    yearlyLabConcessionAmount:{type:Number,default:0},
+    yearlyBookConcessionAmount:{type:Number,default:0},
+    yearlyErpConcessionAmount:{type:Number,default:0},
+    yearlyExamConcessionAmount:{type:Number,default:0},
+    yearlyTransportConcessionAmount:{type:Number,default:0},
+    yearlyHostelConcessionAmount:{type:Number,default:0},
+    yearlyTuitionConcessionAmount:{type:Number,default:0}
   }
 
 },{_id:false});
