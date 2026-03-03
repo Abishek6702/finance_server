@@ -206,25 +206,40 @@ academicYearWiseRecord[]
 ├── academic
 │   ├── odd  (semesters 1, 3, 5, 7)
 │   │   ├── tuition / exam / erp / book / lab
-│   │   │     └── { total, paid, status }
-│   │   └── total: { total, paid, status }
+│   │   │     └── { total (NET), paid, status }
+│   │   ├── subTotal (NET sum of component totals)
+│   │   └── total: { total (NET), paid, status }
 │   ├── even (semesters 2, 4, 6, 8)
 │   │   └── (same structure as odd)
-│   ├── academicSpecialConcession
-│   └── total: { total, paid, status }
+│   ├── subTotal (GROSS sum before concessions)
+│   └── total: { total (NET), paid, status }
 ├── hostel
 │   ├── block, sharing, isAttached, fee
+│   ├── subTotal (GROSS)
 │   ├── hostelSpecialConcession
-│   └── total: { total, paid, status }
+│   └── total: { total (NET), paid, status }
 ├── transport
 │   ├── route, busNo, stop, fee
+│   ├── subTotal (GROSS)
 │   ├── transportSpecialConcession
-│   └── total: { total, paid, status }
-├── concessions
-│   ├── firstGraduate, scheme7point5, pmss, sakthi
+│   └── total: { total (NET), paid, status }
+├── concessions  ← auto-derived from enrollment schemes
+│   ├── tuition, exam, erp, book, lab, transport, hostel
 │   └── totalConcession
-└── total: { total, paid, status }
+└── total: { total (NET), paid, status }
 ```
+
+### Concession Application Rules
+
+1. **Source of truth:** `concessions` is automatically computed from the student's `enrollment` schemes (firstGraduate, scheme7point5, pmssScheme, sakthiScheme, specialConcession). Multiple applicable schemes are summed per-category.
+
+2. **Academic categories** (tuition, exam, erp, book, lab) are reduced at the component level and distributed proportionally across odd/even semesters based on each semester's gross `subTotal` ratio.
+
+3. **Transport/Hostel:** Enrollment concession (`concessions.transport`/`concessions.hostel`) is combined with `transportSpecialConcession`/`hostelSpecialConcession` when computing net totals.
+
+4. **No negative totals:** `net = max(0, gross - concession)` is enforced everywhere.
+
+5. **Payment validation** operates on **NET** totals. Error messages explicitly state "concession-adjusted due".
 
 
 

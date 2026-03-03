@@ -212,17 +212,47 @@ async function generateLedger(studentDoc, options = {}) {
     const oddLedger = buildSemester(oddSemester);
     const evenLedger = buildSemester(evenSemester);
 
-    const academicSubTotal = normalizeMoney(
+    /* ─── Apply per-category academic concessions proportionally ─── */
+    const oddGross  = oddLedger.subTotal;
+    const evenGross = evenLedger.subTotal;
+    const grossSum  = normalizeMoney(oddGross + evenGross);
+    const oddRatio  = grossSum > 0 ? oddGross / grossSum : 0;
+
+    const ACADEMIC_FIELDS = ["tuition", "exam", "erp", "book", "lab"];
+
+    ACADEMIC_FIELDS.forEach((field) => {
+      const totalConc = concessions[field];
+      if (totalConc <= 0) return;
+
+      const oddShare  = normalizeMoney(totalConc * oddRatio);
+      const evenShare = normalizeMoney(Math.max(0, totalConc - oddShare));
+
+      oddLedger[field].total  = normalizeMoney(Math.max(0, oddLedger[field].total - oddShare));
+      evenLedger[field].total = normalizeMoney(Math.max(0, evenLedger[field].total - evenShare));
+    });
+
+    /* Recalculate net subTotals after concession application */
+    oddLedger.subTotal = normalizeMoney(
+      ACADEMIC_FIELDS.reduce((sum, f) => sum + oddLedger[f].total, 0)
+    );
+    oddLedger.total.total = oddLedger.subTotal;
+
+    evenLedger.subTotal = normalizeMoney(
+      ACADEMIC_FIELDS.reduce((sum, f) => sum + evenLedger[f].total, 0)
+    );
+    evenLedger.total.total = evenLedger.subTotal;
+
+    /* academicSubTotal = GROSS reference; academicTotal = NET */
+    const academicSubTotal = normalizeMoney(oddGross + evenGross);
+    const academicTotal = normalizeMoney(
       oddLedger.subTotal + evenLedger.subTotal
     );
-
-    const academicTotal = academicSubTotal;
 
     const transportLedger = transportDoc
       ? {
         ...transportDoc,
         subTotal: normalizeMoney(transportDoc.fee),
-        total: { total: normalizeMoney(transportDoc.fee - concessions.transport) }
+        total: { total: normalizeMoney(Math.max(0, transportDoc.fee - concessions.transport)) }
       }
       : null;
 
@@ -230,7 +260,7 @@ async function generateLedger(studentDoc, options = {}) {
       ? {
         ...hostelDoc,
         subTotal: normalizeMoney(hostelDoc.fee),
-        total: { total: normalizeMoney(hostelDoc.fee - concessions.hostel) }
+        total: { total: normalizeMoney(Math.max(0, hostelDoc.fee - concessions.hostel)) }
       }
       : null;
 

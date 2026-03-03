@@ -219,4 +219,232 @@ describe("Student Fee Tracking API", () => {
       .query({ rollNo: "12CS$##" });
     expect(res.status).toBe(400);
   });
+
+  /* ─── CONCESSION INTEGRATION ───── */
+
+  describe("Concession Integration", () => {
+    afterAll(async () => {
+      await StudentTransaction.deleteMany({
+        rollNo: { $in: [testCtx.studentRollConcSingle, testCtx.studentRollConcMulti] },
+      });
+      await StudentFeeTracking.deleteMany({
+        rollNo: { $in: [testCtx.studentRollConcSingle, testCtx.studentRollConcMulti] },
+      });
+      await Student.deleteMany({
+        "personal.rollNo": { $in: [testCtx.studentRollConcSingle, testCtx.studentRollConcMulti] },
+      });
+    });
+
+    it("applies single-scheme tuition concession proportionally to semesters", async () => {
+      const enrollment = {
+        quota: "Government Quota",
+        firstGraduate: {
+          isApplicable: true,
+          yearlyTuitionConcessionAmount: 5000,
+          yearlyExamConcessionAmount: 0,
+          yearlyErpConcessionAmount: 0,
+          yearlyBookConcessionAmount: 0,
+          yearlyLabConcessionAmount: 0,
+          yearlyTransportConcessionAmount: 0,
+          yearlyHostelConcessionAmount: 0,
+        },
+        scheme7point5: { isApplicable: false },
+        pmssScheme: { isApplicable: false },
+        sakthiScheme: { isApplicable: false },
+        specialConcession: { isApplicable: false },
+      };
+
+      const stuRes = await request(app)
+        .post("/api/studentsManagement")
+        .set(superadminAuth())
+        .send(buildStudentPayload(testCtx.studentRollConcSingle, {
+          academicYear: testCtx.academicYearPrimary,
+          enrollment,
+        }));
+      expect([200, 201]).toContain(stuRes.status);
+
+      const res = await request(app)
+        .get("/api/studentFeeTracking")
+        .set(adminAuth())
+        .query({ rollNo: testCtx.studentRollConcSingle });
+      expect(res.status).toBe(200);
+      expect(res.body.data).toHaveLength(1);
+
+      const yr = res.body.data[0].feeTracking.academicYearWiseRecord[0];
+
+      // Concessions block should be populated
+      expect(yr.concessions.tuition).toBe(5000);
+      expect(yr.concessions.totalConcession).toBe(5000);
+
+      // Sem 1 gross tuition = 40000, Sem 2 gross tuition = 41000
+      // grossSum = 91000, oddRatio ≈ 0.4945
+      // oddShare = normalizeMoney(5000 * 45000/91000) ≈ 2472.53
+      // evenShare = 5000 - 2472.53 = 2527.47
+      const oddTuition = yr.academic.odd.tuition.total;
+      const evenTuition = yr.academic.even.tuition.total;
+
+      expect(oddTuition).toBeLessThan(40000);
+      expect(evenTuition).toBeLessThan(41000);
+
+      // Total tuition reduction must equal the concession
+      const tuitionReduction = (40000 - oddTuition) + (41000 - evenTuition);
+      expect(Math.abs(tuitionReduction - 5000)).toBeLessThan(0.02);
+
+      // Net academic total should be gross - 5000
+      // Gross academic = 45000 + 46000 = 91000
+      expect(yr.academic.total.total).toBeCloseTo(91000 - 5000, 1);
+
+      // Year total should reflect net academic
+      expect(yr.total.total).toBeCloseTo(91000 - 5000, 1);
+    });
+
+    it("sums concessions from multiple applicable schemes", async () => {
+      const enrollment = {
+        quota: "Government Quota",
+        firstGraduate: {
+          isApplicable: true,
+          yearlyTuitionConcessionAmount: 3000,
+          yearlyExamConcessionAmount: 500,
+          yearlyErpConcessionAmount: 0,
+          yearlyBookConcessionAmount: 0,
+          yearlyLabConcessionAmount: 0,
+          yearlyTransportConcessionAmount: 0,
+          yearlyHostelConcessionAmount: 0,
+        },
+        scheme7point5: {
+          isApplicable: true,
+          yearlyTuitionConcessionAmount: 2000,
+          yearlyExamConcessionAmount: 300,
+          yearlyErpConcessionAmount: 100,
+          yearlyBookConcessionAmount: 0,
+          yearlyLabConcessionAmount: 0,
+          yearlyTransportConcessionAmount: 0,
+          yearlyHostelConcessionAmount: 0,
+        },
+        pmssScheme: { isApplicable: false },
+        sakthiScheme: { isApplicable: false },
+        specialConcession: { isApplicable: false },
+      };
+
+      const stuRes = await request(app)
+        .post("/api/studentsManagement")
+        .set(superadminAuth())
+        .send(buildStudentPayload(testCtx.studentRollConcMulti, {
+          academicYear: testCtx.academicYearPrimary,
+          enrollment,
+        }));
+      expect([200, 201]).toContain(stuRes.status);
+
+      const res = await request(app)
+        .get("/api/studentFeeTracking")
+        .set(adminAuth())
+        .query({ rollNo: testCtx.studentRollConcMulti });
+      expect(res.status).toBe(200);
+
+      const yr = res.body.data[0].feeTracking.academicYearWiseRecord[0];
+
+      // Concessions should be summed: tuition=3000+2000=5000, exam=500+300=800, erp=0+100=100
+      expect(yr.concessions.tuition).toBe(5000);
+      expect(yr.concessions.exam).toBe(800);
+      expect(yr.concessions.erp).toBe(100);
+      expect(yr.concessions.totalConcession).toBe(5900);
+
+      // Gross academic = 91000, net should be 91000 - 5000 - 800 - 100 = 85100
+      expect(yr.academic.total.total).toBeCloseTo(85100, 1);
+
+      // Individual component totals should be reduced
+      const oddTuition = yr.academic.odd.tuition.total;
+      const evenTuition = yr.academic.even.tuition.total;
+      expect(oddTuition + evenTuition).toBeCloseTo(40000 + 41000 - 5000, 1);
+
+      const oddExam = yr.academic.odd.exam.total;
+      const evenExam = yr.academic.even.exam.total;
+      expect(oddExam + evenExam).toBeCloseTo(2000 + 2000 - 800, 1);
+    });
+
+    it("rejects payment exceeding concession-adjusted net total", async () => {
+      const res = await request(app)
+        .get("/api/studentFeeTracking")
+        .set(adminAuth())
+        .query({ rollNo: testCtx.studentRollConcSingle });
+      expect(res.status).toBe(200);
+
+      const yr = res.body.data[0].feeTracking.academicYearWiseRecord[0];
+      const netTuitionOdd = yr.academic.odd.tuition.total;
+
+      // Attempt to pay MORE than the net tuition total
+      const overpayAmount = netTuitionOdd + 1;
+
+      const payRes = await request(app)
+        .post("/api/feePayment/pay")
+        .set(adminAuth())
+        .send({
+          rollNo: testCtx.studentRollConcSingle,
+          paymentType: "Cash",
+          bankName: "Test Bank",
+          bankLocation: "Test",
+          remarks: "overpay test",
+          breakdowns: [{
+            academicYear: testCtx.academicYearPrimary,
+            academic: { semesterNumber: 1, tuition: overpayAmount },
+          }],
+        });
+
+      expect(payRes.status).toBe(400);
+      expect(payRes.body.message).toMatch(/concession-adjusted/i);
+    });
+
+    it("allows exact payment up to concession-adjusted net total", async () => {
+      const res = await request(app)
+        .get("/api/studentFeeTracking")
+        .set(adminAuth())
+        .query({ rollNo: testCtx.studentRollConcMulti });
+      expect(res.status).toBe(200);
+
+      const yr = res.body.data[0].feeTracking.academicYearWiseRecord[0];
+      const netErpOdd = yr.academic.odd.erp.total;
+
+      // Pay exactly the net ERP total for odd semester — should succeed
+      if (netErpOdd > 0) {
+        const payRes = await request(app)
+          .post("/api/feePayment/pay")
+          .set(adminAuth())
+          .send({
+            rollNo: testCtx.studentRollConcMulti,
+            paymentType: "Cash",
+            bankName: "Test Bank",
+            bankLocation: "Test",
+            remarks: "exact net payment",
+            breakdowns: [{
+              academicYear: testCtx.academicYearPrimary,
+              academic: { semesterNumber: 1, erp: netErpOdd },
+            }],
+          });
+
+        expect(payRes.status).toBe(201);
+      }
+    });
+
+    it("zero-concession student has gross = net totals", async () => {
+      // studentRollFinance was created with all schemes isApplicable: false
+      const res = await request(app)
+        .get("/api/studentFeeTracking")
+        .set(adminAuth())
+        .query({ rollNo: testCtx.studentRollFinance });
+      expect(res.status).toBe(200);
+
+      const yr = res.body.data[0].feeTracking.academicYearWiseRecord[0];
+
+      // With zero concessions, subTotal should equal academic.total.total (before any payments)
+      // Since payments may have been made, check that concessions are zero
+      expect(yr.concessions.tuition).toBe(0);
+      expect(yr.concessions.exam).toBe(0);
+      expect(yr.concessions.totalConcession).toBe(0);
+
+      // Gross component totals should be unmodified
+      // Sem 1: tuition=40000, Sem 2: tuition=41000
+      expect(yr.academic.odd.tuition.total).toBe(40000);
+      expect(yr.academic.even.tuition.total).toBe(41000);
+    });
+  });
 });

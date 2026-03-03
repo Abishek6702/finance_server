@@ -12,6 +12,7 @@ const studentFeeTrackingRoutes=require("./api/studentFeeTracking/routes.studentF
 const transportRoutes=require("./api/transport/routes.transport");
 const hostelRoutes=require("./api/hostel/routes.hostel");
 const receiptRecallRoutes=require("./api/receiptRecall/routes.receiptRecall");
+const superadminRoutes=require("./api/superadmin/routes.superadmin");
 const corsMiddleware=require("./middleware/corsMiddleware");
 const {seedTransport}=require("./api/transport/model.transport");
 const {seedHostel}=require("./api/hostel/model.hostel");
@@ -34,6 +35,7 @@ app.use("/api/studentFeeTracking",studentFeeTrackingRoutes);
 app.use("/api/transport",transportRoutes);
 app.use("/api/hostel",hostelRoutes);
 app.use("/api/receiptRecall",receiptRecallRoutes);
+app.use("/api/superadmin",superadminRoutes);
  
 app.use("/assets",express.static("public/assets"));
  

@@ -138,7 +138,7 @@ The **Transaction** module handles fee payment recording, receipt generation, an
 {
   "success": false,
   "data": null,
-  "message": "Payment amount exceeds remaining due for tuition in semester 1 (2025-2026)"
+  "message": "tuition payment ₹80000 exceeds remaining concession-adjusted due ₹37527.47 for Semester 1 (2025-2026)"
 }
 ```
 
@@ -297,7 +297,7 @@ GET /api/transaction?department=CSE&paymentMode=Cash&fromDate=2025-06-01&toDate=
 ## 3. Edge Cases
 
 - **`billingDate` flexible input:** Accepts `dd/mm/yyyy` (e.g. `15/08/2025`), ISO 8601 strings (e.g. `2025-08-15T00:00:00.000Z`), or a JavaScript Date object. If omitted, defaults to the current date/time at the moment of the request.
-- **Overpayment prevention:**** Before saving, the service computes the remaining due for each fee component (`total - paid`). If any breakdown amount exceeds the remaining due, the entire transaction is rejected with a descriptive error.
+- **Overpayment prevention:** Before saving, the service computes the remaining **concession-adjusted** net due for each fee component (`total - paid`, where `total` is always the net value after enrollment-based concessions). If any breakdown amount exceeds the remaining net due, the entire transaction is rejected with an error of the form `"<field> payment ₹<amount> exceeds remaining concession-adjusted due ₹<remaining> for Semester <n> (<year>)"` for academic fees, or the equivalent message for hostel/transport.
 - **Single receipt, multiple years:** A single `POST /pay` can include breakdowns for multiple `academicYear` entries, allowing payment of arrears and current year fees in one receipt.
 - **`totalAmount` auto-calculation:** The sum of all breakdown totals in a receipt is computed automatically via a Mongoose pre-validate hook; do not include `totalAmount` in the request body.
 - **Status transitions:** After a payment, each affected fee component's `status` is recalculated: `Unpaid → Partially Paid → Paid`.

@@ -100,7 +100,7 @@ const createPayment = async (data) => {
           const remaining = normalizeMoney(total - paid);
           if (payAmount > remaining) {
             throw new AppError(
-              `${field} payment ₹${payAmount} exceeds remaining due ₹${remaining} for semester ${bd.academic.semesterNumber} in ${bd.academicYear}`, 400
+              `${field} payment ₹${payAmount} exceeds remaining concession-adjusted due ₹${remaining} for Semester ${bd.academic.semesterNumber} (${bd.academicYear})`, 400
             );
           }
           grandTotal += payAmount;
@@ -126,7 +126,7 @@ const createPayment = async (data) => {
       );
       if (normalizeMoney(bd.hostel) > hostelRemaining) {
         throw new AppError(
-          `Hostel payment ₹${bd.hostel} exceeds remaining due ₹${hostelRemaining} for ${bd.academicYear}`, 400
+          `Hostel payment ₹${bd.hostel} exceeds remaining concession-adjusted due ₹${hostelRemaining} for ${bd.academicYear}`, 400
         );
       }
       grandTotal += normalizeMoney(bd.hostel);
@@ -146,7 +146,7 @@ const createPayment = async (data) => {
       );
       if (normalizeMoney(bd.transport) > transportRemaining) {
         throw new AppError(
-          `Transport payment ₹${bd.transport} exceeds remaining due ₹${transportRemaining} for ${bd.academicYear}`, 400
+          `Transport payment ₹${bd.transport} exceeds remaining concession-adjusted due ₹${transportRemaining} for ${bd.academicYear}`, 400
         );
       }
       grandTotal += normalizeMoney(bd.transport);

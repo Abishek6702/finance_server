@@ -45,6 +45,8 @@ const testCtx = {
   studentRollRecall: `20CS${TS.slice(-3)}`,
   testTransportId: null,
   testHostelId: null,
+  studentRollConcSingle: `21CS${TS.slice(-3)}`,
+  studentRollConcMulti: `22CS${TS.slice(-3)}`,
   TS,
 };
 
@@ -341,6 +343,7 @@ const globalTeardown = async () => {
     testCtx.studentRollHostel, testCtx.studentRollTransport,
     testCtx.studentRollDual,
     testCtx.bulkRollA, testCtx.bulkRollB, testCtx.bulkRollC,
+    testCtx.studentRollConcSingle, testCtx.studentRollConcMulti,
   ];
   await StudentTransaction.deleteMany({ rollNo: { $in: allRolls } });
   await StudentFeeTracking.deleteMany({ rollNo: { $in: allRolls } });

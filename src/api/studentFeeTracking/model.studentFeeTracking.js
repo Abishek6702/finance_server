@@ -119,63 +119,58 @@ studentFeeTrackingSchema.pre("save", function () {
     const odd = academic.odd;
     const even = academic.even;
 
-    // Step 1: Semester gross calculation
-    [odd, even].forEach((sem) => {
-      if (!sem) return;
-
-      sem.tuition = normalizeAmountSchema(sem.tuition || {});
-      sem.exam = normalizeAmountSchema(sem.exam || {});
-      sem.erp = normalizeAmountSchema(sem.erp || {});
-      sem.book = normalizeAmountSchema(sem.book || {});
-      sem.lab = normalizeAmountSchema(sem.lab || {});
-
-      sem.subTotal = normalizeMoney(
-        (sem.tuition?.total || 0) +
-        (sem.exam?.total || 0) +
-        (sem.erp?.total || 0) +
-        (sem.book?.total || 0) +
-        (sem.lab?.total || 0)
-      );
-    });
-
-    // Step 2: Academic concession distribution (UNCHANGED)
-    academic.academicSpecialConcession = normalizeMoney(
-      academic.academicSpecialConcession || 0
-    );
-
-    const totalConcession = academic.academicSpecialConcession;
-    const oddGross = normalizeMoney(odd?.subTotal || 0);
-    const evenGross = normalizeMoney(even?.subTotal || 0);
-    const grossSum = normalizeMoney(oddGross + evenGross);
-
-    let oddConcession = 0;
-    let evenConcession = 0;
-
-    if (grossSum > 0) {
-      oddConcession = normalizeMoney(
-        totalConcession * (oddGross / grossSum)
-      );
-      evenConcession = normalizeMoney(
-        Math.max(0, totalConcession - oddConcession)
+    /* ──────────────────────────────────────────────
+       Normalize concessions block
+       (values are auto-derived at creation; only
+       normalize numbers here, never re-apply)
+    ────────────────────────────────────────────── */
+    if (yearRecord.concessions) {
+      const c = yearRecord.concessions;
+      c.tuition   = normalizeMoney(c.tuition || 0);
+      c.exam      = normalizeMoney(c.exam || 0);
+      c.erp       = normalizeMoney(c.erp || 0);
+      c.book      = normalizeMoney(c.book || 0);
+      c.lab       = normalizeMoney(c.lab || 0);
+      c.transport = normalizeMoney(c.transport || 0);
+      c.hostel    = normalizeMoney(c.hostel || 0);
+      c.totalConcession = normalizeMoney(
+        c.tuition + c.exam + c.erp + c.book + c.lab + c.transport + c.hostel
       );
     }
 
-    const applyNetToSem = (sem, concession) => {
+    /* ──────────────────────────────────────────────
+       Step 1: Normalize component amountSchemas and
+       recalculate semester subTotals.
+       Component totals are already NET (set at
+       creation by generateLedger). Do NOT re-apply
+       concessions here — that would double-subtract.
+    ────────────────────────────────────────────── */
+    const ACADEMIC_FIELDS = ["tuition", "exam", "erp", "book", "lab"];
+
+    [odd, even].forEach((sem) => {
+      if (!sem) return;
+      ACADEMIC_FIELDS.forEach((f) => {
+        sem[f] = normalizeAmountSchema(sem[f] || {});
+      });
+      sem.subTotal = normalizeMoney(
+        ACADEMIC_FIELDS.reduce((sum, f) => sum + (sem[f]?.total || 0), 0)
+      );
+    });
+
+    /* ──────────────────────────────────────────────
+       Step 2: Semester total = subTotal (NET).
+       Recalculate paid and status.
+    ────────────────────────────────────────────── */
+    const finalizeSemester = (sem) => {
       if (!sem) return;
 
-      const netTotal = normalizeMoney(
-        Math.max(0, sem.subTotal - concession)
-      );
+      const netTotal = sem.subTotal;
 
       sem.total = normalizeAmountSchema(sem.total || {});
       sem.total.total = netTotal;
 
       const semPaid = normalizeMoney(
-        (sem.tuition?.paid || 0) +
-        (sem.exam?.paid || 0) +
-        (sem.erp?.paid || 0) +
-        (sem.book?.paid || 0) +
-        (sem.lab?.paid || 0)
+        ACADEMIC_FIELDS.reduce((sum, f) => sum + (sem[f]?.paid || 0), 0)
       );
 
       sem.total.paid = Math.min(semPaid, netTotal);
@@ -186,22 +181,26 @@ studentFeeTrackingSchema.pre("save", function () {
       else sem.total.status = "Unpaid";
     };
 
-    applyNetToSem(odd, oddConcession);
-    applyNetToSem(even, evenConcession);
+    finalizeSemester(odd);
+    finalizeSemester(even);
 
-    // Step 3: Academic year total
-    academic.subTotal = normalizeMoney(oddGross + evenGross);
+    /* ──────────────────────────────────────────────
+       Step 3: Academic year totals.
+       academic.subTotal = gross sum of both semesters
+       (preserved from creation — not re-derived here).
+       academic.total.total = sum of net semester totals.
+    ────────────────────────────────────────────── */
+    academic.subTotal = normalizeMoney(academic.subTotal || 0);
 
     const academicNetTotal = normalizeMoney(
-      Math.max(0, academic.subTotal - totalConcession)
+      (odd?.total?.total || 0) + (even?.total?.total || 0)
     );
 
     academic.total = normalizeAmountSchema(academic.total || {});
     academic.total.total = academicNetTotal;
 
     const academicPaid = normalizeMoney(
-      (odd?.total?.paid || 0) +
-      (even?.total?.paid || 0)
+      (odd?.total?.paid || 0) + (even?.total?.paid || 0)
     );
 
     academic.total.paid = Math.min(academicPaid, academicNetTotal);
@@ -211,64 +210,76 @@ studentFeeTrackingSchema.pre("save", function () {
     else if (academic.total.paid > 0) academic.total.status = "Partially Paid";
     else academic.total.status = "Unpaid";
 
-    // Transport (UNCHANGED)
+    /* ──────────────────────────────────────────────
+       Step 4: Transport.
+       Net total = subTotal - transportSpecialConcession
+       (enrollment concession already baked into
+       total.total by generateLedger — we keep it).
+       If transportSpecialConcession > 0 (admin-set),
+       we re-apply it against subTotal, but we must
+       not re-apply the enrollment concession.
+       Simplest idempotent rule: trust stored total.total
+       — only cap paid and refresh status.
+    ────────────────────────────────────────────── */
     if (yearRecord.transport) {
       yearRecord.transport.subTotal = normalizeMoney(yearRecord.transport.subTotal || 0);
-      yearRecord.transport.transportSpecialConcession = normalizeMoney(yearRecord.transport.transportSpecialConcession || 0);
+      yearRecord.transport.transportSpecialConcession = normalizeMoney(
+        yearRecord.transport.transportSpecialConcession || 0
+      );
 
       yearRecord.transport.total = normalizeAmountSchema(yearRecord.transport.total || {});
-      yearRecord.transport.total.total = normalizeMoney(
-        Math.max(0, yearRecord.transport.subTotal - yearRecord.transport.transportSpecialConcession)
+
+      /* Net = subTotal − enrollmentConcession − specialConcession.
+         Since enrollmentConcession is baked into total.total already,
+         recalculate cleanly as: subTotal − all concessions. */
+      const transportEnrollConc = normalizeMoney((yearRecord.concessions?.transport) || 0);
+      const transportNetTotal = normalizeMoney(
+        Math.max(0,
+          yearRecord.transport.subTotal
+          - transportEnrollConc
+          - yearRecord.transport.transportSpecialConcession
+        )
       );
 
+      yearRecord.transport.total.total = transportNetTotal;
       yearRecord.transport.total.paid = Math.min(
         normalizeMoney(yearRecord.transport.total.paid || 0),
-        yearRecord.transport.total.total
+        transportNetTotal
       );
-
       yearRecord.transport.total = normalizeAmountSchema(yearRecord.transport.total);
     }
 
-    // Hostel (UNCHANGED)
+    /* ──────────────────────────────────────────────
+       Step 5: Hostel — same idempotent pattern.
+    ────────────────────────────────────────────── */
     if (yearRecord.hostel) {
       yearRecord.hostel.subTotal = normalizeMoney(yearRecord.hostel.subTotal || 0);
-      yearRecord.hostel.hostelSpecialConcession = normalizeMoney(yearRecord.hostel.hostelSpecialConcession || 0);
+      yearRecord.hostel.hostelSpecialConcession = normalizeMoney(
+        yearRecord.hostel.hostelSpecialConcession || 0
+      );
 
       yearRecord.hostel.total = normalizeAmountSchema(yearRecord.hostel.total || {});
-      yearRecord.hostel.total.total = normalizeMoney(
-        Math.max(0, yearRecord.hostel.subTotal - yearRecord.hostel.hostelSpecialConcession)
+
+      const hostelEnrollConc = normalizeMoney((yearRecord.concessions?.hostel) || 0);
+      const hostelNetTotal = normalizeMoney(
+        Math.max(0,
+          yearRecord.hostel.subTotal
+          - hostelEnrollConc
+          - yearRecord.hostel.hostelSpecialConcession
+        )
       );
 
+      yearRecord.hostel.total.total = hostelNetTotal;
       yearRecord.hostel.total.paid = Math.min(
         normalizeMoney(yearRecord.hostel.total.paid || 0),
-        yearRecord.hostel.total.total
+        hostelNetTotal
       );
-
       yearRecord.hostel.total = normalizeAmountSchema(yearRecord.hostel.total);
     }
 
-    // Concessions aggregation (UNCHANGED)
-    if (yearRecord.concessions) {
-      yearRecord.concessions.tuition = normalizeMoney(yearRecord.concessions.tuition || 0);
-      yearRecord.concessions.exam = normalizeMoney(yearRecord.concessions.exam || 0);
-      yearRecord.concessions.erp = normalizeMoney(yearRecord.concessions.erp || 0);
-      yearRecord.concessions.book = normalizeMoney(yearRecord.concessions.book || 0);
-      yearRecord.concessions.lab = normalizeMoney(yearRecord.concessions.lab || 0);
-      yearRecord.concessions.transport = normalizeMoney(yearRecord.concessions.transport || 0);
-      yearRecord.concessions.hostel = normalizeMoney(yearRecord.concessions.hostel || 0);
-
-      yearRecord.concessions.totalConcession = normalizeMoney(
-        (yearRecord.concessions.tuition || 0) +
-        (yearRecord.concessions.exam || 0) +
-        (yearRecord.concessions.erp || 0) +
-        (yearRecord.concessions.book || 0) +
-        (yearRecord.concessions.lab || 0) +
-        (yearRecord.concessions.transport || 0) +
-        (yearRecord.concessions.hostel || 0)
-      );
-    }
-
-    // Final Year Net Total
+    /* ──────────────────────────────────────────────
+       Step 6: Final Year Net Total
+    ────────────────────────────────────────────── */
     const recalculatedYearTotal = normalizeMoney(
       (academic.total?.total || 0) +
       (yearRecord.transport?.total?.total || 0) +
