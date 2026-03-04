@@ -3,3 +3,6 @@ node_modules/
 .DS_Store
 *.log
 work.md
+self
+self/*
+self
