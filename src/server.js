@@ -44,14 +44,24 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 5010;
 
 const startServer = async () => {
+  
   if (server) return server;
   if (process.env.NODE_ENV === "test" && initialized) return app;
   initialized = true;
 
   await connectDB();
-  // await seedUsers();
-  // await seedTransport();
-  // await seedHostel();
+console.log("DB connected");
+
+console.log("Seeding users...");
+await seedUsers();
+
+console.log("Seeding transport...");
+await seedTransport();
+
+console.log("Seeding hostel...");
+await seedHostel();
+
+console.log("Seeding finished");
 
   // If running under Jest, DO NOT bind to port
   if (process.env.NODE_ENV === "test") {
@@ -59,6 +69,7 @@ const startServer = async () => {
   }
 
   server = await new Promise((resolve) => {
+    
     const s = app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
       resolve(s);

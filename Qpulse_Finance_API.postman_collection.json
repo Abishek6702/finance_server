@@ -909,20 +909,13 @@
 							}
 						],
 						"url": {
-							"raw": "{{base_url}}/hostel/:id",
+							"raw": "{{base_url}}/hostel/{{hostel_id}}",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"hostel",
-								":id"
-							],
-							"variable": [
-								{
-									"key": "id",
-									"value": "HOSTEL_RECORD_ID_HERE",
-									"description": "MongoDB ObjectId of the hostel record to update"
-								}
+								"{{hostel_id}}"
 							]
 						},
 						"body": {
@@ -1130,20 +1123,13 @@
 							}
 						],
 						"url": {
-							"raw": "{{base_url}}/transport/:id",
+							"raw": "{{base_url}}/transport/{{transport_id}}",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"transport",
-								":id"
-							],
-							"variable": [
-								{
-									"key": "id",
-									"value": "TRANSPORT_RECORD_ID_HERE",
-									"description": "MongoDB ObjectId of the transport record to update"
-								}
+								"{{transport_id}}"
 							]
 						},
 						"body": {
@@ -1367,16 +1353,6 @@
 				{
 					"name": "Clear Tables",
 					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{superAdminToken}}",
-									"type": "string"
-								}
-							]
-						},
 						"method": "DELETE",
 						"header": [],
 						"url": {
@@ -1392,7 +1368,7 @@
 								{
 									"key": "tablename",
 									"value": "users,students,feestructuremasters,hostels,receiptrecallrequests,studentfeetrackings,receiptcounters,studenttransactions,transports",
-									"description": "Set to 'true' or 'all' to clear all tables, or provide a comma-separated list of table names to clear specific ones."
+									"description": "Comma-separated list of collection names to clear, or 'all' to clear everything."
 								}
 							]
 						}
