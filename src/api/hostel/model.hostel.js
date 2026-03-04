@@ -6,30 +6,50 @@ const hostelSchema = new mongoose.Schema({
     unique: true,
     required: true
   },
-  block: { 
-    type: String, 
+  block: {
+    type: String,
     enum: ["A", "B", "C", "D", "E", "F"],
     required: true,
     uppercase: true,
     trim: true
   },
-  sharing: { 
-    type: Number, 
-    enum: [2, 3, 4, 5], 
-    required: true 
+  sharing: {
+    type: Number,
+    enum: [2, 3, 4, 5],
+    required: true
   },
-  isAttached: { 
-    type: Boolean, 
-    required: true 
+  isAttached: {
+    type: Boolean,
+    required: true
   },
-  fee: { 
-    type: Number, 
-    required: true, 
-    min: 0 
+  fee: {
+    type: Number,
+    required: true,
+    min: 0
   }
 });
 
-hostelSchema.index({ block: 1, sharing: 1, isAttached: 1 }, { unique: true });
+/* ------------------------------------------------
+   AUTO GENERATE ID
+   Format: <Sharing><Block><AttachedFlag>
+   Example: 3A1, 2B0
+------------------------------------------------ */
+
+hostelSchema.pre("validate", function (next) {
+  if (!this.id) {
+    this.id = `${this.sharing}${this.block}${this.isAttached ? 1 : 0}`;
+  }
+  next();
+});
+
+/* ------------------------------------------------
+   Prevent duplicate hostel configurations
+------------------------------------------------ */
+
+hostelSchema.index(
+  { block: 1, sharing: 1, isAttached: 1 },
+  { unique: true }
+);
 
 const Hostel = mongoose.model("Hostel", hostelSchema);
 
@@ -45,6 +65,7 @@ const data = [
   { block: "A", sharing: 4, isAttached: false, fee: 55000 },
   { block: "A", sharing: 5, isAttached: true, fee: 52000 },
   { block: "A", sharing: 5, isAttached: false, fee: 48000 },
+
   // B Block
   { block: "B", sharing: 2, isAttached: true, fee: 80000 },
   { block: "B", sharing: 2, isAttached: false, fee: 75000 },
@@ -54,6 +75,7 @@ const data = [
   { block: "B", sharing: 4, isAttached: false, fee: 55000 },
   { block: "B", sharing: 5, isAttached: true, fee: 52000 },
   { block: "B", sharing: 5, isAttached: false, fee: 48000 },
+
   // C Block
   { block: "C", sharing: 2, isAttached: true, fee: 80000 },
   { block: "C", sharing: 2, isAttached: false, fee: 75000 },
@@ -63,6 +85,7 @@ const data = [
   { block: "C", sharing: 4, isAttached: false, fee: 55000 },
   { block: "C", sharing: 5, isAttached: true, fee: 52000 },
   { block: "C", sharing: 5, isAttached: false, fee: 48000 },
+
   // D Block
   { block: "D", sharing: 2, isAttached: true, fee: 80000 },
   { block: "D", sharing: 2, isAttached: false, fee: 75000 },
@@ -72,6 +95,7 @@ const data = [
   { block: "D", sharing: 4, isAttached: false, fee: 55000 },
   { block: "D", sharing: 5, isAttached: true, fee: 52000 },
   { block: "D", sharing: 5, isAttached: false, fee: 48000 },
+
   // E Block
   { block: "E", sharing: 2, isAttached: true, fee: 80000 },
   { block: "E", sharing: 2, isAttached: false, fee: 75000 },
@@ -81,6 +105,7 @@ const data = [
   { block: "E", sharing: 4, isAttached: false, fee: 55000 },
   { block: "E", sharing: 5, isAttached: true, fee: 52000 },
   { block: "E", sharing: 5, isAttached: false, fee: 48000 },
+
   // F Block
   { block: "F", sharing: 2, isAttached: true, fee: 80000 },
   { block: "F", sharing: 2, isAttached: false, fee: 75000 },
@@ -92,35 +117,34 @@ const data = [
   { block: "F", sharing: 5, isAttached: false, fee: 48000 }
 ];
 
-//keep it here for High Cohesion
-const getNextHostelId = async () => {
-  const last = await Hostel.findOne({}).sort({ id: -1 }).select('id').lean();
-  if (!last || !last.id) return 'H001';
-  const num = parseInt(last.id.substring(1), 10);
-  return `H${String(num + 1).padStart(3, '0')}`;
-};
+/*******************************************************/
 
 const seedHostel = async () => {
   if (!data.length) return;
 
   const count = await Hostel.countDocuments();
+
   if (count > 0) {
-    // Migration: if old records exist without id field, drop and re-seed
-    const withoutId = await Hostel.countDocuments({ $or: [{ id: { $exists: false } }, { id: null }] });
+    const withoutId = await Hostel.countDocuments({
+      $or: [{ id: { $exists: false } }, { id: null }]
+    });
+
     if (withoutId > 0) {
-      console.log('Migrating hostel data: re-seeding with custom IDs...');
+      console.log("Migrating hostel data: re-seeding with generated IDs...");
       await Hostel.deleteMany({});
     } else {
       return;
     }
   }
 
-  const dataWithIds = data.map((item, index) => ({
+  const dataWithIds = data.map(item => ({
     ...item,
-    id: `H${String(index + 1).padStart(3, '0')}`
+    id: `${item.sharing}${item.block}${item.isAttached ? 1 : 0}`
   }));
 
   await Hostel.insertMany(dataWithIds);
+
+  console.log("Hostel master data seeded successfully.");
 };
 
-module.exports = { Hostel, seedHostel, getNextHostelId };
+module.exports = { Hostel, seedHostel };
