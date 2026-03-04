@@ -6,11 +6,11 @@ exports.login = asyncHandler(async (req, res) => {
   const data = await authService.login(req.body, reqInfo);
   
   res.cookie("token", data.token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-    maxAge: 30 * 24 * 60 * 60 * 1000  
-  });
+  httpOnly: true,
+  sameSite: "none",
+  secure: false,
+  maxAge: 30 * 24 * 60 * 60 * 1000
+});
   
   res.status(200).json({ success: true, data, message: "Login successful" });
 });
