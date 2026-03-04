@@ -23,7 +23,7 @@ The **Students** module manages full student lifecycle: creation, retrieval, upd
 ## 2. API Documentation
 
 > **All endpoints require `Superadmin` authentication.**  
-> Include `Authorization: Bearer <token>` or the `token` cookie.
+> Include `Authorization: Bearer <token>` header.
 
 ---
 

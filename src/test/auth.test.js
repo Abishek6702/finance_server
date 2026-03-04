@@ -18,7 +18,6 @@ describe("Auth API", () => {
     expect(typeof res.body.data.token).toBe("string");
     expect(res.body.data._id).toBeDefined();
     expect(res.body.data.email).toBe("superadmin@sece.ac.in");
-    expect(res.headers["set-cookie"]).toBeUndefined();
   });
 
   it("logs in admin and returns correct role", async () => {

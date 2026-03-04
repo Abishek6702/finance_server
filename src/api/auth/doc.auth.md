@@ -2,7 +2,7 @@
 
 ## 1. Module Overview
 
-The **Auth** module handles user authentication using JSON Web Tokens (JWT). It supports both cookie-based and Bearer-header token delivery. All other modules depend on this module's middleware (`protect`, `admin`, `superadmin`) to guard their endpoints.
+The **Auth** module handles user authentication using JSON Web Tokens (JWT). Tokens are returned in the response body and must be sent by the client as an `Authorization: Bearer <token>` header on subsequent requests. All other modules depend on this module's middleware (`protect`, `admin`, `superadmin`) to guard their endpoints.
 
 **Dependencies / Coupling**
 - `ActivityLog` model — login success and failure events are audited.
@@ -26,7 +26,7 @@ The **Auth** module handles user authentication using JSON Web Tokens (JWT). It 
 
 **Auth required:** No
 
-**Description:** Authenticates a user with email and password. Returns a JWT token set as an `httpOnly` cookie and in the response body.
+**Description:** Authenticates a user with email and password. Returns a JWT token in the response body.
 
 #### Request
 
@@ -114,11 +114,11 @@ The **Auth** module handles user authentication using JSON Web Tokens (JWT). It 
 
 **Auth required:** Yes — any authenticated role (`user`, `admin`, `superadmin`)
 
-**Description:** Logs out the authenticated user by clearing the `token` cookie server-side.
+**Description:** Logs out the authenticated user server-side.
 
 #### Request
 
-No request body. Provide the JWT via cookie or `Authorization: Bearer <token>` header.
+No request body. Provide the JWT via `Authorization: Bearer <token>` header.
 
 #### Response
 
@@ -154,10 +154,10 @@ No request body. Provide the JWT via cookie or `Authorization: Bearer <token>` h
 ## 3. Edge Cases
 
 - **Failed-login auditing:** Every failed login attempt is recorded individually in `ActivityLog` with `status: "FAILED"` for a complete audit trail.
-- **Cookie configuration:** The JWT cookie is `httpOnly`, `SameSite: strict`, and expires in 30 days. Clients using REST (e.g., Postman) may read `data.token` from the response body directly.
-- **Token invalidation:** Logout only clears the client-side cookie. Server-side token revocation is not implemented; add revoked-token storage if required.
+- **Token storage:** The JWT is returned in `data.token`. Clients are responsible for storing it (e.g., memory or `localStorage`) and sending it as `Authorization: Bearer <token>` on every subsequent request.
+- **Token invalidation:** Server-side token revocation is not implemented; add revoked-token storage if required.
 - **Role elevation:** Roles are assigned at seeding time. There is no public endpoint to create users — only seeded accounts exist (`admin@sece.ac.in`, `superadmin@sece.ac.in`).
-- **All subsequent API calls** must include the JWT obtained from this endpoint, either as the `token` cookie or the `Authorization` header.
+- **All subsequent API calls** must include the JWT obtained from this endpoint via the `Authorization: Bearer <token>` header.
 
 ---
 

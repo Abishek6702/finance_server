@@ -22,7 +22,7 @@ The **Receipt Recall** module allows admins to request the reversal (recall) of 
 ## 2. API Documentation
 
 > **All endpoints require authentication.**
-> Include `Authorization: Bearer <token>` or the `token` cookie.
+> Include `Authorization: Bearer <token>` header.
 
 ---
 

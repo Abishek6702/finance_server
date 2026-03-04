@@ -21,7 +21,7 @@ The **Student Fee Tracking** module provides a read-only view of per-student fee
 ## 2. API Documentation
 
 > **All endpoints require `Admin` authentication** (admin or superadmin).  
-> Include `Authorization: Bearer <token>` or the `token` cookie.
+> Include `Authorization: Bearer <token>` header.
 
 ---
 

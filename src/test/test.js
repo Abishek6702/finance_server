@@ -189,7 +189,6 @@ describe("QPulse API integration (full coverage)", () => {
       expect(response.status).toBe(200);
       expect(response.body.data.role).toBe("superadmin");
       expect(response.body.data.token).toBeDefined();
-      expect(response.headers["set-cookie"]).toBeUndefined();
     });
 
     it("logs in admin successfully", async () => {

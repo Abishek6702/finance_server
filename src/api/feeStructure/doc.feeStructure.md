@@ -19,7 +19,7 @@ The **Fee Structure** module allows superadmins to define the master fee templat
 ## 2. API Documentation
 
 > **All endpoints require `Superadmin` authentication.**  
-> Include `Authorization: Bearer <token>` or the `token` cookie.
+> Include `Authorization: Bearer <token>` header.
 
 ---
 
