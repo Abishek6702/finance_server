@@ -90,18 +90,7 @@ const buildFeeStructurePayload = (year, { isActive = true } = {}) => {
         isActive: true,
       },
     ],
-    hostelStructures: [
-      {
-        block: "A-BLOCK",
-        roomType: { sharingType: "Three", isAttached: true },
-        roomFee: { fee: 30000 },
-        messFee: { fee: 18000 },
-        maintenanceFee: { fee: 5000 },
-        total: { fee: 53000 },
-        isActive: true,
-      },
-    ],
-    total: { fee: academicDepartmentTotal + 53000 },
+    total: { fee: academicDepartmentTotal },
     isActive,
   };
 };

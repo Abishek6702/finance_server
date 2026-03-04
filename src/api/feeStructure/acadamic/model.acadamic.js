@@ -55,24 +55,6 @@ const academicFeeSchema=new mongoose.Schema({
 
 
 /* ======================================================
-   HOSTEL
-====================================================== */
-
-const hostelSchema=new mongoose.Schema({
-  block:{type:String,trim:true,uppercase:true},
-  roomType:{
-    sharingType:{type:String,enum:["Two","Three","Four","Five"]},
-    isAttached:{type:Boolean,default:false}
-  },
-  roomFee:feeSchema,
-  messFee:feeSchema,
-  maintenanceFee:feeSchema,
-  total:feeSchema,
-  isActive:{type:Boolean,default:true}
-},{_id:false});
-
-
-/* ======================================================
    MASTER STRUCTURE
 ====================================================== */
 
@@ -85,7 +67,6 @@ const feeStructureMasterSchema=new mongoose.Schema({
     match:/^\d{4}-\d{4}$/
   },
   academicStructures:[academicFeeSchema],
-  hostelStructures:[hostelSchema],
   total:feeSchema,
   isActive:{type:Boolean,default:true}
 },{timestamps:true});
@@ -124,19 +105,12 @@ academicFeeSchema.pre("validate",async function(){
   this.total.fee=sum(this.departments.filter(d=>d.isActive).map(d=>d.total));
 });
 
-hostelSchema.pre("validate",async function(){
-  ensureTotal(this);
-  if(!this.isActive){ this.total.fee=0; return; }
-  this.total.fee=sum([this.roomFee,this.messFee,this.maintenanceFee]);
-});
-
 feeStructureMasterSchema.pre("validate",async function(){
   ensureTotal(this);
 
   const academicTotals =this.academicStructures.filter(a=>a.isActive).map(a=>a.total);
-  const hostelTotals   =this.hostelStructures.filter(h=>h.isActive).map(h=>h.total);
 
-  this.total.fee=sum([...academicTotals,...hostelTotals]);
+  this.total.fee=sum([...academicTotals]);
 });
 
 

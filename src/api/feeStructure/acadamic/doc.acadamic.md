@@ -37,7 +37,6 @@ The **Fee Structure** module allows superadmins to define the master fee templat
 |---|---|---|---|
 | `academicYear` | `string` | Yes | Format `YYYY-YYYY` (e.g. `2025-2026`) |
 | `academicStructures` | `array` | No | Array of quota/department/semester fee definitions |
-| `hostelStructures` | `array` | No | Array of hostel block/room-type fee definitions |
 
 **`academicStructures[]` object**
 
@@ -66,16 +65,7 @@ The **Fee Structure** module allows superadmins to define the master fee templat
 | `book.fee` | number | No | Book fee amount |
 | `lab.fee` | number | No | Lab fee amount |
 
-**`hostelStructures[]` object**
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `block` | string | No | Block name (e.g. `A`) |
-| `roomType.sharingType` | string | No | `Two`, `Three`, `Four`, `Five` |
-| `roomType.isAttached` | boolean | No | Attached bathroom |
-| `roomFee.fee` | number | No | Room fee |
-| `messFee.fee` | number | No | Mess fee |
-| `maintenanceFee.fee` | number | No | Maintenance fee |
 
 ##### Example Request Body
 ```json
@@ -102,15 +92,6 @@ The **Fee Structure** module allows superadmins to define the master fee templat
         }
       ]
     }
-  ],
-  "hostelStructures": [
-    {
-      "block": "A",
-      "roomType": { "sharingType": "Two", "isAttached": true },
-      "roomFee": { "fee": 40000 },
-      "messFee": { "fee": 25000 },
-      "maintenanceFee": { "fee": 5000 }
-    }
   ]
 }
 ```
@@ -125,8 +106,6 @@ The **Fee Structure** module allows superadmins to define the master fee templat
 | `departments` not an array | 400 |
 | Invalid `departmentName` | 400 |
 | `semesters` length ≠ 8 | 400 |
-| `hostelStructures` not an array | 400 |
-| Invalid `hostelStructures[].roomType.sharingType` | 400 |
 | Duplicate `academicYear` | 400 (unique constraint) |
 
 #### Response
@@ -138,8 +117,10 @@ The **Fee Structure** module allows superadmins to define the master fee templat
   "data": {
     "_id": "665f1a2b3c4d5e6f7a8b9c10",
     "academicYear": "2025-2026",
-    "academicStructures": [ "..." ],
-    "hostelStructures": [ "..." ],
+    "academicStructures": [ "..." ]
+  }
+}
+```
     "total": { "fee": 642000 },
     "isActive": true,
     "createdAt": "2025-06-01T10:00:00.000Z",
@@ -198,8 +179,11 @@ No parameters.
     {
       "_id": "665f1a2b3c4d5e6f7a8b9c10",
       "academicYear": "2025-2026",
-      "academicStructures": [ "..." ],
-      "hostelStructures": [ "..." ],
+      "academicStructures": [ "..." ]
+    }
+  }
+}
+```
       "total": { "fee": 642000 },
       "isActive": true
     }
@@ -233,8 +217,10 @@ No parameters.
   "data": {
     "_id": "665f1a2b3c4d5e6f7a8b9c10",
     "academicYear": "2025-2026",
-    "academicStructures": [ "..." ],
-    "hostelStructures": [ "..." ],
+    "academicStructures": [ "..." ]
+  }
+}
+```
     "total": { "fee": 642000 },
     "isActive": true
   },
@@ -368,3 +354,100 @@ Same as `POST`. Only provided fields are updated.
 - **Propagation on update:** A `PUT` re-calculates and updates fee amounts in all `StudentFeeTracking` documents for the matching year. Only the `total` demand fields are updated; already-paid amounts are preserved.
 - **Duplicate year:** Attempting to create two structures for the same `academicYear` returns a MongoDB duplicate-key error (`400`).
 - **Deletion impact:** Deleting a fee structure does **not** cascade-delete student tracking records. Existing tracking records retain their fee amounts even after the master structure is removed.
+
+---
+
+### POST `/api/feeStructureMaster/bulk`
+
+**Auth required:** Yes — Superadmin
+
+**Description:** Creates or updates one or many academic year fee structures from a flat CSV or Excel file. The upsert key is `academicYear` at the document level. Rows for the same `academicYear + quota + educationType + degreeProgram + departmentName` are merged into the existing document; missing semesters are padded with `fee: 0`. When an **existing** academic year is updated, student tracking records are propagated automatically (same as `PUT`).
+
+An **empty `quota` column** signals "not applicable for this quota" — those rows are silently skipped.
+
+Row-level errors (invalid enum values, bad semester numbers, etc.) are collected and returned in `rowErrors`. If all rows are invalid the endpoint returns `400`; if some rows are invalid it returns `207 Multi-Status`.
+
+#### Request
+
+**Content-Type:** `multipart/form-data`
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `file` | file | Yes | CSV or Excel (`.csv`, `.xls`, `.xlsx`), max 10 MB |
+
+##### CSV Column Schema
+
+| Column | Required | Description |
+|---|---|---|
+| `academicYear` | Yes | `YYYY-YYYY` format, e.g. `2025-2026` |
+| `quota` | Yes* | `Management Quota` or `Government Quota`. **Leave empty to skip the row** (quota not applicable). |
+| `educationType` | Yes | `UG` or `PG` |
+| `degreeProgram` | Yes | `BE`, `BTech`, `ME`, `MTech` |
+| `departmentName` | Yes | `CSE`, `IT`, `AIML`, `AIDS`, `ECE`, `EEE`, `MECH`, `CIVIL` |
+| `semesterNumber` | Yes | `1` – `8` |
+| `tuition` | Yes | Number ≥ 0 |
+| `exam` | Yes | Number ≥ 0 |
+| `erp` | Yes | Number ≥ 0 |
+| `book` | Yes | Number ≥ 0 |
+| `lab` | Yes | Number ≥ 0 |
+| `isActive` | No | `true` / `false`, defaults to `true` |
+
+##### Example CSV (2023-2027 batch, UG CSE, both quotas)
+
+The ready-to-use example file is located at `src/data/example_fee_structure_bulk.csv`.
+
+```
+academicYear,quota,educationType,degreeProgram,departmentName,semesterNumber,tuition,exam,erp,book,lab,isActive
+2023-2024,Government Quota,UG,BE,CSE,1,40000,2000,500,1000,1500,true
+2023-2024,Government Quota,UG,BE,CSE,2,40000,2000,500,1000,1500,true
+...
+2023-2024,Management Quota,UG,BE,CSE,1,75000,2000,500,1000,1500,true
+...
+2026-2027,Management Quota,UG,BE,CSE,8,84000,2000,500,1000,1500,true
+```
+
+> To mark a quota as **not applicable** for a department/year, simply leave its rows out (or put an empty `quota` cell — both are silently skipped).
+
+#### Response
+
+**200 — All rows valid, upsert complete**
+```json
+{
+  "success": true,
+  "data": {
+    "created": ["2023-2024", "2024-2025"],
+    "updated": ["2025-2026"],
+    "propagated": { "2025-2026": 3 },
+    "rowErrors": []
+  },
+  "message": "Bulk upsert complete. Created: 2, Updated: 1"
+}
+```
+
+**207 — Upsert complete but some rows had validation errors**
+```json
+{
+  "success": false,
+  "data": {
+    "created": ["2023-2024"],
+    "updated": [],
+    "propagated": {},
+    "rowErrors": [
+      { "row": 5, "error": "Invalid quota: \"Wrong Quota\"" }
+    ]
+  },
+  "message": "Bulk upsert complete. Created: 1, Updated: 0, Errors: 1"
+}
+```
+
+**400 — No file / empty file / missing column / all rows invalid**
+```json
+{
+  "success": false,
+  "data": null,
+  "message": "No valid rows found after validation."
+}
+```
+
+---
+

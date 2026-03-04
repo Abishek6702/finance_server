@@ -7,7 +7,7 @@ const DEPARTMENTS = ["CSE", "IT", "AIML", "AIDS", "ECE", "EEE", "MECH", "CIVIL"]
 const HOSTEL_SHARING = ["Two", "Three", "Four", "Five"];
 
 const validateFeeStructure = (req, res, next) => {
-  const { academicYear, academicStructures, hostelStructures } = req.body;
+  const { academicYear, academicStructures } = req.body;
   
   if (!academicYear || !/^\d{4}-\d{4}$/.test(academicYear)) {
     return next(new AppError("Valid academicYear (YYYY-YYYY) is required.", 400));
@@ -33,19 +33,6 @@ const validateFeeStructure = (req, res, next) => {
         }
         if (!Array.isArray(dept.semesters) || dept.semesters.length !== 8) {
           return next(new AppError("Each department must have exactly 8 semesters.", 400));
-        }
-      }
-    }
-  }
-
-  if (hostelStructures !== undefined) {
-    if (!Array.isArray(hostelStructures)) {
-      return next(new AppError("hostelStructures must be an array.", 400));
-    }
-    for (const hostel of hostelStructures) {
-      if (hostel.roomType && hostel.roomType.sharingType) {
-        if (!HOSTEL_SHARING.includes(hostel.roomType.sharingType)) {
-          return next(new AppError(`Invalid hostel sharingType. Allowed: ${HOSTEL_SHARING.join(', ')}`, 400));
         }
       }
     }
