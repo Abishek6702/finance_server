@@ -10,7 +10,7 @@ describe("Auth API", () => {
 
   /* ─── LOGIN ────────────────────────────────────────── */
 
-  it("logs in superadmin and returns token + cookie", async () => {
+  it("logs in superadmin and returns token in body", async () => {
     const res = await login("superadmin@sece.ac.in", "superadmin@123");
     expect(res.status).toBe(200);
     expect(res.body.data.role).toBe("superadmin");
@@ -18,10 +18,7 @@ describe("Auth API", () => {
     expect(typeof res.body.data.token).toBe("string");
     expect(res.body.data._id).toBeDefined();
     expect(res.body.data.email).toBe("superadmin@sece.ac.in");
-    expect(res.headers["set-cookie"]).toBeDefined();
-    const cookie = res.headers["set-cookie"][0];
-    expect(cookie).toMatch(/token=/);
-    expect(cookie).toMatch(/HttpOnly/i);
+    expect(res.headers["set-cookie"]).toBeUndefined();
   });
 
   it("logs in admin and returns correct role", async () => {

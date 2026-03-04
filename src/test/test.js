@@ -184,12 +184,12 @@ describe("QPulse API integration (full coverage)", () => {
   });
 
   describe("Auth API", () => {
-    it("logs in superadmin and sets token cookie", async () => {
+    it("logs in superadmin and returns token in body", async () => {
       const response = await login("superadmin@sece.ac.in", "superadmin@123");
       expect(response.status).toBe(200);
       expect(response.body.data.role).toBe("superadmin");
       expect(response.body.data.token).toBeDefined();
-      expect(response.headers["set-cookie"]).toBeDefined();
+      expect(response.headers["set-cookie"]).toBeUndefined();
     });
 
     it("logs in admin successfully", async () => {

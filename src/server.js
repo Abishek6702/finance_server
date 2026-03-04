@@ -1,5 +1,4 @@
 const express = require("express");
-const cookieParser = require("cookie-parser");
 const dotenv = require("dotenv");
 const mongoose = require("mongoose");
 
@@ -28,9 +27,7 @@ let server = null;
 let initialized = false; // prevents redundant re-seeding in test mode
 
 app.use(express.json());
-app.use(cookieParser());
 app.use(corsMiddleware);
-app.use((req, res, next) => { console.log("Incoming token:", req.cookies); next(); });
 app.use("/api/auth", authRoutes);
 app.use("/api/feeStructureMaster", feeStructureRoutes);
 app.use("/api/studentsManagement", studentsManagementRoutes);

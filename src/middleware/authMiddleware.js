@@ -3,10 +3,8 @@ const User = require("../api/auth/model.user.js");
 
 const protect = async (req, res, next) => {
   let token;
-  
-  if (req.cookies && req.cookies.token) {
-    token = req.cookies.token;
-  } else if (
+
+  if (
     req.headers.authorization &&
     req.headers.authorization.startsWith("Bearer")
   ) {
