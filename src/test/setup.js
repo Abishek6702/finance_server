@@ -5,13 +5,13 @@
 require("dotenv").config();
 const request = require("supertest");
 const Student = require("../api/students/model.student");
-const FeeStructureMaster = require("../api/feeStructure/model.feeStructureMaster");
+const FeeStructureMaster = require("../api/feeStructure/acadamic/model.acadamic");
 const StudentTransaction = require("../api/transaction/model.studentTransaction");
 const StudentFeeTracking = require("../api/studentFeeTracking/model.studentFeeTracking");
 const ReceiptRecallRequest = require("../api/receiptRecall/model.receiptRecall");
 const ActivityLog = require("../models/ActivityLog");
-const { Transport } = require("../api/transport/model.transport");
-const { Hostel } = require("../api/hostel/model.hostel");
+const { Transport } = require("../api/feeStructure/transport/model.transport");
+const { Hostel } = require("../api/feeStructure/hostel/model.hostel");
 const { app, startServer, stopServer } = require("../server");
 
 jest.setTimeout(180000);
@@ -109,6 +109,7 @@ const buildFeeStructurePayload = (year, { isActive = true } = {}) => {
 const buildStudentPayload = (rollNo, { academicYear, transport, hostel, enrollment } = {}) => ({
   personal: {
     rollNo,
+    registerNumber: `REG${TS.slice(-6)}`,
     studentName: "Jest Tester",
     gender: "Male",
     dob: "2007-05-15",
@@ -208,6 +209,7 @@ const CSV_HEADERS = [
 
 const buildFlatRow = (rollNo, overrides = {}) => ({
   rollNo,
+  registerNumber: `REG-${rollNo}`,
   studentName: `Bulk ${rollNo}`,
   gender: "Male",
   dob: "15-06-2005",
@@ -357,11 +359,14 @@ const globalSetup = async () => {
   // startServer() is already called once for all suites by globalLifecycle.js
   // (setupFilesAfterEnv). Calling it again here would re-run seeding 9 times.
 
-  const superadminLogin = await login("superadmin@sece.ac.in", "superadmin@123");
+  const [superadminLogin, adminLogin] = await Promise.all([
+    login("superadmin@sece.ac.in", "superadmin@123"),
+    login("admin@sece.ac.in", "admin@123"),
+  ]);
+
   expect(superadminLogin.status).toBe(200);
   testCtx.superadminToken = superadminLogin.body.data.token;
 
-  const adminLogin = await login("admin@sece.ac.in", "admin@123");
   expect(adminLogin.status).toBe(200);
   testCtx.adminToken = adminLogin.body.data.token;
 };
@@ -380,9 +385,11 @@ const globalTeardown = async () => {
     ).lean();
     const trackedRolls = docs.map((s) => s.personal.rollNo);
     if (trackedRolls.length) {
-      await StudentTransaction.deleteMany({ rollNo: { $in: trackedRolls } });
-      await StudentFeeTracking.deleteMany({ rollNo: { $in: trackedRolls } });
-      await ReceiptRecallRequest.deleteMany({ rollNo: { $in: trackedRolls } });
+      await Promise.all([
+        StudentTransaction.deleteMany({ rollNo: { $in: trackedRolls } }),
+        StudentFeeTracking.deleteMany({ rollNo: { $in: trackedRolls } }),
+        ReceiptRecallRequest.deleteMany({ rollNo: { $in: trackedRolls } }),
+      ]);
     }
     await Student.deleteMany({ _id: { $in: testCtx.createdIds.students } });
     testCtx.createdIds.students = [];
@@ -399,17 +406,21 @@ const globalTeardown = async () => {
     testCtx.studentRollRecall,   // receipt-recall test student
     testCtx.studentRollOverpay,  // transaction over-pay test student
   ];
-  await StudentTransaction.deleteMany({ rollNo: { $in: allRolls } });
-  await StudentFeeTracking.deleteMany({ rollNo: { $in: allRolls } });
-  await ReceiptRecallRequest.deleteMany({ rollNo: { $in: allRolls } });
-  await Student.deleteMany({ "personal.rollNo": { $in: allRolls } });
-  await FeeStructureMaster.deleteMany({
-    academicYear: { $in: [testCtx.academicYearPrimary, testCtx.academicYearSecondary] },
-  });
+  await Promise.all([
+    StudentTransaction.deleteMany({ rollNo: { $in: allRolls } }),
+    StudentFeeTracking.deleteMany({ rollNo: { $in: allRolls } }),
+    ReceiptRecallRequest.deleteMany({ rollNo: { $in: allRolls } }),
+    Student.deleteMany({ "personal.rollNo": { $in: allRolls } }),
+    FeeStructureMaster.deleteMany({
+      academicYear: { $in: [testCtx.academicYearPrimary, testCtx.academicYearSecondary] },
+    }),
+  ]);
 
   // ── 3. Seed-table cleanup (transport / hostel records added by tests) ─────
-  if (testCtx.testTransportId) await Transport.findOneAndDelete({ id: testCtx.testTransportId });
-  if (testCtx.testHostelId)    await Hostel.findOneAndDelete({ id: testCtx.testHostelId });
+  await Promise.all([
+    testCtx.testTransportId ? Transport.findOneAndDelete({ id: testCtx.testTransportId }) : null,
+    testCtx.testHostelId ? Hostel.findOneAndDelete({ id: testCtx.testHostelId }) : null,
+  ]);
   // Server lifecycle is managed globally by globalLifecycle.js (setupFilesAfterEnv),
   // so stopServer() is NOT called here — avoids 9× reconnect overhead.
 };

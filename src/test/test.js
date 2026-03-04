@@ -3,7 +3,7 @@ require("dotenv").config();
 
 const request = require("supertest");
 const Student = require("../api/students/model.student");
-const FeeStructureMaster = require("../api/feeStructure/model.feeStructureMaster");
+const FeeStructureMaster = require("../api/feeStructure/acadamic/model.acadamic");
 const StudentTransaction = require("../api/transaction/model.studentTransaction");
 const StudentFeeTracking = require("../api/studentFeeTracking/model.studentFeeTracking");
 const ActivityLog = require("../models/ActivityLog");

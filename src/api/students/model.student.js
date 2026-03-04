@@ -22,7 +22,8 @@ const personalSchema=new mongoose.Schema({
   community:{type:String,trim:true,maxlength:50},
   casteName:{type:String,trim:true,maxlength:50},
   nationality:{type:String,trim:true},
-  studentPhoto:{type:String,trim:true}
+  studentPhoto:{type:String,trim:true},
+  registerNumber:{type:String,trim:true}
 },{_id:false});
 
 

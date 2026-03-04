@@ -27,11 +27,15 @@ describe("Fee Payment / Transaction API", () => {
   });
 
   afterAll(async () => {
-    for (const rollNo of [testCtx.studentRollFinance, testCtx.studentRollHostel, testCtx.studentRollTransport]) {
-      await StudentTransaction.deleteMany({ rollNo });
-      await StudentFeeTracking.deleteMany({ rollNo });
-      await Student.deleteMany({ "personal.rollNo": rollNo });
-    }
+    await Promise.all(
+      [testCtx.studentRollFinance, testCtx.studentRollHostel, testCtx.studentRollTransport].map((rollNo) =>
+        Promise.all([
+          StudentTransaction.deleteMany({ rollNo }),
+          StudentFeeTracking.deleteMany({ rollNo }),
+          Student.deleteMany({ "personal.rollNo": rollNo }),
+        ])
+      )
+    );
     await FeeStructureMaster.deleteMany({ academicYear: testCtx.academicYearPrimary });
     await globalTeardown();
   });
@@ -103,8 +107,10 @@ describe("Fee Payment / Transaction API", () => {
     expect(payRes.body.message).toMatch(/exceeds/i);
 
     // Cleanup
-    await StudentTransaction.deleteMany({ rollNo });
-    await StudentFeeTracking.deleteMany({ rollNo });
-    await Student.deleteMany({ "personal.rollNo": rollNo });
+    await Promise.all([
+      StudentTransaction.deleteMany({ rollNo }),
+      StudentFeeTracking.deleteMany({ rollNo }),
+      Student.deleteMany({ "personal.rollNo": rollNo }),
+    ]);
   });
 });

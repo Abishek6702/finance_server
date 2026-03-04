@@ -1,17 +1,31 @@
 const mongoose = require("mongoose");
+const { MongoMemoryServer } = require("mongodb-memory-server");
 
 let isConnected = false;
+let memoryServer = null;
+
+const isTestRuntime = () => Boolean(process.env.JEST_WORKER_ID);
 
 const connectDB = async () => {
   if (isConnected) return;
 
-  if (!process.env.MONGO_URI) {
-    throw new Error("MONGO_URI not defined");
-  }
+  if (isTestRuntime()) {
+    if (!memoryServer) {
+      memoryServer = await MongoMemoryServer.create();
+    }
 
-  await mongoose.connect(process.env.MONGO_URI, {
-    autoIndex: false,
-  });
+    await mongoose.connect(memoryServer.getUri(), {
+      autoIndex: false,
+    });
+  } else {
+    if (!process.env.MONGO_URI) {
+      throw new Error("MONGO_URI not defined");
+    }
+
+    await mongoose.connect(process.env.MONGO_URI, {
+      autoIndex: false,
+    });
+  }
 
   isConnected = true;
 
@@ -24,4 +38,21 @@ const connectDB = async () => {
   });
 };
 
-module.exports = connectDB;
+const disconnectDB = async () => {
+  if (mongoose.connection.readyState !== 0) {
+    await mongoose.connection.close();
+  }
+
+  isConnected = false;
+
+  if (memoryServer) {
+    await memoryServer.stop();
+    memoryServer = null;
+  }
+};
+
+module.exports = {
+  connectDB,
+  disconnectDB,
+  isTestRuntime,
+};

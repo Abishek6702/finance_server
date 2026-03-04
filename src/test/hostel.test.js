@@ -28,28 +28,32 @@ describe("Hostel API", () => {
 
   afterAll(async () => {
     // Clean test-created records
-    for (const id of addedHostelIds) {
-      await Hostel.findOneAndDelete({ id });
-    }
+    await Promise.all(addedHostelIds.map((id) => Hostel.findOneAndDelete({ id })));
     // Restore deleted seed records
+    const restoreOps = [];
     if (deletedRecord) {
-      await Hostel.create({
-        id: deletedRecord.id,
-        block: deletedRecord.block,
-        sharing: deletedRecord.sharing,
-        isAttached: deletedRecord.isAttached,
-        fee: deletedRecord.fee,
-      });
+      restoreOps.push(
+        Hostel.create({
+          id: deletedRecord.id,
+          block: deletedRecord.block,
+          sharing: deletedRecord.sharing,
+          isAttached: deletedRecord.isAttached,
+          fee: deletedRecord.fee,
+        })
+      );
     }
     if (deletedRecord2) {
-      await Hostel.create({
-        id: deletedRecord2.id,
-        block: deletedRecord2.block,
-        sharing: deletedRecord2.sharing,
-        isAttached: deletedRecord2.isAttached,
-        fee: deletedRecord2.fee,
-      });
+      restoreOps.push(
+        Hostel.create({
+          id: deletedRecord2.id,
+          block: deletedRecord2.block,
+          sharing: deletedRecord2.sharing,
+          isAttached: deletedRecord2.isAttached,
+          fee: deletedRecord2.fee,
+        })
+      );
     }
+    await Promise.all(restoreOps);
     await globalTeardown();
   });
 

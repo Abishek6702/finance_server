@@ -62,11 +62,13 @@ describe("Receipt Recall API", () => {
 
   afterAll(async () => {
     // Cleanup recall-specific data
-    await ReceiptRecallRequest.deleteMany({ rollNo: recallRollNo });
-    await StudentTransaction.deleteMany({ rollNo: recallRollNo });
-    await StudentFeeTracking.deleteMany({ rollNo: recallRollNo });
-    await Student.deleteMany({ "personal.rollNo": recallRollNo });
-    await FeeStructureMaster.deleteMany({ academicYear: testCtx.academicYearPrimary });
+    await Promise.all([
+      ReceiptRecallRequest.deleteMany({ rollNo: recallRollNo }),
+      StudentTransaction.deleteMany({ rollNo: recallRollNo }),
+      StudentFeeTracking.deleteMany({ rollNo: recallRollNo }),
+      Student.deleteMany({ "personal.rollNo": recallRollNo }),
+      FeeStructureMaster.deleteMany({ academicYear: testCtx.academicYearPrimary }),
+    ]);
     await globalTeardown();
   });
 

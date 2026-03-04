@@ -91,6 +91,9 @@ const validateStudentPayload = (payload, { partial = false } = {}) => {
       pushRequired(errors, academic.degreeProgram, "academic.degreeProgram");
       pushRequired(errors, academic.batch, "academic.batch");
       pushRequired(errors, academic.currentAcademicYear, "academic.currentAcademicYear");
+      pushRequired(errors, academic.departmentName, "academic.departmentName");
+      pushRequired(errors, academic.yearStudying, "academic.yearStudying");
+      pushRequired(errors, academic.currentSemesterNumber, "academic.currentSemesterNumber");
     }
 
     pushEnum(errors, academic.educationType, EDUCATION_TYPES, "academic.educationType");
@@ -121,6 +124,9 @@ const validateStudentPayload = (payload, { partial = false } = {}) => {
   }
 
   if (enrollment && typeof enrollment === "object") {
+    if (!partial) {
+      pushRequired(errors, enrollment.quota, "enrollment.quota");
+    }
     pushEnum(errors, enrollment.quota, QUOTAS, "enrollment.quota");
 
     validateConcession(errors, enrollment.firstGraduate, "enrollment.firstGraduate");

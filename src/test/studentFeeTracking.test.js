@@ -37,10 +37,12 @@ describe("Student Fee Tracking API", () => {
   });
 
   afterAll(async () => {
-    await StudentTransaction.deleteMany({ rollNo: testCtx.studentRollFinance });
-    await StudentFeeTracking.deleteMany({ rollNo: testCtx.studentRollFinance });
-    await Student.deleteMany({ "personal.rollNo": testCtx.studentRollFinance });
-    await FeeStructureMaster.deleteMany({ academicYear: testCtx.academicYearPrimary });
+    await Promise.all([
+      StudentTransaction.deleteMany({ rollNo: testCtx.studentRollFinance }),
+      StudentFeeTracking.deleteMany({ rollNo: testCtx.studentRollFinance }),
+      Student.deleteMany({ "personal.rollNo": testCtx.studentRollFinance }),
+      FeeStructureMaster.deleteMany({ academicYear: testCtx.academicYearPrimary }),
+    ]);
     await globalTeardown();
   });
 

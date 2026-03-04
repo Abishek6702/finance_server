@@ -44,7 +44,7 @@ The **Students** module manages full student lifecycle: creation, retrieval, upd
 | `contact` | object | No | Contact details |
 | `family` | object | No | Family details |
 | `address` | object | No | Address details |
-| `enrollment` | object | No | Quota and concession details |
+| `enrollment` | object | Yes | Quota and concession details |
 | `transport` | object | No | Transport enrollment |
 | `hostel` | object | No | Hostel enrollment |
 
@@ -53,6 +53,7 @@ The **Students** module manages full student lifecycle: creation, retrieval, upd
 | Field | Type | Required | Constraints |
 |---|---|---|---|
 | `rollNo` | string | Yes | Format `DDLLNNN` (e.g. `25CS101`) — unique |
+| `registerNumber` | string | No | — |
 | `studentName` | string | No | — |
 | `gender` | string | No | `Male`, `Female`, `Other` |
 | `dob` | date | No | ISO date string |
@@ -71,12 +72,12 @@ The **Students** module manages full student lifecycle: creation, retrieval, upd
 | `degreeProgram` | string | Yes | `BE`, `BTech`, `ME`, `MTech` |
 | `batch` | string | Yes | Format `YYYY-YYYY` |
 | `currentAcademicYear` | string | Yes | Format `YYYY-YYYY` |
+| `departmentName` | string | Yes | `CSE`, `IT`, `AIML`, `AIDS`, `ECE`, `EEE`, `MECH`, `CIVIL` |
+| `yearStudying` | number | Yes | `1`–`4` |
+| `currentSemesterNumber` | number | Yes | `1`–`8` |
 | `educationType` | string | No | `UG`, `PG` |
 | `academicType` | string | No | `REG`, `PART_TIME` |
 | `isLateralEntry` | boolean | No | — |
-| `departmentName` | string | No | `CSE`, `IT`, `AIML`, `AIDS`, `ECE`, `EEE`, `MECH`, `CIVIL` |
-| `yearStudying` | number | No | `1`–`4` |
-| `currentSemesterNumber` | number | No | `1`–`8` |
 | `section` | string | No | `A`–`F` |
 
 **`contact` object**
@@ -89,14 +90,14 @@ The **Students** module manages full student lifecycle: creation, retrieval, upd
 
 **`enrollment` object**
 
-| Field | Type | Description |
-|---|---|---|
-| `quota` | string | `Management Quota`, `Government Quota` |
-| `firstGraduate` | object | `isApplicable` + yearly concession amounts |
-| `scheme7point5` | object | `isApplicable` + yearly concession amounts |
-| `pmssScheme` | object | `isApplicable` + yearly concession amounts |
-| `sakthiScheme` | object | `isApplicable` + yearly concession amounts |
-| `specialConcession` | object | `isApplicable` + yearly concession amounts |
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `quota` | string | Yes | `Management Quota`, `Government Quota` |
+| `firstGraduate` | object | No | `isApplicable` + yearly concession amounts |
+| `scheme7point5` | object | No | `isApplicable` + yearly concession amounts |
+| `pmssScheme` | object | No | `isApplicable` + yearly concession amounts |
+| `sakthiScheme` | object | No | `isApplicable` + yearly concession amounts |
+| `specialConcession` | object | No | `isApplicable` + yearly concession amounts |
 
 **Concession sub-object fields** (all `number`, non-negative):
 `yearlyLabConcessionAmount`, `yearlyBookConcessionAmount`, `yearlyErpConcessionAmount`, `yearlyExamConcessionAmount`, `yearlyTransportConcessionAmount`, `yearlyHostelConcessionAmount`, `yearlyTuitionConcessionAmount`
@@ -126,6 +127,7 @@ The **Students** module manages full student lifecycle: creation, retrieval, upd
 {
   "personal": {
     "rollNo": "25CS101",
+    "registerNumber": "713521104001",
     "studentName": "Arun Kumar",
     "gender": "Male",
     "dob": "2006-07-15",
@@ -156,7 +158,7 @@ The **Students** module manages full student lifecycle: creation, retrieval, upd
     "father": { "name": "Kumar S", "mobile": "9876500001", "workType": "Business", "qualification": "HSC" }
   },
   "enrollment": {
-    "quota": "Management Quota",
+    "quota": "Government Quota",
     "firstGraduate": {
       "isApplicable": true,
       "yearlyTuitionConcessionAmount": 5000

@@ -34,6 +34,7 @@ const COLUMN_PATH_MAP = {
   castename:                   "personal.casteName",
   nationality:                 "personal.nationality",
   studentphoto:                "personal.studentPhoto",
+  registernumber:              "personal.registerNumber",
 
   // ── academic ──────────────────────────────────────────
   educationtype:               "academic.educationType",

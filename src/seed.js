@@ -3,11 +3,13 @@ const User = require("./api/auth/model.user");
 const seedUsers = async () => {
   const users = [
     {
+      name: "Super Admin",
       email: "superadmin@sece.ac.in",
       password: "superadmin@123",
       role: "superadmin",
     },
     {
+      name: "Admin",
       email: "admin@sece.ac.in",
       password: "admin@123",
       role: "admin",

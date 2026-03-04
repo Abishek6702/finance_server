@@ -1,6 +1,6 @@
 const Student=require("../students/model.student");
-const { Transport }=require("../transport/model.transport");
-const { Hostel }=require("../hostel/model.hostel");
+const { Transport }=require("../feeStructure/transport/model.transport");
+const { Hostel }=require("../feeStructure/hostel/model.hostel");
 const StudentFeeTracking=require("../studentFeeTracking/model.studentFeeTracking");
 const generateLedger = require("./utils.students").generateLedger;
 const mongoose=require("mongoose");

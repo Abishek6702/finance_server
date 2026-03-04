@@ -15,9 +15,7 @@ describe("Transport API", () => {
   });
 
   afterAll(async () => {
-    for (const id of addedTransportIds) {
-      await Transport.findOneAndDelete({ id });
-    }
+    await Promise.all(addedTransportIds.map((id) => Transport.findOneAndDelete({ id })));
     await globalTeardown();
   });
 
@@ -460,8 +458,10 @@ describe("Transport API", () => {
       }
 
       // Cleanup
-      await Student.deleteMany({ "personal.rollNo": testCtx.studentRollTransport });
-      await StudentFeeTracking.deleteMany({ rollNo: testCtx.studentRollTransport });
+      await Promise.all([
+        Student.deleteMany({ "personal.rollNo": testCtx.studentRollTransport }),
+        StudentFeeTracking.deleteMany({ rollNo: testCtx.studentRollTransport }),
+      ]);
     }
     await FeeStructureMaster.deleteMany({ academicYear: testCtx.academicYearPrimary });
   });

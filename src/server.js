@@ -1,21 +1,20 @@
 const express = require("express");
 const dotenv = require("dotenv");
-const mongoose = require("mongoose");
 
 dotenv.config();
 
-const connectDB = require("./config/db");
+const { connectDB, disconnectDB, isTestRuntime } = require("./config/db");
 const seedUsers = require("./seed");
-const { seedTransport } = require("./api/transport/model.transport");
-const { seedHostel } = require("./api/hostel/model.hostel");
+const { seedTransport } = require("./api/feeStructure/transport/model.transport");
+const { seedHostel } = require("./api/feeStructure/hostel/model.hostel");
 
 const authRoutes = require("./api/auth/routes.auth");
-const feeStructureRoutes = require("./api/feeStructure/routes.feeStructure");
+const feeStructureRoutes = require("./api/feeStructure/acadamic/routes.acadamic");
 const studentsManagementRoutes = require("./api/students/routes.students");
 const paymentTransactionRoutes = require("./api/transaction/routes.transaction");
 const studentFeeTrackingRoutes = require("./api/studentFeeTracking/routes.studentFeeTracking");
-const transportRoutes = require("./api/transport/routes.transport");
-const hostelRoutes = require("./api/hostel/routes.hostel");
+const transportRoutes = require("./api/feeStructure/transport/routes.transport");
+const hostelRoutes = require("./api/feeStructure/hostel/routes.hostel");
 const receiptRecallRoutes = require("./api/receiptRecall/routes.receiptRecall");
 const superadminRoutes = require("./api/superadmin/routes.superadmin");
 
@@ -46,7 +45,7 @@ const PORT = process.env.PORT || 5010;
 const startServer = async () => {
   
   if (server) return server;
-  if (process.env.NODE_ENV === "test" && initialized) return app;
+  if (isTestRuntime() && initialized) return app;
   initialized = true;
 
   await connectDB();
@@ -64,7 +63,7 @@ await seedHostel();
 console.log("Seeding finished");
 
   // If running under Jest, DO NOT bind to port
-  if (process.env.NODE_ENV === "test") {
+  if (isTestRuntime()) {
     return app;
   }
 
@@ -86,9 +85,7 @@ const stopServer = async () => {
     server = null;
   }
 
-  if (mongoose.connection.readyState !== 0) {
-    await mongoose.connection.close();
-  }
+  await disconnectDB();
 };
 
 if (require.main === module) {

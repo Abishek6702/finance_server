@@ -37,6 +37,50 @@ describe("Students API", () => {
     expect(res.status).toBe(400);
   });
 
+  it("rejects create when academic.departmentName is missing", async () => {
+    const payload = buildStudentPayload("99CS001", { academicYear: testCtx.academicYearPrimary });
+    delete payload.academic.departmentName;
+    const res = await request(app)
+      .post("/api/studentsManagement")
+      .set(superadminAuth())
+      .send(payload);
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/departmentName/i);
+  });
+
+  it("rejects create when academic.yearStudying is missing", async () => {
+    const payload = buildStudentPayload("99CS002", { academicYear: testCtx.academicYearPrimary });
+    delete payload.academic.yearStudying;
+    const res = await request(app)
+      .post("/api/studentsManagement")
+      .set(superadminAuth())
+      .send(payload);
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/yearStudying/i);
+  });
+
+  it("rejects create when academic.currentSemesterNumber is missing", async () => {
+    const payload = buildStudentPayload("99CS003", { academicYear: testCtx.academicYearPrimary });
+    delete payload.academic.currentSemesterNumber;
+    const res = await request(app)
+      .post("/api/studentsManagement")
+      .set(superadminAuth())
+      .send(payload);
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/currentSemesterNumber/i);
+  });
+
+  it("rejects create when enrollment.quota is missing", async () => {
+    const payload = buildStudentPayload("99CS004", { academicYear: testCtx.academicYearPrimary });
+    delete payload.enrollment.quota;
+    const res = await request(app)
+      .post("/api/studentsManagement")
+      .set(superadminAuth())
+      .send(payload);
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/quota/i);
+  });
+
   it("rejects invalid rollNo format", async () => {
     const payload = buildStudentPayload("BADROLL", { academicYear: testCtx.academicYearPrimary });
     const res = await request(app)

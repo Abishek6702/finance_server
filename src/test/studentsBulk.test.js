@@ -17,10 +17,14 @@ describe("Students Bulk Import / Update API", () => {
 
   afterAll(async () => {
     // Cleanup any residual bulk students
-    for (const rollNo of [testCtx.bulkRollA, testCtx.bulkRollB, testCtx.bulkRollC, `20CS${TS.slice(-3)}`, `21CS${TS.slice(-3)}`, `22CS${TS.slice(-3)}`]) {
-      await StudentFeeTracking.deleteMany({ rollNo });
-      await Student.deleteMany({ "personal.rollNo": rollNo });
-    }
+    await Promise.all(
+      [testCtx.bulkRollA, testCtx.bulkRollB, testCtx.bulkRollC, `20CS${TS.slice(-3)}`, `21CS${TS.slice(-3)}`, `22CS${TS.slice(-3)}`].map((rollNo) =>
+        Promise.all([
+          StudentFeeTracking.deleteMany({ rollNo }),
+          Student.deleteMany({ "personal.rollNo": rollNo }),
+        ])
+      )
+    );
     await FeeStructureMaster.deleteMany({ academicYear: testCtx.academicYearPrimary });
     await globalTeardown();
   });

@@ -190,4 +190,4 @@ const seedTransport = async () => {
   await Transport.insertMany(docs);
 };
 
-module.exports = { Transport, seedTransport };
+module.exports = { Transport, seedTransport, generateTransportId };
