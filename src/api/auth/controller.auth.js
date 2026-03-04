@@ -5,10 +5,10 @@ exports.login = asyncHandler(async (req, res) => {
   const reqInfo = { url: req.originalUrl, method: req.method };
   const data = await authService.login(req.body, reqInfo);
   
-  res.cookie("token", data.token, {
+res.cookie("token", data.token, {
   httpOnly: true,
   sameSite: "none",
-  secure: false,
+  secure: true,
   maxAge: 30 * 24 * 60 * 60 * 1000
 });
   
