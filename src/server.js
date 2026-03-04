@@ -52,9 +52,9 @@ const startServer = async () => {
   initialized = true;
 
   await connectDB();
-  await seedUsers();
-  await seedTransport();
-  await seedHostel();
+  // await seedUsers();
+  // await seedTransport();
+  // await seedHostel();
 
   // If running under Jest, DO NOT bind to port
   if (process.env.NODE_ENV === "test") {
