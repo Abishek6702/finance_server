@@ -1,305 +1,499 @@
-# Transaction Module — API Documentation
+# Transaction API Documentation
 
-## 1. Module Overview
-
-The **Transaction** module handles fee payment recording, receipt generation, and payment history retrieval. Each payment can span multiple academic years and cover academic fees (broken down by semester), hostel fees, and transport fees in a single receipt.
-
-**Dependencies / Coupling**
-- **Students module** — validates that the student (`rollNo`) exists before recording a payment.
-- **Student Fee Tracking module** — updates `paid` amounts and `status` per fee component after each payment.
-- **`StudentTransaction` collection** — appends a payment record to the student's transaction document.
-
-**Database Collections**
-
-| Collection | Model | Purpose |
-|---|---|---|
-| `studenttransactions` | `StudentTransaction` | Per-student transaction history |
-| `studentfeetrackings` | `StudentFeeTracking` | Updated after each payment |
+Base path: `/api/transactions`
+All routes require `Authorization: Bearer <token>` (admin role).
 
 ---
 
-## 2. API Documentation
+## Table of Contents
 
-> **All endpoints require `Admin` authentication** (admin or superadmin).  
-> Include `Authorization: Bearer <token>` or the `token` cookie.
+1. [POST /pay — Record a Payment](#1-post-pay--record-a-payment)
+2. [GET / — Get All Transactions](#2-get---get-all-transactions)
+3. [GET /:rollNo — Get Student Transactions](#3-get-rollno--get-student-transactions)
+4. [Error Reference](#4-error-reference)
 
 ---
 
-### POST `/api/transaction/pay`
+## 1. POST /pay — Record a Payment
 
-**Auth required:** Yes — Admin
+Records a fee payment for a student across one or more academic years and fee categories.
 
-**Description:** Records a fee payment for a student. A single receipt can include payments across multiple academic years and multiple fee heads (academic, hostel, transport). After recording, the corresponding `StudentFeeTracking` record is updated.
+**`POST /api/transactions/pay`**
 
-#### Request
+### Headers
 
-##### Body Schema
+| Key             | Value                  | Required |
+|-----------------|------------------------|----------|
+| Authorization   | `Bearer <token>`        | Yes      |
+| Content-Type    | `application/json`      | Yes      |
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `rollNo` | string | Yes | Student roll number |
-| `receiptNo` | string | Yes | Unique receipt number (e.g. `REC-2025-001`) |
-| `paymentType` | string | Yes | `Cash`, `Card`, `UPI`, `NetBanking`, `Cheque`, `DD` |
-| `bankName` | string | No | Bank name (for Cheque/DD/NetBanking) |
-| `bankLocation` | string | No | Bank branch location |
-| `billingDate` | string / Date | No | Billing date — `dd/mm/yyyy`, ISO 8601, or Date object. Defaults to current date/time if omitted |
-| `remarks` | string | No | Free-text remarks |
-| `breakdowns` | array | Yes | Payment breakdown per academic year (see below) |
+---
 
-**`breakdowns[]` object**
+### Request Body
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `academicYear` | string | Yes | Format `YYYY-YYYY` |
-| `academic` | object | No | Academic fee component |
-| `academic.semesterNumber` | number | Conditional | `1`–`8`; required when any academic fee amount > 0 |
-| `academic.tuition` | number | No | Amount paid towards tuition (≥ 0, max 2 decimals) |
-| `academic.exam` | number | No | Amount paid towards exam fee |
-| `academic.erp` | number | No | Amount paid towards ERP fee |
-| `academic.book` | number | No | Amount paid towards book fee |
-| `academic.lab` | number | No | Amount paid towards lab fee |
-| `hostel` | number | No | Amount paid towards hostel fee (≥ 0, max 2 decimals) |
-| `transport` | number | No | Amount paid towards transport fee (≥ 0, max 2 decimals) |
-
-##### Example Request Body
 ```json
 {
-  "rollNo": "25CS101",
-  "paymentType": "Cash",
-  "billingDate": "15/08/2025",
-  "remarks": "First semester fee payment",
+  "rollNo":      "string",
+  "paymentType": "Cash | Card | UPI | NetBanking | Cheque | DD",
+  "bankName":    "string (optional)",
+  "bankLocation":"string (optional)",
+  "billingDate": "string (optional) — dd/mm/yyyy or ISO 8601; defaults to today",
+  "remarks":     "string (optional)",
   "breakdowns": [
     {
-      "academicYear": "2025-2026",
+      "academicYear": "string — format YYYY-YYYY",
       "academic": {
-        "semesterNumber": 1,
-        "tuition": 75000,
-        "exam": 1500,
-        "erp": 500,
-        "book": 1000,
-        "lab": 2000
+        "semesterNumber": "integer 1–8 (required when any academic fee > 0)",
+        "tuition":        "number ≥ 0, ≤ 2 decimal places (optional, default 0)",
+        "exam":           "number ≥ 0, ≤ 2 decimal places (optional, default 0)",
+        "erp":            "number ≥ 0, ≤ 2 decimal places (optional, default 0)",
+        "book":           "number ≥ 0, ≤ 2 decimal places (optional, default 0)",
+        "lab":            "number ≥ 0, ≤ 2 decimal places (optional, default 0)"
       },
-      "hostel": 70000,
-      "transport": 12000
+      "hostel":    "number ≥ 0, ≤ 2 decimal places (optional, default 0)",
+      "transport": "number ≥ 0, ≤ 2 decimal places (optional, default 0)"
     }
   ]
 }
 ```
 
-#### Validation
+### Field Validation Rules
 
-| Rule | Error |
+| Field | Rules |
 |---|---|
-| `rollNo` missing | 400 — `rollNo is required` | 
-| `paymentType` missing or invalid | 400 — `Valid paymentType is required` |
-| `breakdowns` missing or empty array | 400 — `breakdowns array is required` |
-| `breakdown.academicYear` not in `YYYY-YYYY` format | 400 |
-| `academic.semesterNumber` out of range `1`–`8` | 400 |
-| `academic.semesterNumber` absent when academic amount > 0 | 400 |
-| Any fee amount is negative or has more than 2 decimal places | 400 |
-| Any amount exceeds the remaining due for that component | 400 (overpayment prevention) |
-| `rollNo` does not correspond to an existing student | 404 |
+| `rollNo` | Required |
+| `paymentType` | Required. Must be one of: `Cash`, `Card`, `UPI`, `NetBanking`, `Cheque`, `DD` |
+| `bankName` | Optional string |
+| `bankLocation` | Optional string |
+| `billingDate` | Optional. Accepted formats: `dd/mm/yyyy` or ISO 8601. Defaults to current date |
+| `remarks` | Optional string |
+| `breakdowns` | Required. Non-empty array of breakdown objects |
+| `breakdowns[].academicYear` | Required. Format: `YYYY-YYYY` (e.g., `2023-2024`) |
+| `breakdowns[].academic.semesterNumber` | Required when any academic fee amount > 0. Integer 1–8 |
+| `breakdowns[].academic.*` (tuition, exam, erp, book, lab) | Optional. Non-negative number, max 2 decimal places, max 1 000 000 000 000 |
+| `breakdowns[].hostel` | Optional. Same money rules as above |
+| `breakdowns[].transport` | Optional. Same money rules as above |
+| Total payment | Must be greater than 0 |
+| Each amount | Must not exceed the remaining due (total − already paid) for that component |
+| Duplicate breakdowns | Same year+semester, or same year for hostel/transport in one request is rejected |
 
-#### Response
+### Business Logic Constraints
 
-**201 — Success**
+- Each fee component amount is validated against the **remaining due** in `StudentFeeTracking`; overpayment is rejected.
+- The aggregate academic payment per year is also cross-checked against the **net academic total** (post-concession) to prevent overpayment across semesters.
+- Receipt number is auto-generated in format `REC-YYYYMMDD-NNN` (e.g., `REC-20260304-001`).
+- `studentTransactionDoc` is created lazily on first payment.
+
+---
+
+### Request Body Example
+
 ```json
 {
-  "success": true,
-  "data": {
-    "receiptNo": "REC-2025-001",
-    "paymentType": "Cash",
-    "billingDate": "2025-08-15T00:00:00.000Z",
-    "paidOn": "2025-06-01T10:00:00.000Z",
-    "totalAmount": 162000,
-    "breakdowns": [
-      {
-        "academicYear": "2025-2026",
-        "academic": {
-          "semesterNumber": 1,
-          "tuition": 75000,
-          "exam": 1500,
-          "erp": 500,
-          "book": 1000,
-          "lab": 2000
-        },
-        "hostel": 70000,
-        "transport": 12000,
-        "total": 162000
+  "rollNo": "22CSE001",
+  "paymentType": "UPI",
+  "remarks": "Semester 1 fee payment",
+  "billingDate": "04/03/2026",
+  "breakdowns": [
+    {
+      "academicYear": "2022-2023",
+      "academic": {
+        "semesterNumber": 1,
+        "tuition": 45000,
+        "exam": 1500,
+        "erp": 500,
+        "book": 1000,
+        "lab": 2000
       }
-    ]
-  },
-  "message": "Payment recorded successfully"
-}
-```
-
-**400 — Overpayment**
-```json
-{
-  "success": false,
-  "data": null,
-  "message": "tuition payment ₹80000 exceeds remaining concession-adjusted due ₹37527.47 for Semester 1 (2025-2026)"
-}
-```
-
-**400 — Validation error**
-```json
-{
-  "success": false,
-  "data": null,
-  "message": "academic.semesterNumber is required when academic fee amounts are provided"
-}
-```
-
-**404 — Student not found**
-```json
-{
-  "success": false,
-  "data": null,
-  "message": "Student not found"
+    },
+    {
+      "academicYear": "2022-2023",
+      "hostel": 25000,
+      "transport": 0
+    }
+  ]
 }
 ```
 
 ---
 
-### GET `/api/transaction`
+### Success Response — `201 Created`
 
-**Auth required:** Yes — Admin
-
-**Description:** Returns a paginated list of all payment transactions across all students, with optional filters.
-
-#### Request
-
-##### Query Parameters
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `department` | string | No | `CSE`, `IT`, `AIML`, `AIDS`, `ECE`, `EEE`, `MECH`, `CIVIL` |
-| `paymentMode` | string | No | `Cash`, `Card`, `UPI`, `NetBanking`, `Cheque`, `DD` |
-| `fromDate` | string | No | ISO date string — filters by `paidOn ≥ fromDate` |
-| `toDate` | string | No | ISO date string — filters by `paidOn ≤ toDate` |
-| `page` | number | No | Page number (default: 1) |
-| `limit` | number | No | Results per page (default: 20) |
-
-##### Example Request
-
-```
-GET /api/transaction?department=CSE&paymentMode=Cash&fromDate=2025-06-01&toDate=2025-06-30&page=1&limit=10
-```
-
-#### Validation
-
-| Rule | Error |
-|---|---|
-| `department` not in allowed list | 400 |
-| `paymentMode` not in allowed list | 400 |
-| `fromDate` or `toDate` is not a valid date | 400 |
-| `fromDate` is after `toDate` | 400 |
-| `page` or `limit` is not a positive integer | 400 |
-
-#### Response
-
-**200 — Success**
 ```json
 {
   "success": true,
+  "message": "Payment recorded successfully",
+  "data": {
+    "_id": "665f1a2b3c4d5e6f7a8b9c0d",
+    "student": "665f1a2b3c4d5e6f7a8b9c01",
+    "rollNo": "22CSE001",
+    "transactions": [
+      {
+        "receiptNo": "REC-20260304-001",
+        "paymentType": "UPI",
+        "bankName": null,
+        "bankLocation": null,
+        "billingDate": "2026-03-04T00:00:00.000Z",
+        "paidOn": "2026-03-04T10:23:45.000Z",
+        "remarks": "Semester 1 fee payment",
+        "totalAmount": 75000,
+        "breakdowns": [
+          {
+            "academicYear": "2022-2023",
+            "academic": {
+              "semesterNumber": 1,
+              "tuition": 45000,
+              "exam": 1500,
+              "erp": 500,
+              "book": 1000,
+              "lab": 2000
+            },
+            "hostel": 0,
+            "transport": 0,
+            "total": 50000
+          },
+          {
+            "academicYear": "2022-2023",
+            "academic": {
+              "semesterNumber": null,
+              "tuition": 0,
+              "exam": 0,
+              "erp": 0,
+              "book": 0,
+              "lab": 0
+            },
+            "hostel": 25000,
+            "transport": 0,
+            "total": 25000
+          }
+        ],
+        "createdAt": "2026-03-04T10:23:45.000Z",
+        "updatedAt": "2026-03-04T10:23:45.000Z"
+      }
+    ],
+    "createdAt": "2026-03-04T10:23:45.000Z",
+    "updatedAt": "2026-03-04T10:23:45.000Z"
+  }
+}
+```
+
+---
+
+## 2. GET / — Get All Transactions
+
+Returns all transactions across all students, with optional filters. Can be paginated.
+
+**`GET /api/transactions`**
+
+### Headers
+
+| Key           | Value            | Required |
+|---------------|------------------|----------|
+| Authorization | `Bearer <token>` | Yes      |
+
+---
+
+### Query Parameters
+
+| Parameter    | Type   | Required | Description |
+|--------------|--------|----------|-------------|
+| `department` | string | No       | Filter by department. One of: `CSE`, `IT`, `AIML`, `AIDS`, `ECE`, `EEE`, `MECH`, `CIVIL` |
+| `paymentMode`| string | No       | Filter by payment type. One of: `Cash`, `Card`, `UPI`, `NetBanking`, `Cheque`, `DD` |
+| `fromDate`   | string | No       | Start of date range (inclusive). Any valid date string |
+| `toDate`     | string | No       | End of date range (inclusive, up to 23:59:59). Any valid date string |
+| `page`       | integer| No       | Page number (≥ 1). Default: `1`. Only with `limit` |
+| `limit`      | integer| No       | Results per page (≥ 1, max 500). When omitted, all results are returned un-paginated |
+
+### Validation Rules
+
+| Parameter | Rules |
+|---|---|
+| `department` | Must be one of the valid department codes when provided |
+| `paymentMode` | Must be one of the valid payment types when provided |
+| `fromDate` / `toDate` | Must be parseable dates; `fromDate` cannot be after `toDate` |
+| `page` / `limit` | Must be positive integers |
+
+### Request Example
+
+```
+GET /api/transactions?department=CSE&paymentMode=UPI&fromDate=2026-01-01&toDate=2026-03-04&page=1&limit=10
+```
+
+---
+
+### Success Response — `200 OK` (with `limit`)
+
+```json
+{
+  "success": true,
+  "message": "Transactions fetched successfully",
   "data": {
     "transactions": [
       {
-        "rollNo": "25CS101",
-        "studentName": "Arun Kumar",
-        "department": "CSE",
-        "receiptNo": "REC-2025-001",
-        "paymentType": "Cash",
-        "totalAmount": 162000,
-        "paidOn": "2025-06-01T10:00:00.000Z"
+        "student": {
+          "_id": "665f1a2b3c4d5e6f7a8b9c01",
+          "personal": {
+            "rollNo": "22CSE001",
+            "studentName": "Arjun Kumar",
+            "studentPhoto": "https://cdn.example.com/photos/22cse001.jpg"
+          },
+          "academic": {
+            "departmentName": "CSE",
+            "year": 3,
+            "batch": "2022-2026"
+          },
+          "contact": {
+            "email": "arjun@example.com",
+            "phone": "9876543210"
+          }
+        },
+        "transaction": {
+          "receiptNo": "REC-20260304-001",
+          "paymentType": "UPI",
+          "bankName": null,
+          "bankLocation": null,
+          "billingDate": "2026-03-04T00:00:00.000Z",
+          "paidOn": "2026-03-04T10:23:45.000Z",
+          "remarks": "Semester 1 fee payment",
+          "totalAmount": 75000,
+          "breakdowns": [
+            {
+              "academicYear": "2022-2023",
+              "academic": {
+                "semesterNumber": 1,
+                "tuition": 45000,
+                "exam": 1500,
+                "erp": 500,
+                "book": 1000,
+                "lab": 2000
+              },
+              "hostel": 25000,
+              "transport": 0,
+              "total": 75000
+            }
+          ]
+        }
       }
     ],
     "pagination": {
+      "total": 42,
       "page": 1,
       "limit": 10,
-      "total": 45,
       "totalPages": 5
     }
-  },
-  "message": "Transactions fetched successfully"
+  }
+}
+```
+
+### Success Response — `200 OK` (without `limit`, all results)
+
+```json
+{
+  "success": true,
+  "message": "Transactions fetched successfully",
+  "data": {
+    "transactions": [ "...all matching transaction objects..." ],
+    "pagination": {
+      "total": 42,
+      "page": 1,
+      "limit": 42,
+      "totalPages": 1
+    }
+  }
 }
 ```
 
 ---
 
-### GET `/api/transaction/:rollNo`
+## 3. GET /:rollNo — Get Student Transactions
 
-**Auth required:** Yes — Admin
+Returns all transactions for a specific student.
 
-**Description:** Returns all payment transactions for a specific student, with optional date range and pagination filters.
+**`GET /api/transactions/:rollNo`**
 
-#### Request
+### Headers
 
-##### Path Parameters
+| Key           | Value            | Required |
+|---------------|------------------|----------|
+| Authorization | `Bearer <token>` | Yes      |
 
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `rollNo` | string | Yes | Student roll number |
+---
 
-##### Query Parameters
+### Path Parameter
 
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `fromDate` | string | No | ISO date string |
-| `toDate` | string | No | ISO date string |
-| `page` | number | No | Default: 1 |
-| `limit` | number | No | Default: 20 |
+| Parameter | Type   | Required | Description         |
+|-----------|--------|----------|---------------------|
+| `rollNo`  | string | Yes      | Student's roll number |
 
-#### Response
+### Query Parameters
 
-**200 — Success**
+| Parameter  | Type    | Required | Description |
+|------------|---------|----------|-------------|
+| `fromDate` | string  | No       | Start of date range (inclusive) |
+| `toDate`   | string  | No       | End of date range (inclusive, up to 23:59:59) |
+| `page`     | integer | No       | Page number (≥ 1). Default: `1` |
+| `limit`    | integer | No       | Results per page (≥ 1, max 500). When omitted, all results are returned |
+
+### Validation Rules
+
+| Parameter | Rules |
+|---|---|
+| `fromDate` / `toDate` | Must be parseable dates; `fromDate` cannot be after `toDate` |
+| `page` / `limit` | Must be positive integers |
+
+### Request Example
+
+```
+GET /api/transactions/22CSE001?fromDate=2026-01-01&limit=5&page=1
+```
+
+---
+
+### Success Response — `200 OK`
+
 ```json
 {
   "success": true,
+  "message": "Student transactions fetched successfully",
   "data": {
-    "rollNo": "25CS101",
+    "student": {
+      "_id": "665f1a2b3c4d5e6f7a8b9c01",
+      "personal": {
+        "rollNo": "22CSE001",
+        "studentName": "Arjun Kumar",
+        "studentPhoto": "https://cdn.example.com/photos/22cse001.jpg"
+      },
+      "academic": {
+        "departmentName": "CSE",
+        "year": 3,
+        "batch": "2022-2026"
+      },
+      "contact": {
+        "email": "arjun@example.com",
+        "phone": "9876543210"
+      }
+    },
     "transactions": [
       {
-        "receiptNo": "REC-2025-001",
-        "paymentType": "Cash",
-        "paidOn": "2025-06-01T10:00:00.000Z",
-        "totalAmount": 162000,
-        "remarks": "First semester fee payment",
+        "receiptNo": "REC-20260304-001",
+        "paymentType": "UPI",
+        "bankName": null,
+        "bankLocation": null,
+        "billingDate": "2026-03-04T00:00:00.000Z",
+        "paidOn": "2026-03-04T10:23:45.000Z",
+        "remarks": "Semester 1 fee payment",
+        "totalAmount": 75000,
         "breakdowns": [
           {
-            "academicYear": "2025-2026",
-            "academic": { "semesterNumber": 1, "tuition": 75000, "exam": 1500, "erp": 500, "book": 1000, "lab": 2000 },
-            "hostel": 70000,
-            "transport": 12000,
-            "total": 162000
+            "academicYear": "2022-2023",
+            "academic": {
+              "semesterNumber": 1,
+              "tuition": 45000,
+              "exam": 1500,
+              "erp": 500,
+              "book": 1000,
+              "lab": 2000
+            },
+            "hostel": 25000,
+            "transport": 0,
+            "total": 75000
+          }
+        ]
+      },
+      {
+        "receiptNo": "REC-20260210-003",
+        "paymentType": "Cheque",
+        "bankName": "SBI",
+        "bankLocation": "Chennai",
+        "billingDate": "2026-02-10T00:00:00.000Z",
+        "paidOn": "2026-02-10T09:00:00.000Z",
+        "remarks": null,
+        "totalAmount": 15000,
+        "breakdowns": [
+          {
+            "academicYear": "2022-2023",
+            "academic": {
+              "semesterNumber": 2,
+              "tuition": 15000,
+              "exam": 0,
+              "erp": 0,
+              "book": 0,
+              "lab": 0
+            },
+            "hostel": 0,
+            "transport": 0,
+            "total": 15000
           }
         ]
       }
     ],
-    "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 }
-  },
-  "message": "Student transactions fetched successfully"
-}
-```
-
-**404 — Student not found**
-```json
-{
-  "success": false,
-  "data": null,
-  "message": "Student not found"
+    "pagination": {
+      "total": 2,
+      "page": 1,
+      "limit": 5,
+      "totalPages": 1
+    }
+  }
 }
 ```
 
 ---
 
-## 3. Edge Cases
+## 4. Error Reference
 
-- **`billingDate` flexible input:** Accepts `dd/mm/yyyy` (e.g. `15/08/2025`), ISO 8601 strings (e.g. `2025-08-15T00:00:00.000Z`), or a JavaScript Date object. If omitted, defaults to the current date/time at the moment of the request.
-- **Overpayment prevention:** Before saving, the service computes the remaining **concession-adjusted** net due for each fee component (`total - paid`, where `total` is always the net value after enrollment-based concessions). If any breakdown amount exceeds the remaining net due, the entire transaction is rejected with an error of the form `"<field> payment ₹<amount> exceeds remaining concession-adjusted due ₹<remaining> for Semester <n> (<year>)"` for academic fees, or the equivalent message for hostel/transport.
-- **Single receipt, multiple years:** A single `POST /pay` can include breakdowns for multiple `academicYear` entries, allowing payment of arrears and current year fees in one receipt.
-- **`totalAmount` auto-calculation:** The sum of all breakdown totals in a receipt is computed automatically via a Mongoose pre-validate hook; do not include `totalAmount` in the request body.
-- **Status transitions:** After a payment, each affected fee component's `status` is recalculated: `Unpaid → Partially Paid → Paid`.
-- **Duplicate `receiptNo`:** Submitting a payment with an already-used receipt number returns a conflict error (`400`).
-- **Payment type bank fields:** `bankName` and `bankLocation` are stored but not validated against a specific list — provide them for Cheque, DD, and NetBanking payments for audit purposes.
+All error responses follow the structure:
+
+```json
+{
+  "success": false,
+  "message": "<error message>"
+}
+```
+
+### Validation Errors — `400 Bad Request`
+
+| Scenario | Message |
+|---|---|
+| `rollNo` missing | `rollNo is required` |
+| Invalid or missing `paymentType` | `Valid paymentType is required` |
+| `breakdowns` missing or empty | `breakdowns array is required` |
+| A breakdown entry is not an object | `Each breakdown must be an object` |
+| Invalid `academicYear` format | `Valid breakdown.academicYear is required` |
+| `semesterNumber` out of range | `academic.semesterNumber must be an integer between 1 and 8` |
+| Invalid money value (negative or > 2 dp) | `academic.<field> must be a non-negative number with up to 2 decimals` |
+| `semesterNumber` missing when academic fees > 0 | `academic.semesterNumber is required when academic fee amounts are provided` |
+| Invalid `hostel` value | `hostel must be a non-negative number with up to 2 decimals` |
+| Invalid `transport` value | `transport must be a non-negative number with up to 2 decimals` |
+| Duplicate semester in same request | `Duplicate breakdown for semester <N> in <YYYY-YYYY>. Combine amounts into a single breakdown.` |
+| Duplicate hostel for same year in one request | `Duplicate hostel payment for <YYYY-YYYY>. Combine amounts into a single breakdown.` |
+| Duplicate transport for same year in one request | `Duplicate transport payment for <YYYY-YYYY>. Combine amounts into a single breakdown.` |
+| Payment exceeds remaining academic component due | `<field> payment ₹<amount> exceeds remaining concession-adjusted due ₹<remaining> for Semester <N> (<YYYY-YYYY>)` |
+| Academic payment exceeds net year total | `Academic payment ₹<amount> exceeds net remaining due ₹<remaining> for <YYYY-YYYY> (after concessions)` |
+| Hostel payment exceeds remaining due | `Hostel payment ₹<amount> exceeds remaining concession-adjusted due ₹<remaining> for <YYYY-YYYY>` |
+| Transport payment exceeds remaining due | `Transport payment ₹<amount> exceeds remaining concession-adjusted due ₹<remaining> for <YYYY-YYYY>` |
+| Total payment is zero | `Total payment amount must be greater than 0` |
+| Invalid `department` query param | `department must be one of: CSE, IT, AIML, AIDS, ECE, EEE, MECH, CIVIL` |
+| Invalid `paymentMode` query param | `paymentMode must be one of: Cash, Card, UPI, NetBanking, Cheque, DD` |
+| Invalid `fromDate` / `toDate` | `fromDate must be a valid date` / `toDate must be a valid date` |
+| `fromDate` after `toDate` | `fromDate cannot be after toDate` |
+| `page` not a positive integer | `page must be a positive integer` |
+| `limit` not a positive integer | `limit must be a positive integer` |
+
+### Resource Errors — `404 Not Found`
+
+| Scenario | Message |
+|---|---|
+| No fee tracking found for `rollNo` | `Fee tracking not found for this student` |
+| `academicYear` not in student's tracking | `Academic year <YYYY-YYYY> not found in fee tracking` |
+| Semester slot not in tracking for that year | `Semester <N> not found in tracking for <YYYY-YYYY>` |
+| Semester number doesn't match the slot in that year | `Semester <N> does not belong to academic year <YYYY-YYYY>. This year has semester <M> in the <odd/even> slot.` |
+| No hostel record for that year | `No hostel fee record found for <YYYY-YYYY>` |
+| No transport record for that year | `No transport fee record found for <YYYY-YYYY>` |
+| Student not found (GET by rollNo) | `Student not found` |
+
+### Auth Errors
+
+| Status | Message |
+|---|---|
+| `401 Unauthorized` | Token missing or invalid |
+| `403 Forbidden` | User is not an admin |

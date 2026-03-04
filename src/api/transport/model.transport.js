@@ -146,24 +146,24 @@ const data = [
     ]
   }
 ];
-//keep it here for High Cohesion
-const getNextTransportId = async () => {
-  const last = await Transport.findOne({}).sort({ id: -1 }).select('id').lean();
-  if (!last || !last.id) return 'T001';
-  const num = parseInt(last.id.substring(1), 10);
-  return `T${String(num + 1).padStart(3, '0')}`;
+const generateTransportId = (busNo, stop) => {
+  const cleanedStop = stop
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/[^a-z0-9]/g, "");
+
+  return `${busNo}${cleanedStop}`;
 };
 
 const seedTransport = async () => {
   const docs = [];
-  let counter = 1;
 
-  data.forEach(r => {
-    r.stops.forEach(stopObj => {
+  data.forEach(route => {
+    route.stops.forEach(stopObj => {
       docs.push({
-        id: `T${String(counter++).padStart(3, '0')}`,
-        route: r.route,
-        busNo: r.busNo,
+        id: generateTransportId(route.busNo, stopObj.name),
+        route: route.route,
+        busNo: route.busNo,
         stop: stopObj.name,
         fee: stopObj.fee
       });
@@ -173,11 +173,14 @@ const seedTransport = async () => {
   if (!docs.length) return;
 
   const count = await Transport.countDocuments();
+
   if (count > 0) {
-    // Migration: if old records exist without id field, drop and re-seed
-    const withoutId = await Transport.countDocuments({ $or: [{ id: { $exists: false } }, { id: null }] });
+    const withoutId = await Transport.countDocuments({
+      $or: [{ id: { $exists: false } }, { id: null }]
+    });
+
     if (withoutId > 0) {
-      console.log('Migrating transport data: re-seeding with custom IDs...');
+      console.log("Migrating transport data: re-seeding with generated IDs...");
       await Transport.deleteMany({});
     } else {
       return;
@@ -187,4 +190,4 @@ const seedTransport = async () => {
   await Transport.insertMany(docs);
 };
 
-module.exports = { Transport, seedTransport, getNextTransportId };
+module.exports = { Transport, seedTransport };
