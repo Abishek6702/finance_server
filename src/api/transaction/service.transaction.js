@@ -427,14 +427,7 @@ const getStudentTransactions = async (rollNo, query = {}) => {
   const hasLimit = limit !== undefined && limit !== null && limit !== "";
 
   const student = await Student.findOne(
-    { "personal.rollNo": rollNo },
-    {
-      "personal.rollNo": 1,
-      "personal.studentName": 1,
-      "personal.studentPhoto": 1,
-      academic: 1,
-      contact: 1
-    }
+    { "personal.rollNo": rollNo } 
   ).lean();
 
   if (!student) throw new AppError("Student not found", 404);

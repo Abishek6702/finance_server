@@ -15,38 +15,20 @@ function normalizeMoney(value) {
   return Math.round(number * 100) / 100;
 }
 
-function nextAcademicYear(year) {
-  const [start, end] = year.split("-").map(Number);
-  return `${end}-${end + 1}`;
-}
-
 /*
-  FIXED:
-  Generate only valid academic years based on MAX_SEMESTER
+  Only the current academic year ledger is created at enrollment time.
+  Future years are added when the student is promoted to the next academic year.
 */
 function getYearsToGenerate(student) {
-  const years = [];
   const currentYear = student.academic.currentAcademicYear;
-  const batchStart = parseInt(student.academic.batch.split("-")[0], 10);
+  const batchStart  = parseInt(student.academic.batch.split("-")[0], 10);
+  const yearStart   = parseInt(currentYear.split("-")[0], 10);
+  const studyYear   = yearStart - batchStart + 1;
+  const oddSemNo    = studyYear * 2 - 1;
+  const evenSemNo   = studyYear * 2;
 
-  let yr = currentYear;
-
-  while (true) {
-    const yearStart = parseInt(yr.split("-")[0], 10);
-    const studyYear = yearStart - batchStart + 1;
-
-    const oddSemNo = studyYear * 2 - 1;
-    const evenSemNo = studyYear * 2;
-
-    if (oddSemNo > MAX_SEMESTER || evenSemNo > MAX_SEMESTER) {
-      break;
-    }
-
-    years.push(yr);
-    yr = nextAcademicYear(yr);
-  }
-
-  return years;
+  if (oddSemNo > MAX_SEMESTER || evenSemNo > MAX_SEMESTER) return [];
+  return [currentYear];
 }
 
 function calculateComponentConcessions(enrollment) {

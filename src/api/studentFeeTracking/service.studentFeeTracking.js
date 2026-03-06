@@ -40,18 +40,7 @@ const getStudentsFeeTrackingData = async (query = {}) => {
   /* ────────────────────────────────────────────────
      Fetch ONLY required fields
   ──────────────────────────────────────────────── */
-  const students = await Student.find(search)
-    .select({
-      "personal.rollNo": 1,
-      "personal.studentName": 1,
-      "personal.gender": 1,
-      "personal.studentPhoto": 1,
-      academic: 1,
-      contact: 1,
-      enrollment: 1,
-      transport: 1,
-      hostel: 1,
-    })
+  const students = await Student.find(search) 
     .lean();
 
   if (!students.length) return [];
