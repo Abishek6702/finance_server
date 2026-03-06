@@ -26,6 +26,20 @@
                     "}"
                 ]
             }
+        },
+        {
+            "listen": "test",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    "// Auto-capture token from any response that returns one (e.g. login)",
+                    "try {",
+                    "  const res = pm.response.json();",
+                    "  const tok = (res && res.data && res.data.token) || (res && res.token);",
+                    "  if (tok) pm.environment.set('token', tok);",
+                    "} catch (e) {}"
+                ]
+            }
         }
     ],
     "item": [
@@ -72,8 +86,9 @@
                                     "  pm.response.to.have.status(200);",
                                     "});",
                                     "const data = pm.response.json();",
-                                    "pm.expect(data.token).to.be.a('string');",
-                                    "pm.environment.set('token', data.token);"
+                                    "const tok = data && data.data && data.data.token;",
+                                    "pm.expect(tok).to.be.a('string');",
+                                    "pm.environment.set('token', tok);"
                                 ]
                             }
                         }
@@ -120,7 +135,8 @@
                                     "  pm.response.to.have.status(200);",
                                     "});",
                                     "const data = pm.response.json();",
-                                    "if (data.token) pm.environment.set('token', data.token);"
+                                    "const tok = data && data.data && data.data.token;",
+                                    "if (tok) pm.environment.set('token', tok);"
                                 ]
                             }
                         }
