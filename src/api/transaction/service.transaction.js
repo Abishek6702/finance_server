@@ -2,6 +2,7 @@ const StudentTransaction = require("./model.studentTransaction");
 const StudentFeeTracking = require("../studentFeeTracking/model.studentFeeTracking");
 const Student = require("../students/model.student");
 const ReceiptCounter = require("./model.receiptCounter");
+const FeeStructureMaster = require("../feeStructure/acadamic/model.acadamic");
 const AppError = require("../../utils/AppError");
 
 const parseBillingDate = (billingDate) => {
@@ -536,8 +537,72 @@ const getNextReceiptNo = async () => {
   };
 };
 
+/* ============================================================
+   GET RECEIPT BY RECEIPT NUMBER
+   Returns rollNo, receipt metadata, and per-breakdown IDs:
+   breakdown._id, feeStructureId, transportId, hostelId
+============================================================ */
+const getReceiptByReceiptNo = async (receiptNo) => {
+  const transactionDoc = await StudentTransaction.findOne(
+    { "transactions.receiptNo": receiptNo }
+  ).lean();
+
+  if (!transactionDoc) throw new AppError(`Receipt '${receiptNo}' not found`, 404);
+
+  const receipt = transactionDoc.transactions.find(t => t.receiptNo === receiptNo);
+  const rollNo = transactionDoc.rollNo;
+
+  const academicYears = [...new Set(receipt.breakdowns.map(b => b.academicYear))];
+
+  const [feeStructures, tracking] = await Promise.all([
+    FeeStructureMaster.find(
+      { academicYear: { $in: academicYears } },
+      { _id: 1, academicYear: 1 }
+    ).lean(),
+    StudentFeeTracking.findOne({ rollNo }).lean(),
+  ]);
+
+  const feeStructureMap = feeStructures.reduce((acc, fs) => {
+    acc[fs.academicYear] = fs._id;
+    return acc;
+  }, {});
+
+  const yearIds = {};
+  for (const year of academicYears) {
+    const yearRecord = tracking?.academicYearWiseRecord?.find(r => r.academicYear === year);
+    yearIds[year] = {
+      feeStructureId: feeStructureMap[year] || null,
+      transportId: yearRecord?.transport?.transport || null,
+      hostelId: yearRecord?.hostel?.hostel || null,
+    };
+  }
+
+  return {
+    rollNo,
+    receiptNo: receipt.receiptNo,
+    paymentType: receipt.paymentType,
+    bankName: receipt.bankName,
+    bankLocation: receipt.bankLocation,
+    billingDate: receipt.billingDate,
+    remarks: receipt.remarks,
+    totalAmount: receipt.totalAmount,
+    breakdowns: receipt.breakdowns.map(b => ({
+      _id: b._id,
+      academicYear: b.academicYear,
+      feeStructureId: yearIds[b.academicYear]?.feeStructureId || null,
+      transportId: yearIds[b.academicYear]?.transportId || null,
+      hostelId: yearIds[b.academicYear]?.hostelId || null,
+      academic: b.academic,
+      hostel: b.hostel,
+      transport: b.transport,
+      total: b.total,
+    })),
+  };
+};
+
 module.exports = {
   createPayment,
   getAllTransactions,
-  getStudentTransactions, 
+  getStudentTransactions,
+  getReceiptByReceiptNo,
 };

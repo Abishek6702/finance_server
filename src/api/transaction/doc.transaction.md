@@ -10,7 +10,8 @@ All routes require `Authorization: Bearer <token>` (admin role).
 1. [POST /pay — Record a Payment](#1-post-pay--record-a-payment)
 2. [GET / — Get All Transactions](#2-get---get-all-transactions)
 3. [GET /:rollNo — Get Student Transactions](#3-get-rollno--get-student-transactions)
-4. [Error Reference](#4-error-reference)
+4. [GET /receipt/:receiptNo — Get Receipt by Receipt Number](#4-get-receiptreceiptno--get-receipt-by-receipt-number)
+5. [Error Reference](#5-error-reference)
 
 ---
 
@@ -439,7 +440,95 @@ GET /api/transactions/22CSE001?fromDate=2026-01-01&limit=5&page=1
 
 ---
 
-## 4. Error Reference
+## 4. GET /receipt/:receiptNo — Get Receipt by Receipt Number
+
+Returns a single receipt record identified by its receipt number. The response includes per-breakdown reference IDs (`feeStructureId`, `transportId`, `hostelId`) suitable for linking to source fee structure documents.
+
+**`GET /api/feePayment/receipt/:receiptNo`**
+
+> **Note:** This route is declared before `/:rollNo` in the router so Express does not match `receipt` as a roll number.
+
+### Headers
+
+| Key           | Value            | Required |
+|---------------|------------------|----------|
+| Authorization | `Bearer <token>` | Yes      |
+
+### Path Parameter
+
+| Parameter   | Type   | Required | Description                              |
+|-------------|--------|----------|------------------------------------------|
+| `receiptNo` | string | Yes      | Receipt number e.g. `REC-20260304-005`   |
+
+### Request Example
+
+```
+GET /api/feePayment/receipt/REC-20260304-005
+```
+
+---
+
+### Success Response — `200 OK`
+
+```json
+{
+  "success": true,
+  "message": "Receipt fetched successfully",
+  "data": {
+    "rollNo": "22CSE001",
+    "receiptNo": "REC-20260304-005",
+    "paymentType": "Cash",
+    "bankName": "Indian Bank",
+    "bankLocation": "Kinathukadavu",
+    "billingDate": "2026-03-03T00:00:00.000Z",
+    "remarks": "Semester-1 fee payment",
+    "totalAmount": 50000,
+    "breakdowns": [
+      {
+        "_id": "665f2b3c4d5e6f7a8b9c0e01",
+        "academicYear": "2022-2023",
+        "feeStructureId": "665f1a2b3c4d5e6f7a8b9c00",
+        "transportId": null,
+        "hostelId": null,
+        "academic": {
+          "semesterNumber": 1,
+          "tuition": 45000,
+          "exam": 1500,
+          "erp": 500,
+          "book": 1000,
+          "lab": 2000
+        },
+        "hostel": 0,
+        "transport": 0,
+        "total": 50000
+      }
+    ]
+  }
+}
+```
+
+### Field Notes
+
+| Field | Description |
+|---|---|
+| `rollNo` | Student roll number |
+| `feeStructureId` | MongoDB `_id` of the `FeeStructureMaster` document for that `academicYear`. `null` if no fee structure exists for the year |
+| `transportId` | Custom transport `id` string (e.g. `"BUS1-Kinathukadavu"`) from student's fee tracking record. `null` if no transport |
+| `hostelId` | Custom hostel `id` string (e.g. `"3A1"`) from student's fee tracking record. `null` if no hostel |
+
+---
+
+### Error Responses
+
+| HTTP | Scenario | Message |
+|------|----------|---------|
+| `401` | No / invalid token | _(auth error)_ |
+| `403` | Not an admin | _(auth error)_ |
+| `404` | Receipt number does not exist | `Receipt 'REC-...' not found` |
+
+---
+
+## 5. Error Reference
 
 All error responses follow the structure:
 

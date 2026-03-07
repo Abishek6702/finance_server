@@ -164,6 +164,16 @@ describe("Receipt Recall API", () => {
     expect(res.body.data.breakdownIds).toHaveLength(breakdownIdsFromReceipt.length);
     expect(res.body.data.breakdownSnapshots).toBeDefined();
     expect(res.body.data.breakdownSnapshots).toHaveLength(breakdownIdsFromReceipt.length);
+    // Receipt metadata must be preserved in the recall record
+    expect(res.body.data.paymentType).toBe("Cash");
+    expect(typeof res.body.data.totalAmount).toBe("number");
+    expect(res.body.data.totalAmount).toBeGreaterThan(0);
+    // Student snapshot must be stored
+    expect(res.body.data.studentInfo).toBeDefined();
+    expect(res.body.data.studentInfo.departmentName).toBe("CSE");
+    expect(res.body.data.studentInfo.currentAcademicYear).toBe(testCtx.academicYearPrimary);
+    expect(typeof res.body.data.studentInfo.yearStudying).toBe("number");
+    expect(typeof res.body.data.studentInfo.currentSemesterNumber).toBe("number");
   });
 
   it("verifies receipt no longer exists after full recall", async () => {

@@ -31,6 +31,22 @@ const receiptRecallSchema = new mongoose.Schema({
     type: [mongoose.Schema.Types.Mixed],
     required: true,
   },
+  paymentType: {
+    type: String,
+    enum: ["Cash", "Card", "UPI", "NetBanking", "Cheque", "DD"],
+    required: true,
+  },
+  bankName: { type: String, trim: true, default: null },
+  bankLocation: { type: String, trim: true, default: null },
+  billingDate: { type: Date, default: null },
+  remarks: { type: String, trim: true, default: null },
+  totalAmount: { type: Number, default: 0 },
+  studentInfo: {
+    departmentName: { type: String, trim: true, default: null },
+    currentAcademicYear: { type: String, trim: true, default: null },
+    yearStudying: { type: Number, default: null },
+    currentSemesterNumber: { type: Number, default: null },
+  },
   recalledBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",

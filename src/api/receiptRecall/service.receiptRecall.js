@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const ReceiptRecallRequest = require("./model.receiptRecall");
 const StudentTransaction = require("../transaction/model.studentTransaction");
 const StudentFeeTracking = require("../studentFeeTracking/model.studentFeeTracking");
+const Student = require("../students/model.student");
 const ActivityLog = require("../../models/ActivityLog");
 const AppError = require("../../utils/AppError");
 
@@ -66,11 +67,21 @@ const createRecall = async (data, userId) => {
   // 5. Snapshot the target breakdowns for audit
   const breakdownSnapshots = targetBreakdowns.map(bd => bd.toObject());
 
-  // 6. Reverse payment allocations in fee tracking
-  const tracking = await StudentFeeTracking.findOne({ rollNo });
-  if (!tracking) {
-    throw new AppError("Fee tracking not found for student", 404);
-  }
+  // 6. Fetch student info snapshot + reverse payment allocations in fee tracking
+  const [tracking, studentDoc] = await Promise.all([
+    StudentFeeTracking.findOne({ rollNo }),
+    Student.findOne(
+      { "personal.rollNo": rollNo },
+      { "academic.departmentName": 1, "academic.currentAcademicYear": 1, "academic.yearStudying": 1, "academic.currentSemesterNumber": 1 }
+    ).lean(),
+  ]);
+  const studentInfo = {
+    departmentName: studentDoc?.academic?.departmentName || null,
+    currentAcademicYear: studentDoc?.academic?.currentAcademicYear || null,
+    yearStudying: studentDoc?.academic?.yearStudying || null,
+    currentSemesterNumber: studentDoc?.academic?.currentSemesterNumber || null,
+  };
+  if (!tracking) throw new AppError("Fee tracking not found for student", 404);
 
   for (const bd of targetBreakdowns) {
     const yearRecord = tracking.academicYearWiseRecord.find(r => r.academicYear === bd.academicYear);
@@ -153,7 +164,7 @@ const createRecall = async (data, userId) => {
   await tracking.save();
   await transactionDoc.save();
 
-  // 10. Create the recall record
+  // 10. Create the recall record (preserve receipt metadata even if receipt is fully removed)
   const recallRecord = await ReceiptRecallRequest.create({
     receiptId: receipt._id || transactionDoc._id,
     receiptNo,
@@ -161,6 +172,13 @@ const createRecall = async (data, userId) => {
     breakdownIds,
     reason,
     breakdownSnapshots,
+    paymentType: receipt.paymentType,
+    bankName: receipt.bankName || null,
+    bankLocation: receipt.bankLocation || null,
+    billingDate: receipt.billingDate || null,
+    remarks: receipt.remarks || null,
+    totalAmount: receipt.totalAmount || 0,
+    studentInfo,
     recalledBy: userId,
   });
 
