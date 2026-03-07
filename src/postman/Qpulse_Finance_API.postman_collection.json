@@ -1164,7 +1164,7 @@
             "name": "Receipt Recall",
             "item": [
                 {
-                    "name": "Create Recall Request (Admin)",
+                    "name": "Recall Breakdowns (Admin)",
                     "request": {
                         "method": "POST",
                         "header": [
@@ -1184,7 +1184,7 @@
                         },
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"receiptNo\": \"{{receipt_no}}\",\n  \"rollNo\": \"{{student_roll_no}}\",\n  \"reason\": \"Incorrect payment entry — wrong semester selected\"\n}",
+                            "raw": "{\n  \"receiptNo\": \"{{receipt_no}}\",\n  \"rollNo\": \"{{student_roll_no}}\",\n  \"reason\": \"Incorrect payment entry — wrong semester selected\",\n  \"breakdownIds\": [\"PASTE_BREAKDOWN_OBJECT_ID_HERE\"]\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -1198,13 +1198,13 @@
                             "script": {
                                 "type": "text/javascript",
                                 "exec": [
-                                    "pm.test('Recall request created', function () {",
+                                    "pm.test('Breakdown(s) recalled successfully', function () {",
                                     "  pm.response.to.have.status(201);",
                                     "  const body = pm.response.json();",
                                     "  pm.expect(body.success).to.equal(true);",
-                                    "  pm.expect(body.data.status).to.equal('PENDING');",
-                                    "  pm.expect(body.data.receiptSnapshot).to.be.an('object');",
-                                    "  pm.environment.set('recall_id', body.data._id);",
+                                    "  pm.expect(body.data.breakdownIds).to.be.an('array');",
+                                    "  pm.expect(body.data.breakdownSnapshots).to.be.an('array');",
+                                    "  pm.expect(body.data.receiptNo).to.be.a('string');",
                                     "});"
                                 ]
                             }
@@ -1213,7 +1213,7 @@
                     "response": []
                 },
                 {
-                    "name": "Get Recall Requests (Admin)",
+                    "name": "Get Recall History",
                     "request": {
                         "method": "GET",
                         "header": [],
@@ -1227,15 +1227,15 @@
                             ],
                             "query": [
                                 {
-                                    "key": "status",
-                                    "value": "PENDING",
-                                    "description": "Filter by status (PENDING, APPROVED, REJECTED, COMPLETED)",
-                                    "disabled": true
-                                },
-                                {
                                     "key": "rollNo",
                                     "value": "{{student_roll_no}}",
                                     "description": "Filter by student roll number",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "receiptNo",
+                                    "value": "{{receipt_no}}",
+                                    "description": "Filter by receipt number",
                                     "disabled": true
                                 },
                                 {
@@ -1259,99 +1259,12 @@
                             "script": {
                                 "type": "text/javascript",
                                 "exec": [
-                                    "pm.test('Recall requests fetched', function () {",
+                                    "pm.test('Recall records fetched', function () {",
                                     "  pm.response.to.have.status(200);",
                                     "  const body = pm.response.json();",
                                     "  pm.expect(body.success).to.equal(true);",
-                                    "  pm.expect(body.data.requests).to.be.an('array');",
+                                    "  pm.expect(body.data.records).to.be.an('array');",
                                     "  pm.expect(body.data.pagination).to.be.an('object');",
-                                    "});"
-                                ]
-                            }
-                        }
-                    ],
-                    "response": []
-                },
-                {
-                    "name": "Approve Recall (Superadmin)",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "url": {
-                            "raw": "{{base_url}}/receiptRecall/{{recall_id}}/approve",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "receiptRecall",
-                                "{{recall_id}}",
-                                "approve"
-                            ]
-                        }
-                    },
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "type": "text/javascript",
-                                "exec": [
-                                    "pm.test('Recall approved and rollback completed', function () {",
-                                    "  pm.response.to.have.status(200);",
-                                    "  const body = pm.response.json();",
-                                    "  pm.expect(body.success).to.equal(true);",
-                                    "  pm.expect(body.data.status).to.equal('COMPLETED');",
-                                    "  pm.expect(body.data.completedAt).to.be.a('string');",
-                                    "});"
-                                ]
-                            }
-                        }
-                    ],
-                    "response": []
-                },
-                {
-                    "name": "Reject Recall (Superadmin)",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/receiptRecall/{{recall_id}}/reject",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "receiptRecall",
-                                "{{recall_id}}",
-                                "reject"
-                            ]
-                        },
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"rejectReason\": \"Payment amount is correct — no recall needed\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        }
-                    },
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "type": "text/javascript",
-                                "exec": [
-                                    "pm.test('Recall rejected', function () {",
-                                    "  pm.response.to.have.status(200);",
-                                    "  const body = pm.response.json();",
-                                    "  pm.expect(body.success).to.equal(true);",
-                                    "  pm.expect(body.data.status).to.equal('REJECTED');",
-                                    "  pm.expect(body.data.rejectReason).to.be.a('string');",
-                                    "  pm.expect(body.data.reviewedAt).to.be.a('string');",
                                     "});"
                                 ]
                             }

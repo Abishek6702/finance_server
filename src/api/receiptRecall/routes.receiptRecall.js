@@ -1,15 +1,13 @@
 const express = require("express");
 const router = express.Router();
 const controller = require("./controller.receiptRecall");
-const { validateCreateRecall, validateRecallAction, validateRejectAction, validateGetRecalls } = require("./validation.receiptRecall");
-const { protect, admin, superadmin } = require("../../middleware/authMiddleware");
+const { validateCreateRecall, validateGetRecalls } = require("./validation.receiptRecall");
+const { protect, admin } = require("../../middleware/authMiddleware");
 
-// Admin endpoints: create recall request, list recall requests
-router.post("/", protect, admin, validateCreateRecall, controller.createRecallRequest);
-router.get("/", protect, admin, validateGetRecalls, controller.getRecallRequests);
+// Admin creates recall (instant rollback — no approval needed)
+router.post("/", protect, admin, validateCreateRecall, controller.createRecall);
 
-// Superadmin-only endpoints: approve or reject recall
-router.post("/:recallId/approve", protect, superadmin, validateRecallAction, controller.approveRecall);
-router.post("/:recallId/reject", protect, superadmin, validateRejectAction, controller.rejectRecall);
+// Admin (and superadmin via admin guard) lists recall history
+router.get("/", protect, admin, validateGetRecalls, controller.getRecalls);
 
 module.exports = router;

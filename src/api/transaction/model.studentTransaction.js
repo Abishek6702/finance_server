@@ -17,7 +17,7 @@ const paymentBreakdownSchema=new mongoose.Schema({
   hostel:{type:Number,default:0},
   transport:{type:Number,default:0},
   total:{type:Number,default:0}
-},{_id:false});
+});
 
 const paymentRecordSchema=new mongoose.Schema({
   receiptNo:{

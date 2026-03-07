@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const receiptRecallRequestSchema = new mongoose.Schema({
+const receiptRecallSchema = new mongoose.Schema({
   receiptId: {
     type: mongoose.Schema.Types.ObjectId,
     required: true,
@@ -18,47 +18,27 @@ const receiptRecallRequestSchema = new mongoose.Schema({
     trim: true,
     index: true,
   },
-  status: {
-    type: String,
-    enum: ["PENDING", "APPROVED", "REJECTED", "COMPLETED"],
-    default: "PENDING",
-    index: true,
-  },
+  breakdownIds: [{
+    type: mongoose.Schema.Types.ObjectId,
+    required: true,
+  }],
   reason: {
     type: String,
     required: true,
     trim: true,
   },
-  receiptSnapshot: {
-    type: mongoose.Schema.Types.Mixed,
+  breakdownSnapshots: {
+    type: [mongoose.Schema.Types.Mixed],
     required: true,
   },
-  createdBy: {
+  recalledBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
     required: true,
-  },
-  reviewedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    default: null,
-  },
-  rejectReason: {
-    type: String,
-    trim: true,
-    default: null,
-  },
-  reviewedAt: {
-    type: Date,
-    default: null,
-  },
-  completedAt: {
-    type: Date,
-    default: null,
   },
 }, { timestamps: true });
 
 // Compound index for fast lookups
-receiptRecallRequestSchema.index({ receiptNo: 1, rollNo: 1 });
+receiptRecallSchema.index({ receiptNo: 1, rollNo: 1 });
 
-module.exports = mongoose.model("ReceiptRecallRequest", receiptRecallRequestSchema);
+module.exports = mongoose.model("ReceiptRecallRequest", receiptRecallSchema);

@@ -3,7 +3,7 @@ const {
   buildFeeStructurePayload, buildStudentPayload,
   createFeeStructure, createStudent,
   globalSetup, globalTeardown,
-  superadminAuth, adminAuth,
+  adminAuth,
   Student, StudentFeeTracking, StudentTransaction, FeeStructureMaster,
   ReceiptRecallRequest,
 } = require("./setup");
@@ -11,7 +11,7 @@ const {
 describe("Receipt Recall API", () => {
   let recallReceiptNo;
   let recallRollNo;
-  let createdRecallId;
+  let breakdownIdsFromReceipt;
   let trackingBeforePayment;
 
   beforeAll(async () => {
@@ -39,7 +39,7 @@ describe("Receipt Recall API", () => {
       yearTotalPaid: yrPre.total.paid,
     };
 
-    // Make a payment that we will later recall (receiptNo is auto-generated)
+    // Make a payment that we will later recall
     const payRes = await request(app)
       .post("/api/feePayment/pay")
       .set(adminAuth())
@@ -55,13 +55,14 @@ describe("Receipt Recall API", () => {
       });
     expect(payRes.status).toBe(201);
 
-    // Capture the auto-generated receiptNo from the payment response
+    // Capture the auto-generated receiptNo and breakdown _ids
     const txns = payRes.body.data.transactions;
-    recallReceiptNo = txns[txns.length - 1].receiptNo;
+    const lastTxn = txns[txns.length - 1];
+    recallReceiptNo = lastTxn.receiptNo;
+    breakdownIdsFromReceipt = lastTxn.breakdowns.map(b => b._id);
   });
 
   afterAll(async () => {
-    // Cleanup recall-specific data
     await Promise.all([
       ReceiptRecallRequest.deleteMany({ rollNo: recallRollNo }),
       StudentTransaction.deleteMany({ rollNo: recallRollNo }),
@@ -74,12 +75,12 @@ describe("Receipt Recall API", () => {
 
   /* ─── VALIDATION ───── */
 
-  it("rejects recall request without auth token", async () => {
+  it("rejects recall without auth token", async () => {
     const res = await request(app).post("/api/receiptRecall").send({});
     expect(res.status).toBe(401);
   });
 
-  it("rejects recall request with missing fields", async () => {
+  it("rejects recall with missing fields", async () => {
     const res = await request(app)
       .post("/api/receiptRecall")
       .set(adminAuth())
@@ -87,20 +88,38 @@ describe("Receipt Recall API", () => {
     expect(res.status).toBe(400);
   });
 
-  it("rejects recall request with missing reason", async () => {
+  it("rejects recall with missing reason", async () => {
     const res = await request(app)
       .post("/api/receiptRecall")
       .set(adminAuth())
-      .send({ rollNo: recallRollNo });
+      .send({ receiptNo: recallReceiptNo, rollNo: recallRollNo, breakdownIds: breakdownIdsFromReceipt });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/reason/i);
+  });
+
+  it("rejects recall with empty breakdownIds", async () => {
+    const res = await request(app)
+      .post("/api/receiptRecall")
+      .set(adminAuth())
+      .send({ receiptNo: recallReceiptNo, rollNo: recallRollNo, reason: "test", breakdownIds: [] });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/breakdownIds/i);
+  });
+
+  it("rejects recall with invalid breakdownId", async () => {
+    const res = await request(app)
+      .post("/api/receiptRecall")
+      .set(adminAuth())
+      .send({ receiptNo: recallReceiptNo, rollNo: recallRollNo, reason: "test", breakdownIds: ["not-valid"] });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/Invalid breakdownId/i);
   });
 
   it("rejects recall for non-existent receipt", async () => {
     const res = await request(app)
       .post("/api/receiptRecall")
       .set(adminAuth())
-      .send({ receiptNo: "NONEXISTENT-999", rollNo: recallRollNo, reason: "test" });
+      .send({ receiptNo: "NONEXISTENT-999", rollNo: recallRollNo, reason: "test", breakdownIds: breakdownIdsFromReceipt });
     expect(res.status).toBe(404);
   });
 
@@ -108,13 +127,27 @@ describe("Receipt Recall API", () => {
     const res = await request(app)
       .post("/api/receiptRecall")
       .set(adminAuth())
-      .send({ receiptNo: recallReceiptNo, rollNo: "99ZZ999", reason: "test" });
+      .send({ receiptNo: recallReceiptNo, rollNo: "99ZZ999", reason: "test", breakdownIds: breakdownIdsFromReceipt });
     expect(res.status).toBe(404);
   });
 
-  /* ─── CREATE RECALL REQUEST ───── */
+  it("rejects recall for non-existent breakdown ID in receipt", async () => {
+    const res = await request(app)
+      .post("/api/receiptRecall")
+      .set(adminAuth())
+      .send({
+        receiptNo: recallReceiptNo,
+        rollNo: recallRollNo,
+        reason: "test",
+        breakdownIds: ["000000000000000000000000"],
+      });
+    expect(res.status).toBe(404);
+    expect(res.body.message).toMatch(/Breakdown.*not found/i);
+  });
 
-  it("admin creates recall request successfully", async () => {
+  /* ─── RECALL ALL BREAKDOWNS (removes entire receipt) ───── */
+
+  it("admin recalls all breakdowns → receipt deleted + tracking restored", async () => {
     const res = await request(app)
       .post("/api/receiptRecall")
       .set(adminAuth())
@@ -122,172 +155,18 @@ describe("Receipt Recall API", () => {
         receiptNo: recallReceiptNo,
         rollNo: recallRollNo,
         reason: "Incorrect payment entry",
+        breakdownIds: breakdownIdsFromReceipt,
       });
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.status).toBe("PENDING");
     expect(res.body.data.receiptNo).toBe(recallReceiptNo);
     expect(res.body.data.rollNo).toBe(recallRollNo);
-    expect(res.body.data.receiptSnapshot).toBeDefined();
-    expect(res.body.data.receiptSnapshot.breakdowns).toBeDefined();
-    createdRecallId = res.body.data._id;
+    expect(res.body.data.breakdownIds).toHaveLength(breakdownIdsFromReceipt.length);
+    expect(res.body.data.breakdownSnapshots).toBeDefined();
+    expect(res.body.data.breakdownSnapshots).toHaveLength(breakdownIdsFromReceipt.length);
   });
 
-  it("rejects duplicate recall for same receipt (already PENDING)", async () => {
-    const res = await request(app)
-      .post("/api/receiptRecall")
-      .set(adminAuth())
-      .send({
-        receiptNo: recallReceiptNo,
-        rollNo: recallRollNo,
-        reason: "Duplicate attempt",
-      });
-    expect(res.status).toBe(409);
-    expect(res.body.message).toMatch(/pending.*already/i);
-  });
-
-  /* ─── LIST RECALL REQUESTS ───── */
-
-  it("lists recall requests", async () => {
-    const res = await request(app)
-      .get("/api/receiptRecall")
-      .set(adminAuth());
-    expect(res.status).toBe(200);
-    expect(Array.isArray(res.body.data.requests)).toBe(true);
-    expect(res.body.data.requests.length).toBeGreaterThanOrEqual(1);
-    expect(res.body.data.pagination).toBeDefined();
-  });
-
-  it("filters recall requests by status", async () => {
-    const res = await request(app)
-      .get("/api/receiptRecall")
-      .set(adminAuth())
-      .query({ status: "PENDING" });
-    expect(res.status).toBe(200);
-    res.body.data.requests.forEach(r => {
-      expect(r.status).toBe("PENDING");
-    });
-  });
-
-  it("rejects invalid status filter", async () => {
-    const res = await request(app)
-      .get("/api/receiptRecall")
-      .set(adminAuth())
-      .query({ status: "INVALID" });
-    expect(res.status).toBe(400);
-  });
-
-  /* ─── ROLE VALIDATION ───── */
-
-  it("admin cannot approve recall (requires superadmin)", async () => {
-    const res = await request(app)
-      .post(`/api/receiptRecall/${createdRecallId}/approve`)
-      .set(adminAuth());
-    expect(res.status).toBe(401);
-    expect(res.body.message).toMatch(/not authorized/i);
-  });
-
-  it("admin cannot reject recall (requires superadmin)", async () => {
-    const res = await request(app)
-      .post(`/api/receiptRecall/${createdRecallId}/reject`)
-      .set(adminAuth());
-    expect(res.status).toBe(401);
-    expect(res.body.message).toMatch(/not authorized/i);
-  });
-
-  /* ─── REJECTION FLOW ───── */
-
-  it("rejects approval/rejection of non-existent recall", async () => {
-    const fakeId = "000000000000000000000000";
-    const res = await request(app)
-      .post(`/api/receiptRecall/${fakeId}/approve`)
-      .set(superadminAuth());
-    expect(res.status).toBe(404);
-  });
-
-  it("rejects recall without rejectReason", async () => {
-    const res = await request(app)
-      .post(`/api/receiptRecall/${createdRecallId}/reject`)
-      .set(superadminAuth())
-      .send({});
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/rejectReason/i);
-  });
-
-  it("rejects recall with empty rejectReason", async () => {
-    const res = await request(app)
-      .post(`/api/receiptRecall/${createdRecallId}/reject`)
-      .set(superadminAuth())
-      .send({ rejectReason: "   " });
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/rejectReason/i);
-  });
-
-  it("superadmin rejects recall → no payment changes", async () => {
-    // Snapshot tracking before rejection
-    const trackingBefore = await StudentFeeTracking.findOne({ rollNo: recallRollNo }).lean();
-    const yrBefore = trackingBefore.academicYearWiseRecord.find(r => r.academicYear === testCtx.academicYearPrimary);
-    const tuitionPaidBefore = yrBefore.academic.odd.tuition.paid;
-
-    const res = await request(app)
-      .post(`/api/receiptRecall/${createdRecallId}/reject`)
-      .set(superadminAuth())
-      .send({ rejectReason: "Amount is correct, no recall needed" });
-    expect(res.status).toBe(200);
-    expect(res.body.data.status).toBe("REJECTED");
-    expect(res.body.data.rejectReason).toBe("Amount is correct, no recall needed");
-    expect(res.body.data.reviewedBy).toBeDefined();
-    expect(res.body.data.reviewedAt).toBeDefined();
-
-    // Verify no changes to fee tracking
-    const trackingAfter = await StudentFeeTracking.findOne({ rollNo: recallRollNo }).lean();
-    const yrAfter = trackingAfter.academicYearWiseRecord.find(r => r.academicYear === testCtx.academicYearPrimary);
-    expect(yrAfter.academic.odd.tuition.paid).toBe(tuitionPaidBefore);
-
-    // Verify receipt still exists
-    const txn = await StudentTransaction.findOne({ rollNo: recallRollNo });
-    const receipt = txn.transactions.find(t => t.receiptNo === recallReceiptNo);
-    expect(receipt).toBeDefined();
-  });
-
-  it("rejects double rejection (already REJECTED)", async () => {
-    const res = await request(app)
-      .post(`/api/receiptRecall/${createdRecallId}/reject`)
-      .set(superadminAuth())
-      .send({ rejectReason: "Duplicate attempt" });
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/REJECTED/);
-  });
-
-  /* ─── APPROVAL + ROLLBACK FLOW ───── */
-
-  let approvalRecallId;
-
-  it("creates a new recall request for approval testing", async () => {
-    const res = await request(app)
-      .post("/api/receiptRecall")
-      .set(adminAuth())
-      .send({
-        receiptNo: recallReceiptNo,
-        rollNo: recallRollNo,
-        reason: "Need to reverse payment for approval test",
-      });
-    expect(res.status).toBe(201);
-    approvalRecallId = res.body.data._id;
-  });
-
-  it("superadmin approves recall → receipt deleted + tracking restored", async () => {
-    const res = await request(app)
-      .post(`/api/receiptRecall/${approvalRecallId}/approve`)
-      .set(superadminAuth());
-    expect(res.status).toBe(200);
-    expect(res.body.data.status).toBe("COMPLETED");
-    expect(res.body.data.reviewedBy).toBeDefined();
-    expect(res.body.data.reviewedAt).toBeDefined();
-    expect(res.body.data.completedAt).toBeDefined();
-  });
-
-  it("verifies receipt no longer exists after approval", async () => {
+  it("verifies receipt no longer exists after full recall", async () => {
     const txn = await StudentTransaction.findOne({ rollNo: recallRollNo });
     if (txn) {
       const receipt = txn.transactions.find(t => t.receiptNo === recallReceiptNo);
@@ -295,7 +174,7 @@ describe("Receipt Recall API", () => {
     }
   });
 
-  it("verifies fee tracking values match pre-payment state after recall", async () => {
+  it("verifies fee tracking values match pre-payment state after full recall", async () => {
     const tracking = await StudentFeeTracking.findOne({ rollNo: recallRollNo }).lean();
     const yr = tracking.academicYearWiseRecord.find(r => r.academicYear === testCtx.academicYearPrimary);
 
@@ -309,81 +188,131 @@ describe("Receipt Recall API", () => {
     expect(yr.total.paid).toBe(trackingBeforePayment.yearTotalPaid);
   });
 
-  it("rejects approval of already-completed recall", async () => {
-    const res = await request(app)
-      .post(`/api/receiptRecall/${approvalRecallId}/approve`)
-      .set(superadminAuth());
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/COMPLETED/);
+  it("rejects recall for already-recalled breakdowns", async () => {
+    // Re-pay so the receipt exists again
+    const payRes = await request(app)
+      .post("/api/feePayment/pay")
+      .set(adminAuth())
+      .send({
+        rollNo: recallRollNo,
+        paymentType: "Cash",
+        breakdowns: [{
+          academicYear: testCtx.academicYearPrimary,
+          academic: { semesterNumber: 1, tuition: 200 },
+        }],
+      });
+    expect(payRes.status).toBe(201);
+    const newTxns = payRes.body.data.transactions;
+    const newReceipt = newTxns[newTxns.length - 1];
+    const newBdIds = newReceipt.breakdowns.map(b => b._id);
+
+    // Recall it
+    const recallRes = await request(app)
+      .post("/api/receiptRecall")
+      .set(adminAuth())
+      .send({
+        receiptNo: newReceipt.receiptNo,
+        rollNo: recallRollNo,
+        reason: "test",
+        breakdownIds: newBdIds,
+      });
+    expect(recallRes.status).toBe(201);
+
+    // Try to recall again — should 409
+    const dupeRes = await request(app)
+      .post("/api/receiptRecall")
+      .set(adminAuth())
+      .send({
+        receiptNo: newReceipt.receiptNo,
+        rollNo: recallRollNo,
+        reason: "duplicate attempt",
+        breakdownIds: newBdIds,
+      });
+    expect(dupeRes.status).toBe(409);
+    expect(dupeRes.body.message).toMatch(/already.*recalled/i);
   });
 
-  /* ─── SECOND PAYMENT + RECALL CYCLE ───── */
+  /* ─── PARTIAL RECALL (individual breakdown) ───── */
 
-  let secondReceiptNo;
-  let secondRecallId;
-  let trackingBeforeSecondPayment;
-
-  it("makes a second payment and recalls it correctly", async () => {
-    // Make another payment (receiptNo is auto-generated)
+  it("recalls a single breakdown from a multi-breakdown receipt", async () => {
+    // Make a payment with 2 breakdowns (odd + even semester)
     const payRes = await request(app)
       .post("/api/feePayment/pay")
       .set(adminAuth())
       .send({
         rollNo: recallRollNo,
         paymentType: "UPI",
-        breakdowns: [{
-          academicYear: testCtx.academicYearPrimary,
-          academic: { semesterNumber: 1, tuition: 500, exam: 200 },
-        }],
+        breakdowns: [
+          {
+            academicYear: testCtx.academicYearPrimary,
+            academic: { semesterNumber: 1, tuition: 300, exam: 100 },
+          },
+          {
+            academicYear: testCtx.academicYearPrimary,
+            academic: { semesterNumber: 2, tuition: 400 },
+          },
+        ],
       });
     expect(payRes.status).toBe(201);
 
-    // Capture auto-generated receiptNo
     const txns = payRes.body.data.transactions;
-    secondReceiptNo = txns[txns.length - 1].receiptNo;
+    const multiReceipt = txns[txns.length - 1];
+    expect(multiReceipt.breakdowns).toHaveLength(2);
 
-    // Snapshot before recall
-    const trackingPre = await StudentFeeTracking.findOne({ rollNo: recallRollNo }).lean();
-    const yrPre = trackingPre.academicYearWiseRecord.find(r => r.academicYear === testCtx.academicYearPrimary);
-    trackingBeforeSecondPayment = {
-      tuitionPaid: yrPre.academic.odd.tuition.paid,
-      examPaid: yrPre.academic.odd.exam.paid,
-    };
+    // Snapshot tracking before partial recall
+    const trackingBefore = await StudentFeeTracking.findOne({ rollNo: recallRollNo }).lean();
+    const yrBefore = trackingBefore.academicYearWiseRecord.find(r => r.academicYear === testCtx.academicYearPrimary);
+    const oddTuitionBefore = yrBefore.academic.odd.tuition.paid;
+    const evenTuitionBefore = yrBefore.academic.even.tuition.paid;
 
-    // Create recall
+    // Recall only the first breakdown (sem 1: tuition 300 + exam 100)
+    const firstBdId = multiReceipt.breakdowns[0]._id;
     const recallRes = await request(app)
       .post("/api/receiptRecall")
       .set(adminAuth())
-      .send({ receiptNo: secondReceiptNo, rollNo: recallRollNo, reason: "Second recall test" });
+      .send({
+        receiptNo: multiReceipt.receiptNo,
+        rollNo: recallRollNo,
+        reason: "Partial recall test",
+        breakdownIds: [firstBdId],
+      });
     expect(recallRes.status).toBe(201);
-    secondRecallId = recallRes.body.data._id;
+    expect(recallRes.body.data.breakdownIds).toHaveLength(1);
 
-    // Approve
-    const approveRes = await request(app)
-      .post(`/api/receiptRecall/${secondRecallId}/approve`)
-      .set(superadminAuth());
-    expect(approveRes.status).toBe(200);
-    expect(approveRes.body.data.status).toBe("COMPLETED");
+    // Verify the receipt still exists with only the second breakdown
+    const txnAfter = await StudentTransaction.findOne({ rollNo: recallRollNo });
+    const receiptAfter = txnAfter.transactions.find(t => t.receiptNo === multiReceipt.receiptNo);
+    expect(receiptAfter).toBeDefined();
+    expect(receiptAfter.breakdowns).toHaveLength(1);
+    expect(receiptAfter.breakdowns[0]._id.toString()).toBe(multiReceipt.breakdowns[1]._id);
 
-    // Verify tracking reversed correctly
+    // Verify fee tracking: sem 1 reversed, sem 2 untouched
     const trackingAfter = await StudentFeeTracking.findOne({ rollNo: recallRollNo }).lean();
     const yrAfter = trackingAfter.academicYearWiseRecord.find(r => r.academicYear === testCtx.academicYearPrimary);
-    expect(yrAfter.academic.odd.tuition.paid).toBe(trackingBeforeSecondPayment.tuitionPaid - 500);
-    expect(yrAfter.academic.odd.exam.paid).toBe(trackingBeforeSecondPayment.examPaid - 200);
-
-    // Verify receipt is gone
-    const txn = await StudentTransaction.findOne({ rollNo: recallRollNo });
-    if (txn) {
-      const receipt = txn.transactions.find(t => t.receiptNo === secondReceiptNo);
-      expect(receipt).toBeUndefined();
-    }
+    expect(yrAfter.academic.odd.tuition.paid).toBe(oddTuitionBefore - 300);
+    expect(yrAfter.academic.even.tuition.paid).toBe(evenTuitionBefore); // untouched
   });
 
-  it("rejects recall for already-recalled receipt", async () => {
+  /* ─── LIST RECALLS ───── */
+
+  it("lists recall records", async () => {
     const res = await request(app)
-      .post("/api/receiptRecall")
+      .get("/api/receiptRecall")
+      .set(adminAuth());
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.data.records)).toBe(true);
+    expect(res.body.data.records.length).toBeGreaterThanOrEqual(1);
+    expect(res.body.data.pagination).toBeDefined();
+  });
+
+  it("filters recall records by rollNo", async () => {
+    const res = await request(app)
+      .get("/api/receiptRecall")
       .set(adminAuth())
-      .send({ receiptNo: recallReceiptNo, rollNo: recallRollNo, reason: "Should fail" });
-    expect(res.status).toBeGreaterThanOrEqual(404);
+      .query({ rollNo: recallRollNo });
+    expect(res.status).toBe(200);
+    res.body.data.records.forEach(r => {
+      expect(r.rollNo).toBe(recallRollNo);
+    });
   });
 });
