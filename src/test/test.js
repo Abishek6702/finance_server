@@ -1016,7 +1016,6 @@ describe("QPulse API integration (full coverage)", () => {
           paymentType: "Cash",
           bankName: "Indian Bank",
           bankLocation: "Kinathukadavu",
-          remarks: "first payment",
           breakdowns: [
             {
               academicYear: testCtx.academicYearPrimary,
@@ -1038,7 +1037,6 @@ describe("QPulse API integration (full coverage)", () => {
           rollNo: testCtx.studentRollFinance,
           receiptNo: testCtx.receiptTwo,
           paymentType: "UPI",
-          remarks: "second payment",
           breakdowns: [
             {
               academicYear: testCtx.academicYearPrimary,

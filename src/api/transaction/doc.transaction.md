@@ -38,7 +38,6 @@ Records a fee payment for a student across one or more academic years and fee ca
   "bankName":    "string (optional)",
   "bankLocation":"string (optional)",
   "billingDate": "string (optional) — dd/mm/yyyy or ISO 8601; defaults to today",
-  "remarks":     "string (optional)",
   "breakdowns": [
     {
       "academicYear": "string — format YYYY-YYYY",
@@ -66,7 +65,6 @@ Records a fee payment for a student across one or more academic years and fee ca
 | `bankName` | Optional string |
 | `bankLocation` | Optional string |
 | `billingDate` | Optional. Accepted formats: `dd/mm/yyyy` or ISO 8601. Defaults to current date |
-| `remarks` | Optional string |
 | `breakdowns` | Required. Non-empty array of breakdown objects |
 | `breakdowns[].academicYear` | Required. Format: `YYYY-YYYY` (e.g., `2023-2024`) |
 | `breakdowns[].academic.semesterNumber` | Required when any academic fee amount > 0. Integer 1–8 |
@@ -92,7 +90,6 @@ Records a fee payment for a student across one or more academic years and fee ca
 {
   "rollNo": "22CSE001",
   "paymentType": "UPI",
-  "remarks": "Semester 1 fee payment",
   "billingDate": "04/03/2026",
   "breakdowns": [
     {
@@ -135,7 +132,6 @@ Records a fee payment for a student across one or more academic years and fee ca
         "bankLocation": null,
         "billingDate": "2026-03-04T00:00:00.000Z",
         "paidOn": "2026-03-04T10:23:45.000Z",
-        "remarks": "Semester 1 fee payment",
         "totalAmount": 75000,
         "breakdowns": [
           {
@@ -248,7 +244,6 @@ GET /api/transactions?department=CSE&paymentMode=UPI&fromDate=2026-01-01&toDate=
           "bankLocation": null,
           "billingDate": "2026-03-04T00:00:00.000Z",
           "paidOn": "2026-03-04T10:23:45.000Z",
-          "remarks": "Semester 1 fee payment",
           "totalAmount": 75000,
           "breakdowns": [
             {
@@ -375,7 +370,6 @@ GET /api/transactions/22CSE001?fromDate=2026-01-01&limit=5&page=1
         "bankLocation": null,
         "billingDate": "2026-03-04T00:00:00.000Z",
         "paidOn": "2026-03-04T10:23:45.000Z",
-        "remarks": "Semester 1 fee payment",
         "totalAmount": 75000,
         "breakdowns": [
           {
@@ -401,7 +395,6 @@ GET /api/transactions/22CSE001?fromDate=2026-01-01&limit=5&page=1
         "bankLocation": "Chennai",
         "billingDate": "2026-02-10T00:00:00.000Z",
         "paidOn": "2026-02-10T09:00:00.000Z",
-        "remarks": null,
         "totalAmount": 15000,
         "breakdowns": [
           {

@@ -35,7 +35,6 @@ const paymentRecordSchema=new mongoose.Schema({
   bankLocation:{type:String,trim:true,default:null},
   billingDate:{type:Date,default:Date.now},
   paidOn:{type:Date,default:Date.now},
-  remarks:{type:String,trim:true,default:null},
   breakdowns:{type:[paymentBreakdownSchema],default:[]},
   totalAmount:{type:Number,default:0}
 },{timestamps:true});

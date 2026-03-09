@@ -46,7 +46,7 @@ const setStatus = (target) => {
 };
 
 const createPayment = async (data) => {
-  const { rollNo, paymentType, bankName, bankLocation, billingDate, remarks, breakdowns } = data;
+  const { rollNo, paymentType, bankName, bankLocation, billingDate,    breakdowns } = data;
   const { receiptNo } = await getNextReceiptNo();
   const tracking = await StudentFeeTracking.findOne({ rollNo });
   if (!tracking) throw new AppError("Fee tracking not found for this student", 404);
@@ -233,7 +233,6 @@ const createPayment = async (data) => {
     bankName,
     bankLocation,
     billingDate: parseBillingDate(billingDate),
-    remarks,
     breakdowns: mappedBreakdowns
   });
 

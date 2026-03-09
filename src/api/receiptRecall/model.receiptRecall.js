@@ -39,7 +39,6 @@ const receiptRecallSchema = new mongoose.Schema({
   bankName: { type: String, trim: true, default: null },
   bankLocation: { type: String, trim: true, default: null },
   billingDate: { type: Date, default: null },
-  remarks: { type: String, trim: true, default: null },
   totalAmount: { type: Number, default: 0 },
   studentInfo: {
     studentName: { type: String, trim: true, default: null },

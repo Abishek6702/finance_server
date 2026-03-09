@@ -26,7 +26,6 @@ describe("Student Fee Tracking API", () => {
         paymentType: "Cash",
         bankName: "Indian Bank",
         bankLocation: "Kinathukadavu",
-        remarks: "first payment",
         breakdowns: [{
           academicYear: testCtx.academicYearPrimary,
           academic: { semesterNumber: 1, tuition: 1000, exam: 500, erp: 100, book: 100, lab: 100 },
@@ -394,7 +393,6 @@ describe("Student Fee Tracking API", () => {
           paymentType: "Cash",
           bankName: "Test Bank",
           bankLocation: "Test",
-          remarks: "overpay test",
           breakdowns: [{
             academicYear: testCtx.academicYearPrimary,
             academic: { semesterNumber: 1, tuition: overpayAmount },
@@ -425,7 +423,6 @@ describe("Student Fee Tracking API", () => {
             paymentType: "Cash",
             bankName: "Test Bank",
             bankLocation: "Test",
-            remarks: "exact net payment",
             breakdowns: [{
               academicYear: testCtx.academicYearPrimary,
               academic: { semesterNumber: 1, erp: netErpOdd },

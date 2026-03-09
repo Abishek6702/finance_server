@@ -35,7 +35,6 @@ describe("Fee Payment / Transaction API", () => {
         paymentType: "Cash",
         bankName: "Indian Bank",
         bankLocation: "Kinathukadavu",
-        remarks: "Semester-1 fee payment",
         breakdowns: [{
           academicYear: testCtx.academicYearPrimary,
           academic: { semesterNumber: 1, tuition: 1000, exam: 500 },
@@ -116,7 +115,6 @@ describe("Fee Payment / Transaction API", () => {
         paymentType: "Cash",
         bankName: "Test Bank",
         bankLocation: "Test",
-        remarks: "overpay between net and gross",
         breakdowns: [{
           academicYear: testCtx.academicYearPrimary,
           academic: { semesterNumber: 1, tuition: midAmount },

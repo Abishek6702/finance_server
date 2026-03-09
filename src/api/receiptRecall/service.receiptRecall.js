@@ -169,7 +169,6 @@ const createRecall = async (data, userId) => {
     bankName: receipt.bankName,
     bankLocation: receipt.bankLocation,
     billingDate: receipt.billingDate,
-    remarks: receipt.remarks,
   };
 
   // 10. If all breakdowns gone, remove entire receipt
@@ -198,7 +197,6 @@ const createRecall = async (data, userId) => {
     bankName: receiptMeta.bankName || null,
     bankLocation: receiptMeta.bankLocation || null,
     billingDate: receiptMeta.billingDate || null,
-    remarks: receiptMeta.remarks || null,
     totalAmount: totalRecalled,
     studentInfo,
     recalledBy: userId,

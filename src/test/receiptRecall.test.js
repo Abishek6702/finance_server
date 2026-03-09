@@ -47,7 +47,6 @@ describe("Receipt Recall API", () => {
         rollNo: recallRollNo,
         paymentType: "Cash",
         bankName: "Test Bank",
-        remarks: "payment to be recalled",
         breakdowns: [{
           academicYear: testCtx.academicYearPrimary,
           academic: { semesterNumber: 1, tuition: 1000, exam: 500, erp: 100, book: 100, lab: 100 },
