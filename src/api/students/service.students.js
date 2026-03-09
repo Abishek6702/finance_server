@@ -3,6 +3,7 @@ const { Transport }=require("../feeStructure/transport/model.transport");
 const { Hostel }=require("../feeStructure/hostel/model.hostel");
 const StudentFeeTracking=require("../studentFeeTracking/model.studentFeeTracking");
 const generateLedger = require("./utils.students").generateLedger;
+const { validateStudentPayload } = require("./validation.students");
 const mongoose=require("mongoose");
 const AppError=require("../../utils/AppError");
 
@@ -222,6 +223,17 @@ const bulkCreateStudents = async (rows) => {
   for (let i = 0; i < rows.length; i++) {
     const row      = rows[i];
     const rollNo   = row?.personal?.rollNo ?? `row-${i + 2}`; // +2 because header is row 1
+
+    const validationErrors = validateStudentPayload(row, { partial: false });
+    if (validationErrors.length) {
+      failed.push({
+        row:    i + 2,
+        rollNo,
+        reason: validationErrors.join("; "),
+      });
+      continue;
+    }
+
     try {
       const student = await createStudent(row);
       created.push({ rollNo, id: student._id });

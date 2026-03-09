@@ -74,7 +74,7 @@ The **Students** module manages full student lifecycle: creation, retrieval, upd
 | `currentAcademicYear` | string | Yes | Format `YYYY-YYYY` |
 | `departmentName` | string | Yes | `CSE`, `IT`, `AIML`, `AIDS`, `ECE`, `EEE`, `MECH`, `CIVIL` |
 | `yearStudying` | number | Yes | `1`–`4` |
-| `currentSemesterNumber` | number | Yes | `1`–`8` |
+| `currentSemesterNumber` | number | Yes | `1`–`8`; **must match `batch` + `currentAcademicYear`**: derived study year = `parseInt(currentAcademicYear) − parseInt(batch) + 1`; valid values are `studyYear×2−1` (odd) or `studyYear×2` (even). E.g. batch `2022-2026`, academicYear `2024-2025` → studyYear 3 → only `5` or `6` accepted |
 | `educationType` | string | No | `UG`, `PG` |
 | `academicType` | string | No | `REG`, `PART_TIME` |
 | `isLateralEntry` | boolean | No | — |

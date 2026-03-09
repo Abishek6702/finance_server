@@ -115,6 +115,26 @@ const validateStudentPayload = (payload, { partial = false } = {}) => {
 
     pushRegex(errors, academic.batch, /^\d{4}-\d{4}$/, "academic.batch format is invalid (expected YYYY-YYYY)");
     pushRegex(errors, academic.currentAcademicYear, /^\d{4}-\d{4}$/, "academic.currentAcademicYear format is invalid (expected YYYY-YYYY)");
+
+    const batchVal = academic.batch;
+    const currentAcademicYearVal = academic.currentAcademicYear;
+    const currentSemVal = academic.currentSemesterNumber;
+    if (batchVal && currentAcademicYearVal && !isUndefined(currentSemVal)) {
+      const batchStartYear = parseInt(String(batchVal).split("-")[0], 10);
+      const currentStartYear = parseInt(String(currentAcademicYearVal).split("-")[0], 10);
+      if (!isNaN(batchStartYear) && !isNaN(currentStartYear)) {
+        const studyYear = currentStartYear - batchStartYear + 1;
+        if (studyYear < 1 || studyYear > 4) {
+          errors.push(`academic.batch and academic.currentAcademicYear are inconsistent (derived study year ${studyYear} is outside valid range 1–4)`);
+        } else {
+          const expectedOdd  = studyYear * 2 - 1;
+          const expectedEven = studyYear * 2;
+          if (![expectedOdd, expectedEven].includes(currentSemVal)) {
+            errors.push(`academic.currentSemesterNumber must be ${expectedOdd} or ${expectedEven} for batch ${batchVal} in academicYear ${currentAcademicYearVal} (study year ${studyYear})`);
+          }
+        }
+      }
+    }
   }
 
   if (contact && typeof contact === "object") {
@@ -130,7 +150,7 @@ const validateStudentPayload = (payload, { partial = false } = {}) => {
     pushEnum(errors, enrollment.quota, QUOTAS, "enrollment.quota");
 
     validateConcession(errors, enrollment.firstGraduate, "enrollment.firstGraduate");
-    validateConcession(errors, enrollment.scheme7point5, "enrollment.scheme7point5");
+    validateConcession(errors, enrollment.govtSchoolScheme, "enrollment.govtSchoolScheme");
     validateConcession(errors, enrollment.pmssScheme, "enrollment.pmssScheme");
     validateConcession(errors, enrollment.sakthiScheme, "enrollment.sakthiScheme");
     validateConcession(errors, enrollment.specialConcession, "enrollment.specialConcession");
@@ -177,6 +197,7 @@ const updateStudentValidation = (req, res, next) => {
 };
 
 module.exports = {
+  validateStudentPayload,
   createStudentValidation,
   updateStudentValidation
 };

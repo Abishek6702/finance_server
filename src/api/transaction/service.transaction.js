@@ -190,32 +190,45 @@ const createPayment = async (data) => {
   }
  
 
-  const mappedBreakdowns = breakdowns.map(bd => {
+  const mappedBreakdowns = [];
+  for (const bd of breakdowns) {
     const academic = bd.academic || {};
-    let academicTotal = 0;
-    academicTotal += normalizeMoney(academic.tuition || 0)
-      + normalizeMoney(academic.exam || 0)
-      + normalizeMoney(academic.erp || 0)
-      + normalizeMoney(academic.book || 0)
-      + normalizeMoney(academic.lab || 0);
-
-    const total = normalizeMoney(academicTotal + normalizeMoney(bd.hostel || 0) + normalizeMoney(bd.transport || 0));
-
-    return {
-      academicYear: bd.academicYear,
-      academic: {
-        semesterNumber: academic.semesterNumber,
-        tuition: normalizeMoney(academic.tuition || 0),
-        exam: normalizeMoney(academic.exam || 0),
-        erp: normalizeMoney(academic.erp || 0),
-        book: normalizeMoney(academic.book || 0),
-        lab: normalizeMoney(academic.lab || 0)
-      },
-      hostel: normalizeMoney(bd.hostel || 0),
-      transport: normalizeMoney(bd.transport || 0),
-      total
-    };
-  });
+    const ACADEMIC_FIELDS = ["tuition", "exam", "erp", "book", "lab"];
+    if (academic.semesterNumber) {
+      for (const field of ACADEMIC_FIELDS) {
+        const amount = normalizeMoney(academic[field] || 0);
+        if (amount > 0) {
+          mappedBreakdowns.push({
+            academicYear: bd.academicYear,
+            semesterNumber: academic.semesterNumber,
+            feeCategory: "academic",
+            feeType: field,
+            amount,
+          });
+        }
+      }
+    }
+    const hostelAmount = normalizeMoney(bd.hostel || 0);
+    if (hostelAmount > 0) {
+      mappedBreakdowns.push({
+        academicYear: bd.academicYear,
+        semesterNumber: null,
+        feeCategory: "hostel",
+        feeType: "hostel",
+        amount: hostelAmount,
+      });
+    }
+    const transportAmount = normalizeMoney(bd.transport || 0);
+    if (transportAmount > 0) {
+      mappedBreakdowns.push({
+        academicYear: bd.academicYear,
+        semesterNumber: null,
+        feeCategory: "transport",
+        feeType: "transport",
+        amount: transportAmount,
+      });
+    }
+  }
 
   transactionDoc.transactions.push({
     receiptNo,
@@ -589,13 +602,13 @@ const getReceiptByReceiptNo = async (receiptNo) => {
     breakdowns: receipt.breakdowns.map(b => ({
       _id: b._id,
       academicYear: b.academicYear,
+      semesterNumber: b.semesterNumber,
+      feeCategory: b.feeCategory,
+      feeType: b.feeType,
+      amount: b.amount,
       feeStructureId: yearIds[b.academicYear]?.feeStructureId || null,
       transportId: yearIds[b.academicYear]?.transportId || null,
       hostelId: yearIds[b.academicYear]?.hostelId || null,
-      academic: b.academic,
-      hostel: b.hostel,
-      transport: b.transport,
-      total: b.total,
     })),
   };
 };
