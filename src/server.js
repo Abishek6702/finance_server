@@ -17,6 +17,7 @@ const transportRoutes = require("./api/feeStructure/transport/routes.transport")
 const hostelRoutes = require("./api/feeStructure/hostel/routes.hostel");
 const receiptRecallRoutes = require("./api/receiptRecall/routes.receiptRecall");
 const superadminRoutes = require("./api/superadmin/routes.superadmin");
+const transactionRoutes = require("./routes/transactionRoutes");
 
 const corsMiddleware = require("./middleware/corsMiddleware");
 const { notFoundHandler, errorHandler } = require("./middleware/errorHandler");
@@ -36,6 +37,7 @@ app.use("/api/transport", transportRoutes);
 app.use("/api/hostel", hostelRoutes);
 app.use("/api/receiptRecall", receiptRecallRoutes);
 app.use("/api/superadmin", superadminRoutes);
+app.use("/api/transaction", transactionRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
