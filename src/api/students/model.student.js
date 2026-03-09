@@ -198,5 +198,4 @@ const studentSchema=new mongoose.Schema({
 /* ======================================================
    EXPORT
 ====================================================== */
-studentSchema.index({ "personal.rollNo": 1 });
 module.exports=mongoose.model("Student",studentSchema);
