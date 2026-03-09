@@ -1299,6 +1299,149 @@
                     "response": []
                 }
             ]
+        },
+        {
+            "name": "Fee Details",
+            "item": [
+                {
+                    "name": "Get Fee Details List",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/feedetails?rollNo={{student_roll_no}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["feedetails"],
+                            "query": [
+                                {
+                                    "key": "rollNo",
+                                    "value": "{{student_roll_no}}",
+                                    "description": "Exact roll number lookup"
+                                },
+                                {
+                                    "key": "batch",
+                                    "value": "{{batch_year}}",
+                                    "description": "Filter by batch (YYYY-YYYY)",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "department",
+                                    "value": "CSE",
+                                    "description": "Filter by department",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "academicYear",
+                                    "value": "{{academic_year}}",
+                                    "description": "Limit fee aggregation to one academic year",
+                                    "disabled": true
+                                }
+                            ]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Fee details list fetched', function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "  const body = pm.response.json();",
+                                    "  pm.expect(body.success).to.equal(true);",
+                                    "  pm.expect(body.data).to.be.an('array');",
+                                    "  pm.expect(body.pagination).to.be.an('object');",
+                                    "  pm.expect(body.pagination.totalRecords).to.be.a('number');",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "response": []
+                },
+                {
+                    "name": "Get Fee Details By Roll No",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/feedetails/{{student_roll_no}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["feedetails", "{{student_roll_no}}"],
+                            "query": [
+                                {
+                                    "key": "includeProfile",
+                                    "value": "true",
+                                    "description": "Include student profile and contact (default true)",
+                                    "disabled": true
+                                }
+                            ]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Year-wise fee summary fetched', function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "  const body = pm.response.json();",
+                                    "  pm.expect(body.success).to.equal(true);",
+                                    "  pm.expect(body.data.feeSummary).to.be.an('array');",
+                                    "  pm.expect(body.data.overall).to.be.an('object');",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "response": []
+                },
+                {
+                    "name": "Get Fee Details By Roll No & Academic Year",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/feedetails/{{student_roll_no}}/{{academic_year}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["feedetails", "{{student_roll_no}}", "{{academic_year}}"],
+                            "query": [
+                                {
+                                    "key": "semester",
+                                    "value": "odd",
+                                    "description": "Filter to odd or even semester only",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "includeProfile",
+                                    "value": "true",
+                                    "description": "Include student profile and contact (default true)",
+                                    "disabled": true
+                                }
+                            ]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Semester breakdown fetched', function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "  const body = pm.response.json();",
+                                    "  pm.expect(body.success).to.equal(true);",
+                                    "  pm.expect(body.data.semesters).to.be.an('array');",
+                                    "  pm.expect(body.data.academicYear).to.be.a('string');",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "response": []
+                }
+            ]
         }
     ],
     "auth": {

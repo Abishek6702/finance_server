@@ -13,6 +13,7 @@ const feeStructureRoutes = require("./api/feeStructure/acadamic/routes.acadamic"
 const studentsManagementRoutes = require("./api/students/routes.students");
 const paymentTransactionRoutes = require("./api/transaction/routes.transaction");
 const studentFeeTrackingRoutes = require("./api/studentFeeTracking/routes.studentFeeTracking");
+const feeDetailsRoutes = require("./api/feedetails/routes.feedetails");
 const transportRoutes = require("./api/feeStructure/transport/routes.transport");
 const hostelRoutes = require("./api/feeStructure/hostel/routes.hostel");
 const receiptRecallRoutes = require("./api/receiptRecall/routes.receiptRecall");
@@ -33,6 +34,7 @@ app.use("/api/feeStructureMaster", feeStructureRoutes);
 app.use("/api/studentsManagement", studentsManagementRoutes);
 app.use("/api/feePayment", paymentTransactionRoutes);
 app.use("/api/studentFeeTracking", studentFeeTrackingRoutes);
+app.use("/api/feedetails", feeDetailsRoutes);
 app.use("/api/transport", transportRoutes);
 app.use("/api/hostel", hostelRoutes);
 app.use("/api/receiptRecall", receiptRecallRoutes);
