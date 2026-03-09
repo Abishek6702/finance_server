@@ -1442,6 +1442,106 @@
                     "response": []
                 }
             ]
+        },
+        {
+            "name": "Reports",
+            "item": [
+                {
+                    "name": "Individual Fee Report",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/api/reports/individual?rollNo={{student_roll_no}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "v1", "reports", "individual"],
+                            "query": [
+                                {
+                                    "key": "rollNo",
+                                    "value": "{{student_roll_no}}",
+                                    "description": "Exact roll number lookup"
+                                },
+                                {
+                                    "key": "semester",
+                                    "value": "odd",
+                                    "description": "Filter by semester ('odd' or 'even')",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "fromDate",
+                                    "value": "2026-01-01",
+                                    "description": "Start date for transaction lookup (YYYY-MM-DD)",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "toDate",
+                                    "value": "2026-12-31",
+                                    "description": "End date for transaction lookup (YYYY-MM-DD)",
+                                    "disabled": true
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Datewise Fee Report",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/api/reports/datewise",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "v1", "reports", "datewise"],
+                            "query": [
+                                {
+                                    "key": "fromDate",
+                                    "value": "2026-01-01",
+                                    "description": "Start date (YYYY-MM-DD)",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "toDate",
+                                    "value": "2026-12-31",
+                                    "description": "End date (YYYY-MM-DD)",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "academicYear",
+                                    "value": "{{academic_year}}",
+                                    "description": "Filter by academic year breakdown",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "paymentMode",
+                                    "value": "Cash",
+                                    "description": "Filter by payment mode (Cash/UPI/etc)",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "feeHead",
+                                    "value": "tuition",
+                                    "description": "Filter by specific fee head type (tuition/exam/erp/etc)",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "page",
+                                    "value": "1",
+                                    "description": "Page number",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "20",
+                                    "description": "Items per page",
+                                    "disabled": true
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
         }
     ],
     "auth": {
