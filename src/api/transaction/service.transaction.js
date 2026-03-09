@@ -25,6 +25,18 @@ const normalizeMoney = (value) => {
   return Math.round(number * 100) / 100;
 };
 
+const reshapeBreakdowns = (breakdowns) =>
+  (breakdowns || []).map((bd) => {
+    const { _id, feeHeads, ...rest } = bd;
+    return {
+      ...rest,
+      feeHeads: (feeHeads || []).reduce((map, fh) => {
+        map[fh.type] = { fee: fh.fee, _id: fh._id };
+        return map;
+      }, {}),
+    };
+  });
+
 const setStatus = (target) => {
   if (!target) return;
   if (target.total === 0) target.status = "Paid";
@@ -190,45 +202,30 @@ const createPayment = async (data) => {
   }
  
 
-  const mappedBreakdowns = [];
-  for (const bd of breakdowns) {
+  const mappedBreakdowns = breakdowns.map(bd => {
     const academic = bd.academic || {};
-    const ACADEMIC_FIELDS = ["tuition", "exam", "erp", "book", "lab"];
-    if (academic.semesterNumber) {
-      for (const field of ACADEMIC_FIELDS) {
-        const amount = normalizeMoney(academic[field] || 0);
-        if (amount > 0) {
-          mappedBreakdowns.push({
-            academicYear: bd.academicYear,
-            semesterNumber: academic.semesterNumber,
-            feeCategory: "academic",
-            feeType: field,
-            amount,
-          });
-        }
-      }
+    const feeHeads = [];
+
+    for (const field of ["tuition", "exam", "erp", "book", "lab"]) {
+      const fee = normalizeMoney(academic[field] || 0);
+      if (fee > 0) feeHeads.push({ type: field, fee });
     }
-    const hostelAmount = normalizeMoney(bd.hostel || 0);
-    if (hostelAmount > 0) {
-      mappedBreakdowns.push({
-        academicYear: bd.academicYear,
-        semesterNumber: null,
-        feeCategory: "hostel",
-        feeType: "hostel",
-        amount: hostelAmount,
-      });
-    }
-    const transportAmount = normalizeMoney(bd.transport || 0);
-    if (transportAmount > 0) {
-      mappedBreakdowns.push({
-        academicYear: bd.academicYear,
-        semesterNumber: null,
-        feeCategory: "transport",
-        feeType: "transport",
-        amount: transportAmount,
-      });
-    }
-  }
+
+    const hostelFee = normalizeMoney(bd.hostel || 0);
+    if (hostelFee > 0) feeHeads.push({ type: "hostel", fee: hostelFee });
+
+    const transportFee = normalizeMoney(bd.transport || 0);
+    if (transportFee > 0) feeHeads.push({ type: "transport", fee: transportFee });
+
+    const total = normalizeMoney(feeHeads.reduce((sum, fh) => sum + fh.fee, 0));
+
+    return {
+      academicYear: bd.academicYear,
+      semesterNumber: academic.semesterNumber || null,
+      feeHeads,
+      total
+    };
+  });
 
   transactionDoc.transactions.push({
     receiptNo,
@@ -290,7 +287,12 @@ const createPayment = async (data) => {
   tracking.markModified("academicYearWiseRecord");
   await tracking.save();
 
-  return transactionDoc;
+  const docObj = transactionDoc.toObject();
+  docObj.transactions = docObj.transactions.map(tx => ({
+    ...tx,
+    breakdowns: reshapeBreakdowns(tx.breakdowns)
+  }));
+  return docObj;
 };
  
 
@@ -364,14 +366,14 @@ const getAllTransactions = async (query) => {
           : []),
         {
           $project: {
-            _id: 1,
-            personal: {
-              rollNo: 1,
-              studentName: 1,
-              studentPhoto: 1
-            },
-            academic: 1,
-            contact: 1
+          _id: 0,
+          "personal.rollNo": 1,
+          "personal.studentName": 1,
+          "personal.studentPhoto": 1,
+          "personal.registerNumber": 1,
+          "academic.departmentName": 1,
+          "academic.section": 1,
+          "academic.yearStudying": 1
           }
         }
       ],
@@ -407,7 +409,10 @@ const getAllTransactions = async (query) => {
     const total = result.metadata[0]?.total || 0;
 
     return {
-      transactions: result.data,
+      transactions: result.data.map(item => ({
+        ...item,
+        transaction: { ...item.transaction, breakdowns: reshapeBreakdowns(item.transaction?.breakdowns) }
+      })),
       pagination: {
         total,
         page: pageNum,
@@ -421,7 +426,10 @@ const getAllTransactions = async (query) => {
   const results = await StudentTransaction.aggregate(pipeline);
 
   return {
-    transactions: results,
+    transactions: results.map(item => ({
+      ...item,
+      transaction: { ...item.transaction, breakdowns: reshapeBreakdowns(item.transaction?.breakdowns) }
+    })),
     pagination: {
       total: results.length,
       page: 1,
@@ -440,11 +448,29 @@ const getStudentTransactions = async (rollNo, query = {}) => {
   const { pageNum, limitNum, skip } = getPagination(page, limit);
   const hasLimit = limit !== undefined && limit !== null && limit !== "";
 
-  const student = await Student.findOne(
-    { "personal.rollNo": rollNo } 
-  ).lean();
+ const student = await Student.findOne(
+  { "personal.rollNo": rollNo },
+  {
+    "personal.rollNo": 1,
+    "personal.studentName": 1,
+    "personal.studentPhoto": 1,
+    "personal.registerNumber": 1,
+    "academic.departmentName": 1,
+    "academic.section": 1,
+    "academic.yearStudying": 1
+  }
+).lean();
+if (!student) throw new AppError("Student not found", 404);
 
-  if (!student) throw new AppError("Student not found", 404);
+const studentData = {
+  rollNo: student.personal.rollNo,
+  name: student.personal.studentName,
+  profile: student.personal.studentPhoto,
+  registerNo: student.personal.registerNumber,
+  department: student.academic.departmentName,
+  section: student.academic.section,
+  year: student.academic.yearStudying
+};
 
   const pipeline = [
     { $match: { rollNo } },
@@ -492,8 +518,11 @@ const getStudentTransactions = async (rollNo, query = {}) => {
     const total = result.metadata[0]?.total || 0;
 
     return {
-      student,
-      transactions: result.data.map(d => d.transaction),
+      studentData,
+      transactions: result.data.map(d => ({
+        ...d.transaction,
+        breakdowns: reshapeBreakdowns(d.transaction?.breakdowns)
+      })),
       pagination: {
         total,
         page: pageNum,
@@ -508,7 +537,10 @@ const getStudentTransactions = async (rollNo, query = {}) => {
 
   return {
     student,
-    transactions: results.map(r => r.transaction),
+    transactions: results.map(r => ({
+      ...r.transaction,
+      breakdowns: reshapeBreakdowns(r.transaction?.breakdowns)
+    })),
     pagination: {
       total: results.length,
       page: 1,
@@ -550,72 +582,9 @@ const getNextReceiptNo = async () => {
   };
 };
 
-/* ============================================================
-   GET RECEIPT BY RECEIPT NUMBER
-   Returns rollNo, receipt metadata, and per-breakdown IDs:
-   breakdown._id, feeStructureId, transportId, hostelId
-============================================================ */
-const getReceiptByReceiptNo = async (receiptNo) => {
-  const transactionDoc = await StudentTransaction.findOne(
-    { "transactions.receiptNo": receiptNo }
-  ).lean();
-
-  if (!transactionDoc) throw new AppError(`Receipt '${receiptNo}' not found`, 404);
-
-  const receipt = transactionDoc.transactions.find(t => t.receiptNo === receiptNo);
-  const rollNo = transactionDoc.rollNo;
-
-  const academicYears = [...new Set(receipt.breakdowns.map(b => b.academicYear))];
-
-  const [feeStructures, tracking] = await Promise.all([
-    FeeStructureMaster.find(
-      { academicYear: { $in: academicYears } },
-      { _id: 1, academicYear: 1 }
-    ).lean(),
-    StudentFeeTracking.findOne({ rollNo }).lean(),
-  ]);
-
-  const feeStructureMap = feeStructures.reduce((acc, fs) => {
-    acc[fs.academicYear] = fs._id;
-    return acc;
-  }, {});
-
-  const yearIds = {};
-  for (const year of academicYears) {
-    const yearRecord = tracking?.academicYearWiseRecord?.find(r => r.academicYear === year);
-    yearIds[year] = {
-      feeStructureId: feeStructureMap[year] || null,
-      transportId: yearRecord?.transport?.transport || null,
-      hostelId: yearRecord?.hostel?.hostel || null,
-    };
-  }
-
-  return {
-    rollNo,
-    receiptNo: receipt.receiptNo,
-    paymentType: receipt.paymentType,
-    bankName: receipt.bankName,
-    bankLocation: receipt.bankLocation,
-    billingDate: receipt.billingDate,
-    remarks: receipt.remarks,
-    totalAmount: receipt.totalAmount,
-    breakdowns: receipt.breakdowns.map(b => ({
-      _id: b._id,
-      academicYear: b.academicYear,
-      semesterNumber: b.semesterNumber,
-      feeCategory: b.feeCategory,
-      feeType: b.feeType,
-      amount: b.amount,
-      feeStructureId: yearIds[b.academicYear]?.feeStructureId || null,
-      transportId: yearIds[b.academicYear]?.transportId || null,
-      hostelId: yearIds[b.academicYear]?.hostelId || null,
-    })),
-  };
-};
 
 module.exports = {
   createPayment,
   getAllTransactions,
   getStudentTransactions,
-  getReceiptByReceiptNo,
 };

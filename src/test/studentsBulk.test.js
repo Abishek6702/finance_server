@@ -100,6 +100,30 @@ describe("Students Bulk Import / Update API", () => {
     expect(res.body.data.failed[0].reason).toMatch(/already exists/i);
   });
 
+  it("bulk create: row with currentSemesterNumber mismatching batch+academicYear ends up in failed", async () => {
+    const yearNum = Number(testCtx.academicYearPrimary.split("-")[0]);
+    // batch is 2 years earlier → studyYear = 3 → valid sems [5, 6]; supply sem 1 → invalid
+    const mismatchedBatch = `${yearNum - 2}-${yearNum + 2}`;
+    const wrongSemRoll = `25CS${TS.slice(-3)}`;
+    const csvBuf = toCSVBuffer([
+      buildFlatRow(wrongSemRoll, {
+        batch: mismatchedBatch,
+        currentSemesterNumber: 1,
+      }),
+    ]);
+    const res = await request(app)
+      .post("/api/studentsManagement/bulk")
+      .set(superadminAuth())
+      .attach("file", csvBuf, "sem-mismatch.csv");
+
+    expect(res.status).toBe(207);
+    expect(res.body.data.summary.total).toBe(1);
+    expect(res.body.data.summary.created).toBe(0);
+    expect(res.body.data.summary.failed).toBe(1);
+    expect(res.body.data.failed[0].rollNo).toBe(wrongSemRoll);
+    expect(res.body.data.failed[0].reason).toMatch(/currentSemesterNumber/i);
+  });
+
   it("handles CSV with null / missing columns gracefully", async () => {
     const minimalHeaders = ["rollNo", "degreeProgram", "batch", "currentAcademicYear"];
     const line = [`20CS${TS.slice(-3)}`, "BE", testCtx.academicYearPrimary, testCtx.academicYearPrimary].join(",");

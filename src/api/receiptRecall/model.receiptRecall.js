@@ -18,7 +18,7 @@ const receiptRecallSchema = new mongoose.Schema({
     trim: true,
     index: true,
   },
-  breakdownIds: [{
+  feeHeadIds: [{
     type: mongoose.Schema.Types.ObjectId,
     required: true,
   }],
@@ -27,7 +27,7 @@ const receiptRecallSchema = new mongoose.Schema({
     required: true,
     trim: true,
   },
-  breakdownSnapshots: {
+  feeHeadSnapshots: {
     type: [mongoose.Schema.Types.Mixed],
     required: true,
   },
@@ -42,7 +42,10 @@ const receiptRecallSchema = new mongoose.Schema({
   remarks: { type: String, trim: true, default: null },
   totalAmount: { type: Number, default: 0 },
   studentInfo: {
+    studentName: { type: String, trim: true, default: null },
+    studentPhoto: { type: String, trim: true, default: null },
     departmentName: { type: String, trim: true, default: null },
+    section: { type: String, trim: true, default: null },
     currentAcademicYear: { type: String, trim: true, default: null },
     yearStudying: { type: Number, default: null },
     currentSemesterNumber: { type: Number, default: null },

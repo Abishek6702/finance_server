@@ -271,6 +271,39 @@ describe("Students API", () => {
     expect(res.status).toBe(400);
   });
 
+  it("rejects create when currentSemesterNumber mismatches batch+currentAcademicYear", async () => {
+    const yearNum = Number(testCtx.academicYearPrimary.split("-")[0]);
+    // batch is 2 years earlier → studyYear = 3 → valid sems are 5 and 6
+    const mismatchedBatch = `${yearNum - 2}-${yearNum + 2}`;
+    const payload = buildStudentPayload(`79CS${testCtx.TS.slice(-3)}`, { academicYear: testCtx.academicYearPrimary });
+    payload.academic.batch = mismatchedBatch;
+    payload.academic.currentSemesterNumber = 1; // wrong — should be 5 or 6
+    const res = await request(app)
+      .post("/api/studentsManagement")
+      .set(superadminAuth())
+      .send(payload);
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/currentSemesterNumber/i);
+  });
+
+  it("does NOT reject when currentSemesterNumber matches derived study year", async () => {
+    const yearNum = Number(testCtx.academicYearPrimary.split("-")[0]);
+    const mismatchedBatch = `${yearNum - 2}-${yearNum + 2}`; // studyYear = 3 → valid sems [5, 6]
+    const payload = buildStudentPayload(`78CS${testCtx.TS.slice(-3)}`, { academicYear: testCtx.academicYearPrimary });
+    payload.academic.batch = mismatchedBatch;
+    payload.academic.currentSemesterNumber = 5;
+    payload.academic.yearStudying = 3;
+    const res = await request(app)
+      .post("/api/studentsManagement")
+      .set(superadminAuth())
+      .send(payload);
+    // Validation passes — request proceeds to DB/business-logic layer
+    // We assert it is NOT a 400 from semester validation specifically
+    if (res.status === 400) {
+      expect(res.body.message).not.toMatch(/currentSemesterNumber.*must be/i);
+    }
+  });
+
   /* ─── CRUD STUDENT ─────────────────────────────────── */
 
   it("creates student with fee tracking (201)", async () => {
@@ -358,9 +391,9 @@ describe("Students API", () => {
     expect(res.body.data.length).toBeGreaterThanOrEqual(3);
   });
 
-  it("gets student by rollNo with populated transport (200)", async () => {
+  it("gets student by rollNo query param with populated transport (200)", async () => {
     const res = await request(app)
-      .get(`/api/studentsManagement/${testCtx.studentRollTransport}`)
+      .get(`/api/studentsManagement?rollNo=${testCtx.studentRollTransport}`)
       .set(superadminAuth());
     expect(res.status).toBe(200);
     expect(res.body.data.personal.rollNo).toBe(testCtx.studentRollTransport);
@@ -368,21 +401,67 @@ describe("Students API", () => {
     expect(res.body.data.transport.transport).toBeDefined();
   });
 
-  it("gets student by rollNo with populated hostel (200)", async () => {
+  it("gets student by rollNo query param with populated hostel (200)", async () => {
     const res = await request(app)
-      .get(`/api/studentsManagement/${testCtx.studentRollHostel}`)
+      .get(`/api/studentsManagement?rollNo=${testCtx.studentRollHostel}`)
       .set(superadminAuth());
     expect(res.status).toBe(200);
     expect(res.body.data.hostel.isApplicable).toBe(true);
     expect(res.body.data.hostel.hostel).toBeDefined();
   });
 
-  it("returns 404 for unknown student", async () => {
+  it("returns 404 for unknown student via rollNo query param", async () => {
     const res = await request(app)
-      .get("/api/studentsManagement/99CS999")
+      .get("/api/studentsManagement?rollNo=99CS999")
       .set(superadminAuth());
     expect(res.status).toBe(404);
   });
+
+  it("returns 400 for invalid rollNo format in query param", async () => {
+    const res = await request(app)
+      .get("/api/studentsManagement?rollNo=BADROLL")
+      .set(superadminAuth());
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/rollNo/i);
+  });
+
+  it("returns only requested fields on list when fields param given", async () => {
+    const res = await request(app)
+      .get("/api/studentsManagement?fields=personal,academic")
+      .set(superadminAuth());
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    const first = res.body.data[0];
+    expect(first.personal).toBeDefined();
+    expect(first.academic).toBeDefined();
+    expect(first.contact).toBeUndefined();
+    expect(first.family).toBeUndefined();
+  });
+
+  it("returns only requested fields for single student when rollNo + fields given", async () => {
+    const res = await request(app)
+      .get(`/api/studentsManagement?rollNo=${testCtx.studentRollTransport}&fields=transport,hostel`)
+      .set(superadminAuth());
+    expect(res.status).toBe(200);
+    expect(res.body.data.transport).toBeDefined();
+    expect(res.body.data.hostel).toBeDefined();
+    expect(res.body.data.personal).toBeUndefined();
+    expect(res.body.data.academic).toBeUndefined();
+  });
+
+  it("returns 400 for invalid fields param value", async () => {
+    const res = await request(app)
+      .get("/api/studentsManagement?fields=personal,invalidSection")
+      .set(superadminAuth());
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/invalid fields/i);
+  });
+
+  it("returns 401 for unauthenticated GET request", async () => {
+    const res = await request(app).get("/api/studentsManagement");
+    expect(res.status).toBe(401);
+  });
+
 
   /* ─── UPDATE ───────────────────────────────────────── */
 

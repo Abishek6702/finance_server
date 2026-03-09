@@ -393,36 +393,32 @@
                     },
                     "response": []
                 },
+               
                 {
-                    "name": "Get All Students",
+                    "name": "Get Student ",
                     "request": {
                         "method": "GET",
                         "header": [],
                         "url": {
-                            "raw": "{{base_url}}/studentsManagement",
+                            "raw": "{{base_url}}/studentsManagement?rollNo={{student_roll_no}}",
                             "host": [
                                 "{{base_url}}"
                             ],
                             "path": [
                                 "studentsManagement"
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Get Student by Roll No",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{base_url}}/studentsManagement/{{student_roll_no}}",
-                            "host": [
-                                "{{base_url}}"
                             ],
-                            "path": [
-                                "studentsManagement",
-                                "{{student_roll_no}}"
+                            "query": [
+                                {
+                                    "key": "rollNo",
+                                    "value": "{{student_roll_no}}",
+                                    "description": "Student roll number (e.g. 25CS101). When provided returns a single student record."
+                                },
+                                {
+                                    "key": "fields",
+                                    "value": "personal,academic,transport,hostel",
+                                    "description": "Comma-separated sections to include. Omit to return all sections.",
+                                    "disabled": true
+                                }
                             ]
                         }
                     },
@@ -596,46 +592,6 @@
                                     "  if (body.data.transactions.length > 0) {",
                                     "    pm.expect(body.data.transactions[0].student).to.be.an('object');",
                                     "    pm.expect(body.data.transactions[0].transaction).to.be.an('object');",
-                                    "  }",
-                                    "});"
-                                ]
-                            }
-                        }
-                    ],
-                    "response": []
-                },
-                {
-                    "name": "Get Receipt by Receipt Number",
-                    "request": {
-                        "method": "GET",
-                        "description": "Fetches a single receipt by its receipt number. Returns roll number, payment metadata, and per-breakdown IDs (feeStructureId, transportId, hostelId).",
-                        "header": [],
-                        "url": {
-                            "raw": "{{base_url}}/feePayment/receipt/{{receipt_no}}",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "feePayment",
-                                "receipt",
-                                "{{receipt_no}}"
-                            ]
-                        }
-                    },
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "type": "text/javascript",
-                                "exec": [
-                                    "pm.test('Receipt fetched', function () {",
-                                    "  pm.response.to.have.status(200);",
-                                    "  const body = pm.response.json();",
-                                    "  pm.expect(body.data.receiptNo).to.be.a('string');",
-                                    "  pm.expect(body.data.rollNo).to.be.a('string');",
-                                    "  pm.expect(body.data.breakdowns).to.be.an('array');",
-                                    "  if (body.data.breakdowns.length > 0) {",
-                                    "    pm.expect(body.data.breakdowns[0]._id).to.be.a('string');",
                                     "  }",
                                     "});"
                                 ]
@@ -1224,7 +1180,7 @@
                         },
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"receiptNo\": \"{{receipt_no}}\",\n  \"rollNo\": \"{{student_roll_no}}\",\n  \"reason\": \"Incorrect payment entry — wrong semester selected\",\n  \"breakdownIds\": [\"PASTE_BREAKDOWN_OBJECT_ID_HERE\"]\n}",
+                            "raw": "{\n  \"receiptNo\": \"{{receipt_no}}\",\n  \"rollNo\": \"{{student_roll_no}}\",\n  \"reason\": \"Incorrect payment entry — wrong semester selected\",\n  \"feeHeadIds\": [\"PASTE_FEE_HEAD_OBJECT_ID_HERE\"]\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -1242,7 +1198,7 @@
                                     "  pm.response.to.have.status(201);",
                                     "  const body = pm.response.json();",
                                     "  pm.expect(body.success).to.equal(true);",
-                                    "  pm.expect(body.data.breakdownIds).to.be.an('array');",
+                                    "  pm.expect(body.data.feeHeadIds).to.be.an('array');",
                                     "  pm.expect(body.data.breakdownSnapshots).to.be.an('array');",
                                     "  pm.expect(body.data.receiptNo).to.be.a('string');",
                                     "});"

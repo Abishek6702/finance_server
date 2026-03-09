@@ -8,9 +8,6 @@
 } = require("./setup");
 
 describe("Fee Payment / Transaction API", () => {
-  // Shared state for get-by-receipt tests
-  let capturedReceiptNo;
-  let capturedBreakdownIds;
 
   beforeAll(async () => {
     await globalSetup();
@@ -45,9 +42,7 @@ describe("Fee Payment / Transaction API", () => {
         }],
       });
     expect(payRes.status).toBe(201);
-    const lastTxn = payRes.body.data.transactions[payRes.body.data.transactions.length - 1];
-    capturedReceiptNo = lastTxn.receiptNo;
-    capturedBreakdownIds = lastTxn.breakdowns.map(b => b._id);
+
   });
 
   afterAll(async () => {
@@ -68,78 +63,6 @@ describe("Fee Payment / Transaction API", () => {
     expect(true).toBe(true);
   });
 
-  /* ================================================================
-     GET /receipt/:receiptNo — Get Receipt By Receipt Number
-  ================================================================ */
-
-  it("rejects get-by-receiptNo without auth token", async () => {
-    const res = await request(app).get(`/api/feePayment/receipt/${capturedReceiptNo}`);
-    expect(res.status).toBe(401);
-  });
-
-  it("returns 404 for a non-existent receipt number", async () => {
-    const res = await request(app)
-      .get("/api/feePayment/receipt/REC-00000000-000")
-      .set(adminAuth());
-    expect(res.status).toBe(404);
-    expect(res.body.message).toMatch(/not found/i);
-  });
-
-  it("returns receipt detail with all required fields", async () => {
-    const res = await request(app)
-      .get(`/api/feePayment/receipt/${capturedReceiptNo}`)
-      .set(adminAuth());
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    expect(res.body.data.receiptNo).toBe(capturedReceiptNo);
-    expect(res.body.data.rollNo).toBe(testCtx.studentRollFinance);
-    expect(res.body.data.paymentType).toBe("Cash");
-    expect(res.body.data.bankName).toBe("Indian Bank");
-    expect(res.body.data.bankLocation).toBe("Kinathukadavu");
-    expect(res.body.data.remarks).toBe("Semester-1 fee payment");
-    expect(typeof res.body.data.totalAmount).toBe("number");
-    expect(res.body.data.totalAmount).toBeGreaterThan(0);
-  });
-
-  it("returns breakdowns array with _id, feeStructureId, and fee amounts", async () => {
-    const res = await request(app)
-      .get(`/api/feePayment/receipt/${capturedReceiptNo}`)
-      .set(adminAuth());
-    expect(res.status).toBe(200);
-    const breakdowns = res.body.data.breakdowns;
-    expect(Array.isArray(breakdowns)).toBe(true);
-    expect(breakdowns.length).toBeGreaterThan(0);
-
-    const bd = breakdowns[0];
-    expect(bd._id).toBeDefined();
-    expect(capturedBreakdownIds).toContain(bd._id);
-    expect(bd.academicYear).toBe(testCtx.academicYearPrimary);
-    // feeStructureId must be populated (we created a fee structure in beforeAll)
-    expect(bd.feeStructureId).toBeTruthy();
-    expect(typeof bd.total).toBe("number");
-    expect(bd.academic).toBeDefined();
-  });
-
-  it("transport and hostel IDs are null for a non-hostel/transport student", async () => {
-    const res = await request(app)
-      .get(`/api/feePayment/receipt/${capturedReceiptNo}`)
-      .set(adminAuth());
-    expect(res.status).toBe(200);
-    const bd = res.body.data.breakdowns[0];
-    // studentRollFinance has neither hostel nor transport
-    expect(bd.transportId).toBeNull();
-    expect(bd.hostelId).toBeNull();
-  });
-
-  it("receiptNo param is case-insensitive (normalised to uppercase)", async () => {
-    const lower = capturedReceiptNo.toLowerCase();
-    const res = await request(app)
-      .get(`/api/feePayment/receipt/${lower}`)
-      .set(adminAuth());
-    // May differ from DB value – service looks up as-is from param after toUpperCase
-    // We just verify no 500; it will 404 if DB stored uppercase (expected)
-    expect([200, 404]).toContain(res.status);
-  });
 
   it("rejects payment more than net total but less than gross total (concession enforced)", async () => {
     // Use the pre-defined overpay roll number (covered by globalTeardown)

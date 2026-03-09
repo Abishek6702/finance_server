@@ -21,23 +21,23 @@ const setStatus = (target) => {
 };
 
 /* ===================================================================
-   CREATE RECALL — Admin directly recalls specific breakdowns
-   • Reverses payment allocations in fee tracking
-   • Removes the recalled breakdowns from the transaction receipt
-   • If all breakdowns are recalled, removes the entire receipt
+   CREATE RECALL — Admin directly recalls specific fee heads
+   • Reverses payment allocations in fee tracking per fee-head type
+   • Removes recalled fee heads from the breakdown; prunes empty breakdowns
+   • If all breakdowns are removed, removes the entire receipt
 =================================================================== */
 const createRecall = async (data, userId) => {
-  const { receiptNo, rollNo, reason, breakdownIds } = data;
+  const { receiptNo, rollNo, reason, feeHeadIds } = data;
 
-  // 1. Check if any of these breakdowns were already recalled
+  // 1. Check if any of these feeHeads were already recalled
   const alreadyRecalled = await ReceiptRecallRequest.findOne({
     receiptNo,
     rollNo,
-    breakdownIds: { $in: breakdownIds },
+    feeHeadIds: { $in: feeHeadIds },
   });
   if (alreadyRecalled) {
     throw new AppError(
-      `One or more breakdowns have already been recalled for receipt '${receiptNo}'`,
+      `One or more fee heads have already been recalled for receipt '${receiptNo}'`,
       409
     );
   }
@@ -54,53 +54,63 @@ const createRecall = async (data, userId) => {
     throw new AppError(`Receipt '${receiptNo}' not found for student ${rollNo}`, 404);
   }
 
-  // 4. Find the target breakdowns within the receipt
-  const targetBreakdowns = [];
-  for (const bdId of breakdownIds) {
-    const bd = receipt.breakdowns.find(b => b._id.toString() === bdId);
-    if (!bd) {
-      throw new AppError(`Breakdown '${bdId}' not found in receipt '${receiptNo}'`, 404);
+  // 4. Find each feeHead by ID across all breakdowns in the receipt
+  const targetFeeHeads = []; // { feeHead, parentBreakdown }
+  for (const fhId of feeHeadIds) {
+    let found = false;
+    for (const bd of receipt.breakdowns) {
+      const fh = bd.feeHeads.find(f => f._id.toString() === fhId);
+      if (fh) {
+        targetFeeHeads.push({ feeHead: fh, parentBreakdown: bd });
+        found = true;
+        break;
+      }
     }
-    targetBreakdowns.push(bd);
+    if (!found) {
+      throw new AppError(`FeeHead '${fhId}' not found in receipt '${receiptNo}'`, 404);
+    }
   }
 
-  // 5. Snapshot the target breakdowns for audit
-  const breakdownSnapshots = targetBreakdowns.map(bd => bd.toObject());
+  // 5. Snapshot the target feeHeads for audit (include parent breakdown context)
+  const feeHeadSnapshots = targetFeeHeads.map(({ feeHead, parentBreakdown }) => ({
+    ...feeHead.toObject(),
+    academicYear: parentBreakdown.academicYear,
+    semesterNumber: parentBreakdown.semesterNumber,
+  }));
 
-  // 6. Fetch student info snapshot + reverse payment allocations in fee tracking
+  // 6. Fetch student info snapshot + fee tracking
   const [tracking, studentDoc] = await Promise.all([
     StudentFeeTracking.findOne({ rollNo }),
     Student.findOne(
       { "personal.rollNo": rollNo },
-      { "academic.departmentName": 1, "academic.currentAcademicYear": 1, "academic.yearStudying": 1, "academic.currentSemesterNumber": 1 }
+      { "personal.studentName": 1, "personal.studentPhoto": 1, "academic.departmentName": 1, "academic.section": 1, "academic.currentAcademicYear": 1, "academic.yearStudying": 1, "academic.currentSemesterNumber": 1 }
     ).lean(),
   ]);
   const studentInfo = {
+    studentName: studentDoc?.personal?.studentName || null,
+    studentPhoto: studentDoc?.personal?.studentPhoto || null,
     departmentName: studentDoc?.academic?.departmentName || null,
+    section: studentDoc?.academic?.section || null,
     currentAcademicYear: studentDoc?.academic?.currentAcademicYear || null,
     yearStudying: studentDoc?.academic?.yearStudying || null,
     currentSemesterNumber: studentDoc?.academic?.currentSemesterNumber || null,
   };
   if (!tracking) throw new AppError("Fee tracking not found for student", 404);
 
-  for (const bd of targetBreakdowns) {
-    const yearRecord = tracking.academicYearWiseRecord.find(r => r.academicYear === bd.academicYear);
+  // 7. Reverse fee tracking per recalled feeHead
+  const academicTypes = new Set(["tuition", "exam", "erp", "book", "lab"]);
+
+  for (const { feeHead, parentBreakdown } of targetFeeHeads) {
+    const yearRecord = tracking.academicYearWiseRecord.find(r => r.academicYear === parentBreakdown.academicYear);
     if (!yearRecord) continue;
 
-    // Reverse academic fee payments
-    if (bd.academic && bd.academic.semesterNumber) {
-      const semSlot = bd.academic.semesterNumber % 2 === 1 ? "odd" : "even";
+    if (academicTypes.has(feeHead.type) && parentBreakdown.semesterNumber) {
+      const semSlot = parentBreakdown.semesterNumber % 2 === 1 ? "odd" : "even";
       const sem = yearRecord.academic?.[semSlot];
 
-      if (sem) {
-        const fields = ["tuition", "exam", "erp", "book", "lab"];
-        for (const field of fields) {
-          const amount = normalizeMoney(bd.academic[field] || 0);
-          if (amount > 0 && sem[field]) {
-            sem[field].paid = normalizeMoney(Math.max(0, (sem[field].paid || 0) - amount));
-            setStatus(sem[field]);
-          }
-        }
+      if (sem && sem[feeHead.type]) {
+        sem[feeHead.type].paid = normalizeMoney(Math.max(0, (sem[feeHead.type].paid || 0) - feeHead.fee));
+        setStatus(sem[feeHead.type]);
 
         // Recalculate semester total
         const semPaid = normalizeMoney(
@@ -118,20 +128,16 @@ const createRecall = async (data, userId) => {
       );
       yearRecord.academic.total.paid = Math.min(termTotalPaid, normalizeMoney(yearRecord.academic.total.total || 0));
       setStatus(yearRecord.academic.total);
-    }
 
-    // Reverse hostel payment
-    if (bd.hostel && bd.hostel > 0 && yearRecord.hostel?.total) {
+    } else if (feeHead.type === "hostel" && yearRecord.hostel?.total) {
       yearRecord.hostel.total.paid = normalizeMoney(
-        Math.max(0, (yearRecord.hostel.total.paid || 0) - normalizeMoney(bd.hostel))
+        Math.max(0, (yearRecord.hostel.total.paid || 0) - feeHead.fee)
       );
       setStatus(yearRecord.hostel.total);
-    }
 
-    // Reverse transport payment
-    if (bd.transport && bd.transport > 0 && yearRecord.transport?.total) {
+    } else if (feeHead.type === "transport" && yearRecord.transport?.total) {
       yearRecord.transport.total.paid = normalizeMoney(
-        Math.max(0, (yearRecord.transport.total.paid || 0) - normalizeMoney(bd.transport))
+        Math.max(0, (yearRecord.transport.total.paid || 0) - feeHead.fee)
       );
       setStatus(yearRecord.transport.total);
     }
@@ -146,61 +152,76 @@ const createRecall = async (data, userId) => {
     setStatus(yearRecord.total);
   }
 
-  // 7. Remove the recalled breakdowns from the receipt
-  const recalledIdSet = new Set(breakdownIds.map(String));
-  receipt.breakdowns = receipt.breakdowns.filter(b => !recalledIdSet.has(b._id.toString()));
+  // 8. Remove recalled feeHeads from their respective breakdowns
+  const recalledFhIdSet = new Set(feeHeadIds.map(String));
+  for (const bd of receipt.breakdowns) {
+    bd.feeHeads = bd.feeHeads.filter(fh => !recalledFhIdSet.has(fh._id.toString()));
+    bd.total = normalizeMoney(bd.feeHeads.reduce((sum, fh) => sum + fh.fee, 0));
+  }
 
-  // 8. If all breakdowns are gone, remove the entire receipt
+  // 9. Prune empty breakdowns
+  receipt.breakdowns = receipt.breakdowns.filter(bd => bd.feeHeads.length > 0);
+
+  // Capture receipt metadata before possible removal
+  const receiptIdCapture = receipt._id;
+  const receiptMeta = {
+    paymentType: receipt.paymentType,
+    bankName: receipt.bankName,
+    bankLocation: receipt.bankLocation,
+    billingDate: receipt.billingDate,
+    remarks: receipt.remarks,
+  };
+
+  // 10. If all breakdowns gone, remove entire receipt
   if (receipt.breakdowns.length === 0) {
     const receiptIndex = transactionDoc.transactions.findIndex(t => t.receiptNo === receiptNo);
     transactionDoc.transactions.splice(receiptIndex, 1);
   } else {
-    // Recalculate receipt totalAmount
-    receipt.totalAmount = receipt.breakdowns.reduce((sum, b) => sum + (b.total || 0), 0);
+    receipt.totalAmount = normalizeMoney(receipt.breakdowns.reduce((sum, b) => sum + (b.total || 0), 0));
   }
 
-  // 9. Save all documents
+  // 11. Save all documents
   tracking.markModified("academicYearWiseRecord");
   await tracking.save();
   await transactionDoc.save();
 
-  // 10. Create the recall record (preserve receipt metadata even if receipt is fully removed)
+  // 12. Create the recall record
+  const totalRecalled = normalizeMoney(targetFeeHeads.reduce((sum, { feeHead }) => sum + feeHead.fee, 0));
   const recallRecord = await ReceiptRecallRequest.create({
-    receiptId: receipt._id || transactionDoc._id,
+    receiptId: receiptIdCapture || transactionDoc._id,
     receiptNo,
     rollNo,
-    breakdownIds,
+    feeHeadIds,
     reason,
-    breakdownSnapshots,
-    paymentType: receipt.paymentType,
-    bankName: receipt.bankName || null,
-    bankLocation: receipt.bankLocation || null,
-    billingDate: receipt.billingDate || null,
-    remarks: receipt.remarks || null,
-    totalAmount: receipt.totalAmount || 0,
+    feeHeadSnapshots,
+    paymentType: receiptMeta.paymentType,
+    bankName: receiptMeta.bankName || null,
+    bankLocation: receiptMeta.bankLocation || null,
+    billingDate: receiptMeta.billingDate || null,
+    remarks: receiptMeta.remarks || null,
+    totalAmount: totalRecalled,
     studentInfo,
     recalledBy: userId,
   });
 
-  // 11. Audit log
+  // 13. Audit log
   await ActivityLog.create({
     user: userId,
     endpoint: "/api/receiptRecall",
     method: "POST",
     module: "receiptRecall",
-    description: `Breakdown(s) recalled from receipt ${receiptNo} (student: ${rollNo})`,
+    description: `FeeHead(s) recalled from receipt ${receiptNo} (student: ${rollNo})`,
     after: {
       recallId: recallRecord._id,
       receiptNo,
       rollNo,
-      breakdownIds,
+      feeHeadIds,
       reason,
     },
   });
 
   return recallRecord;
 };
-
 /* ===================================================================
    GET RECALL RECORDS
 =================================================================== */

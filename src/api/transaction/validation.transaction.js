@@ -152,13 +152,5 @@ const validateStudentTransactionsQuery = (req, res, next) => {
   next();
 };
 
-const validateReceiptNoParam = (req, res, next) => {
-  const { receiptNo } = req.params;
-  if (!receiptNo || typeof receiptNo !== "string" || receiptNo.trim().length === 0) {
-    return next(new AppError("receiptNo param is required", 400));
-  }
-  req.params.receiptNo = receiptNo.trim().toUpperCase();
-  next();
-};
 
-module.exports = { validatePayment, validateAllTransactionsQuery, validateStudentTransactionsQuery, validateReceiptNoParam };
+module.exports = { validatePayment, validateAllTransactionsQuery, validateStudentTransactionsQuery };

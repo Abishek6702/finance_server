@@ -133,15 +133,24 @@ const createStudent=async(data)=>{
   return createdStudent;
 };
 
-const getStudents = async () => {
-  return await Student.find()
-    .sort({ createdAt: -1 });
-};
+const VALID_STUDENT_FIELDS = ["personal", "academic", "contact", "family", "address", "enrollment", "transport", "hostel"];
 
-const getStudentByRollNo = async (rollNo) => {
-  const student = await Student.findOne({ "personal.rollNo": rollNo });
-  if (!student) throw new AppError("Student not found",404);
-  return student;
+const getStudents = async ({ rollNo, fields } = {}) => {
+  const projection = fields && fields.length > 0
+    ? fields.reduce((acc, f) => { acc[f] = 1; return acc; }, {})
+    : null;
+
+  if (rollNo) {
+    const query = Student.findOne({ "personal.rollNo": rollNo });
+    if (projection) query.select(projection);
+    const student = await query;
+    if (!student) throw new AppError("Student not found", 404);
+    return student;
+  }
+
+  const query = Student.find().sort({ createdAt: -1 });
+  if (projection) query.select(projection);
+  return await query;
 };
 
 const updateStudent = async (rollNo, data) => {
@@ -287,7 +296,6 @@ const bulkUpdateStudents = async (rows) => {
 module.exports = {
   createStudent,
   getStudents,
-  getStudentByRollNo,
   updateStudent,
   deleteStudentByRollNo,
   bulkCreateStudents,

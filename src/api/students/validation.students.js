@@ -150,7 +150,7 @@ const validateStudentPayload = (payload, { partial = false } = {}) => {
     pushEnum(errors, enrollment.quota, QUOTAS, "enrollment.quota");
 
     validateConcession(errors, enrollment.firstGraduate, "enrollment.firstGraduate");
-    validateConcession(errors, enrollment.govtSchoolScheme, "enrollment.govtSchoolScheme");
+    validateConcession(errors, enrollment.scheme7point5, "enrollment.scheme7point5");
     validateConcession(errors, enrollment.pmssScheme, "enrollment.pmssScheme");
     validateConcession(errors, enrollment.sakthiScheme, "enrollment.sakthiScheme");
     validateConcession(errors, enrollment.specialConcession, "enrollment.specialConcession");
@@ -196,8 +196,34 @@ const updateStudentValidation = (req, res, next) => {
   next();
 };
 
+const VALID_STUDENT_FIELDS = ["personal", "academic", "contact", "family", "address", "enrollment", "transport", "hostel"];
+
+const getStudentsValidation = (req, res, next) => {
+  const { rollNo, fields: fieldsParam } = req.query;
+
+  if (rollNo !== undefined) {
+    if (!/^\d{2}[A-Z]{2}\d{3}$/.test(rollNo)) {
+      return next(new AppError("rollNo format is invalid (expected 12CS101)", 400));
+    }
+  }
+
+  if (fieldsParam !== undefined) {
+    const requested = fieldsParam.split(",").map(f => f.trim()).filter(Boolean);
+    if (requested.length === 0) {
+      return next(new AppError("fields param must not be empty", 400));
+    }
+    const invalid = requested.filter(f => !VALID_STUDENT_FIELDS.includes(f));
+    if (invalid.length > 0) {
+      return next(new AppError(`Invalid fields: ${invalid.join(", ")}. Valid: ${VALID_STUDENT_FIELDS.join(", ")}`, 400));
+    }
+  }
+
+  next();
+};
+
 module.exports = {
   validateStudentPayload,
   createStudentValidation,
-  updateStudentValidation
+  updateStudentValidation,
+  getStudentsValidation,
 };

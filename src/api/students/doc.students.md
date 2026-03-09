@@ -307,59 +307,71 @@ Same as `POST /bulk` — `multipart/form-data` with a `file` field.
 
 ### GET `/api/studentsManagement`
 
-**Auth required:** Yes — Superadmin
+**Auth required:** Yes — Admin or Superadmin
 
-**Description:** Returns all student records.
+**Description:** Returns student records. Without `rollNo`, returns all students. With `rollNo`, returns a single student. The optional `fields` param trims the response to only the requested top-level sections.
 
-#### Response
+#### Request
 
-**200 — Success**
+##### Query Parameters
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `rollNo` | string | No | Roll number (e.g. `25CS101`). When provided, returns one student; otherwise returns the list. |
+| `fields` | string | No | Comma-separated list of top-level sections to include in the response. Valid values: `personal`, `academic`, `contact`, `family`, `address`, `enrollment`, `transport`, `hostel`. Omitting this param returns all sections. |
+
+#### Response shapes
+
+**200 — All students (no `rollNo`)**
 ```json
 {
   "success": true,
-  "data": [ { "personal": { "rollNo": "25CS101" }, "..." : "..." } ],
+  "data": [
+    { "personal": { "rollNo": "25CS101" }, "academic": { "departmentName": "CSE" }, "..." : "..." }
+  ],
   "message": "Students fetched successfully"
 }
 ```
 
----
-
-### GET `/api/studentsManagement/:rollNo`
-
-**Auth required:** Yes — Superadmin
-
-**Description:** Returns a single student by roll number.
-
-#### Request
-
-##### Path Parameters
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `rollNo` | string | Yes | e.g. `25CS101` |
-
-#### Response
-
-**200 — Success**
+**200 — Single student (`rollNo` given)**
 ```json
 {
   "success": true,
   "data": {
     "personal": { "rollNo": "25CS101", "studentName": "Arun Kumar" },
     "academic": { "departmentName": "CSE", "batch": "2025-2029" },
-    "contact": { "selfMobileNo": "9876543210" }
+    "contact": { "selfMobileNo": "9876543210" },
+    "transport": { "isApplicable": true },
+    "hostel": { "isApplicable": false }
   },
   "message": "Student fetched successfully"
 }
 ```
 
-**404 — Not found**
+**200 — With `fields=personal,academic`** (only requested sections returned)
 ```json
 {
-  "success": false,
-  "data": null,
-  "message": "Student not found"
+  "success": true,
+  "data": [
+    { "personal": { "rollNo": "25CS101" }, "academic": { "departmentName": "CSE" } }
+  ],
+  "message": "Students fetched successfully"
 }
+```
+
+**400 — Invalid `rollNo` format**
+```json
+{ "success": false, "data": null, "message": "rollNo format is invalid (expected 12CS101)" }
+```
+
+**400 — Invalid `fields` value**
+```json
+{ "success": false, "data": null, "message": "Invalid fields: xyz. Valid: personal, academic, contact, family, address, enrollment, transport, hostel" }
+```
+
+**404 — Not found**
+```json
+{ "success": false, "data": null, "message": "Student not found" }
 ```
 
 ---

@@ -9,13 +9,13 @@ const createStudent = asyncHandler(async (req, res) => {
 });
 
 const getStudents = asyncHandler(async (req, res) => {
-  const data = await studentService.getStudents();
-  res.status(200).json({ success: true, data, message: "Students fetched successfully" });
-});
-
-const getStudentByRollNo = asyncHandler(async (req, res) => {
-  const data = await studentService.getStudentByRollNo(req.params.rollNo);
-  res.status(200).json({ success: true, data, message: "Student fetched successfully" });
+  const { rollNo, fields: fieldsParam } = req.query;
+  const fields = fieldsParam
+    ? fieldsParam.split(",").map(f => f.trim()).filter(Boolean)
+    : null;
+  const data = await studentService.getStudents({ rollNo, fields });
+  const message = rollNo ? "Student fetched successfully" : "Students fetched successfully";
+  res.status(200).json({ success: true, data, message });
 });
 
 const updateStudent = asyncHandler(async (req, res) => {
@@ -123,7 +123,6 @@ const bulkUpdateStudents = asyncHandler(async (req, res) => {
 module.exports = {
   createStudent,
   getStudents,
-  getStudentByRollNo,
   updateStudent,
   deleteStudent,
   bulkCreateStudents,

@@ -1,21 +1,22 @@
 const mongoose=require("mongoose");
 
+const feeHeadSchema=new mongoose.Schema({
+  type:{
+    type:String,
+    enum:["tuition","exam","erp","book","lab","hostel","transport"],
+    required:true
+  },
+  fee:{type:Number,default:0}
+},{_id:true});
+
 const paymentBreakdownSchema=new mongoose.Schema({
   academicYear:{
     type:String,
     required:true,
     match:/^\d{4}-\d{4}$/
   },
-  academic:{
-    semesterNumber:{type:Number,min:1,max:8,default:null},
-    tuition:{type:Number,default:0},
-    exam:{type:Number,default:0},
-    erp:{type:Number,default:0},
-    book:{type:Number,default:0},
-    lab:{type:Number,default:0}
-  },
-  hostel:{type:Number,default:0},
-  transport:{type:Number,default:0},
+  semesterNumber:{type:Number,min:1,max:8,default:null},
+  feeHeads:{type:[feeHeadSchema],default:[]},
   total:{type:Number,default:0}
 });
 
