@@ -221,9 +221,18 @@ const getStudentsValidation = (req, res, next) => {
   next();
 };
 
+const searchStudentsValidation = (req, res, next) => {
+  const { q } = req.query;
+  if (!q || typeof q !== "string" || q.trim().length === 0) {
+    return next(new AppError("Search query 'q' is required", 400));
+  }
+  next();
+};
+
 module.exports = {
   validateStudentPayload,
   createStudentValidation,
   updateStudentValidation,
   getStudentsValidation,
+  searchStudentsValidation,
 };

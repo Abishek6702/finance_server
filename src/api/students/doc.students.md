@@ -305,6 +305,54 @@ Same as `POST /bulk` — `multipart/form-data` with a `file` field.
 
 ---
 
+### GET `/api/studentsManagement/search`
+
+**Auth required:** Yes — Admin or Superadmin
+
+**Description:** Performs a fast, indexed, regex lookup on the student `rollNo`. This acts as an autocomplete endpoint. Matches records where the `rollNo` exactly starts with the query provided. Returns 10-20 projected student records quickly instead of heavy objects.
+
+#### Request
+
+##### Query Parameters
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `q` | string | Yes | The roll number or prefix query (e.g., `23C`). |
+
+#### Response
+
+**200 — Success**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "rollNo": "23CS101",
+      "name": "Surya Chandran",
+      "profile": "https://example.com/student-photo.jpg",
+      "registerNumber": "713521104001",
+      "currentYear": 2,
+      "section": "A",
+      "department": "CSE",
+      "batch": "2023-2027",
+      "currentSemester": 3
+    }
+  ],
+  "message": "Students searched successfully"
+}
+```
+
+**400 — Validation error**
+```json
+{
+  "success": false,
+  "data": null,
+  "message": "Search query 'q' is required"
+}
+```
+
+---
+
 ### GET `/api/studentsManagement`
 
 **Auth required:** Yes — Admin or Superadmin

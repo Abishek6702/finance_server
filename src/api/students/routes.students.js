@@ -1,11 +1,12 @@
 const express = require("express");
 const router = express.Router(); 
 const controller = require("./controller.students");
-const { createStudentValidation, updateStudentValidation, getStudentsValidation } = require("./validation.students");
+const { createStudentValidation, updateStudentValidation, getStudentsValidation, searchStudentsValidation } = require("./validation.students");
 const { protect, superadmin, admin } = require("../../middleware/authMiddleware");
  
 router.use(protect);
 
+router.get("/search", admin, searchStudentsValidation, controller.searchStudents);
 router.get("/", admin, getStudentsValidation, controller.getStudents);
 
 router.post("/", superadmin, createStudentValidation, controller.createStudent);

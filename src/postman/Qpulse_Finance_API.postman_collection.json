@@ -393,7 +393,31 @@
                     },
                     "response": []
                 },
-               
+                {
+                    "name": "Search Students",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/studentsManagement/search?q=25C",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "studentsManagement",
+                                "search"
+                            ],
+                            "query": [
+                                {
+                                    "key": "q",
+                                    "value": "25C",
+                                    "description": "The prefix or exact value of the rollNo to perform a regex starts-with match."
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                },
                 {
                     "name": "Get Student ",
                     "request": {

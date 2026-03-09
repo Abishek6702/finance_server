@@ -153,6 +153,29 @@ const getStudents = async ({ rollNo, fields } = {}) => {
   return await query;
 };
 
+const searchStudents = async (q) => {
+  // Regex search on rollNo (starts-with query)
+  // Maps results safely using optional chaining.
+  const students = await Student.find({
+    "personal.rollNo": { $regex: `^${q}`, $options: "i" }
+  })
+    .select("personal academic")
+    .limit(20)
+    .lean();
+
+  return students.map(student => ({
+    rollNo: student.personal?.rollNo || "",
+    name: student.personal?.studentName || "",
+    profile: student.personal?.studentPhoto || "",
+    registerNumber: student.personal?.registerNumber || "",
+    currentYear: student.academic?.yearStudying || "",
+    section: student.academic?.section || "",
+    department: student.academic?.departmentName || "",
+    batch: student.academic?.batch || "",
+    currentSemester: student.academic?.currentSemesterNumber || ""
+  }));
+};
+
 const updateStudent = async (rollNo, data) => {
   // Handle transport data - convert route/stopName to Transport ID + embed data
   if (data.transport?.isApplicable && data.transport.route && data.transport.stopName) {
@@ -296,6 +319,7 @@ const bulkUpdateStudents = async (rows) => {
 module.exports = {
   createStudent,
   getStudents,
+  searchStudents,
   updateStudent,
   deleteStudentByRollNo,
   bulkCreateStudents,
