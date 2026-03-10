@@ -869,7 +869,518 @@
         }
       ]
     },
+   {
+      "name": "Fee Details",
+      "item": [
+        {
+          "name": "Get Fee Details List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/feedetails?rollNo={{student_roll_no}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feedetails"
+              ],
+              "query": [
+                {
+                  "key": "rollNo",
+                  "value": "{{student_roll_no}}",
+                  "description": "Exact roll number lookup"
+                },
+                {
+                  "key": "batch",
+                  "value": "{{batch_year}}",
+                  "description": "Filter by batch (YYYY-YYYY)",
+                  "disabled": true
+                },
+                {
+                  "key": "department",
+                  "value": "CSE",
+                  "description": "Filter by department",
+                  "disabled": true
+                },
+                {
+                  "key": "academicYear",
+                  "value": "{{academic_year}}",
+                  "description": "Limit fee aggregation to one academic year",
+                  "disabled": true
+                },
+                {
+                  "key": "studyingYear",
+                  "value": "1",
+                  "description": "Filter by currently studying year (1-4)",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Fee details list fetched', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.equal(true);",
+                  "  pm.expect(body.data).to.be.an('array');",
+                  "  pm.expect(body.pagination).to.be.an('object');",
+                  "  pm.expect(body.pagination.totalRecords).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get Fee Details By Roll No",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/feedetails/{{student_roll_no}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feedetails",
+                "{{student_roll_no}}"
+              ],
+              "query": [
+                {
+                  "key": "includeProfile",
+                  "value": "true",
+                  "description": "Include student profile and contact (default true)",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Year-wise fee summary fetched', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.equal(true);",
+                  "  pm.expect(body.data.feeSummary).to.be.an('array');",
+                  "  pm.expect(body.data.overall).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get Fee Details By Roll No & Academic Year",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/feedetails/{{student_roll_no}}/{{academic_year}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feedetails",
+                "{{student_roll_no}}",
+                "{{academic_year}}"
+              ],
+              "query": [
+                {
+                  "key": "semester",
+                  "value": "odd",
+                  "description": "Filter to odd or even semester only",
+                  "disabled": true
+                },
+                {
+                  "key": "includeProfile",
+                  "value": "true",
+                  "description": "Include student profile and contact (default true)",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Semester breakdown fetched', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.equal(true);",
+                  "  pm.expect(body.data.semesters).to.be.an('array');",
+                  "  pm.expect(body.data.academicYear).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
     {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "Individual Fee Report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reports/individual?rollNo={{student_roll_no}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "individual"
+              ],
+              "query": [
+                {
+                  "key": "rollNo",
+                  "value": "{{student_roll_no}}",
+                  "description": "Exact roll number lookup"
+                },{
+                  "key": "academicYear",
+                  "value": "{{academic_year}}",
+                  "description": "Filter by academicYear "
+                },
+                {
+                  "key": "semester",
+                  "value": "odd",
+                  "description": "Filter by semester ('odd' or 'even')",
+                  "disabled": true
+                },
+                {
+                  "key": "fromDate",
+                  "value": "2026-01-01",
+                  "description": "Start date for transaction lookup (YYYY-MM-DD)",
+                  "disabled": true
+                },
+                {
+                  "key": "toDate",
+                  "value": "2026-12-31",
+                  "description": "End date for transaction lookup (YYYY-MM-DD)",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Datewise Fee Report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reports/datewise",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "datewise"
+              ],
+              "query": [
+                {
+                  "key": "fromDate",
+                  "value": "2026-01-01",
+                  "description": "Start date (YYYY-MM-DD)",
+                  "disabled": true
+                },
+                {
+                  "key": "toDate",
+                  "value": "2026-12-31",
+                  "description": "End date (YYYY-MM-DD)",
+                  "disabled": true
+                },
+                {
+                  "key": "academicYear",
+                  "value": "{{academic_year}}",
+                  "description": "Filter by academic year breakdown",
+                  "disabled": true
+                },
+                {
+                  "key": "paymentMode",
+                  "value": "Cash",
+                  "description": "Filter by payment mode (Cash/UPI/etc)",
+                  "disabled": true
+                },
+                {
+                  "key": "feeHead",
+                  "value": "tuition",
+                  "description": "Filter by specific fee head type (tuition/exam/erp/etc)",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Items per page",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Receipt Recall",
+      "item": [
+        {
+          "name": "Recall Breakdowns (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/receiptRecall",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "receiptRecall"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receiptNo\": \"{{receipt_no}}\",\n  \"rollNo\": \"{{student_roll_no}}\",\n  \"reason\": \"Incorrect payment entry — wrong semester selected\",\n  \"feeHeadIds\": [\"PASTE_FEE_HEAD_OBJECT_ID_HERE\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Breakdown(s) recalled successfully', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.equal(true);",
+                  "  pm.expect(body.data.feeHeadIds).to.be.an('array');",
+                  "  pm.expect(body.data.breakdownSnapshots).to.be.an('array');",
+                  "  pm.expect(body.data.receiptNo).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get Recall History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/receiptRecall",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "receiptRecall"
+              ],
+              "query": [
+                {
+                  "key": "recallId",
+                  "value": "",
+                  "description": "Single popup mode: Fetch a specific recall record by ID",
+                  "disabled": true
+                },
+                {
+                  "key": "rollNo",
+                  "value": "25CS101",
+                  "disabled": true
+                },
+                {
+                  "key": "receiptNo",
+                  "value": "REC-20260303-001",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "John",
+                  "disabled": true
+                },
+                {
+                  "key": "department",
+                  "value": "CSE",
+                  "disabled": true
+                },
+                {
+                  "key": "year",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "paymentMode",
+                  "value": "CASH",
+                  "disabled": true
+                },
+                {
+                  "key": "feeHead",
+                  "value": "exam",
+                  "disabled": true
+                },
+                {
+                  "key": "fromDate",
+                  "value": "2026-03-01",
+                  "disabled": true
+                },
+                {
+                  "key": "toDate",
+                  "value": "2026-03-31",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Recall records fetched', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.equal(true);",
+                  "  pm.expect(body.data.records).to.be.an('array');",
+                  "  pm.expect(body.data.pagination).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Table Mode (All records)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{admin_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/receiptRecall?page=1&limit=20",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "receiptRecall"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Recall records fetched successfully\",\n  \"data\": {\n    \"records\": [\n      {\n        \"studentPhoto\": \"photo.jpg\",\n        \"studentName\": \"John Doe\",\n        \"year\": 1,\n        \"semester\": 1,\n        \"department\": \"CSE\",\n        \"rollNo\": \"25CS101\",\n        \"academicYear\": \"2025-2026\",\n        \"feeHead\": \"exam\",\n        \"amount\": 1500,\n        \"raisedOn\": \"2026-03-07T10:30:00.000Z\",\n        \"paymentMode\": \"CASH\",\n        \"bank\": null,\n        \"receiptNo\": \"REC-20260303-001\",\n        \"recallId\": \"67c9a1b2e4f5a60012345678\"\n      }\n    ],\n    \"pagination\": {\n      \"total\": 42,\n      \"page\": 1,\n      \"limit\": 20,\n      \"totalPages\": 3\n    }\n  }\n}"
+            },
+            {
+              "name": "Single Popup Mode",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{admin_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/receiptRecall?recallId=67c9a1b2e4f5a60012345678",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "receiptRecall"
+                  ],
+                  "query": [
+                    {
+                      "key": "recallId",
+                      "value": "67c9a1b2e4f5a60012345678"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Recall fetched successfully\",\n  \"data\": {\n    \"recall\": {\n      \"studentPhoto\": \"photo.jpg\",\n      \"studentName\": \"John Doe\",\n      \"year\": 1,\n      \"semester\": 1,\n      \"department\": \"CSE\",\n      \"rollNo\": \"25CS101\",\n      \"academicYear\": \"2025-2026\",\n      \"feeHead\": \"exam\",\n      \"amount\": 1500,\n      \"raisedOn\": \"2026-03-07T10:30:00.000Z\",\n      \"paymentMode\": \"CASH\",\n      \"bank\": null,\n      \"receiptNo\": \"REC-20260303-001\",\n      \"reason\": \"Wrong semester selected\"\n    }\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+   
+      {
       "name": "Hostel",
       "item": [
         {
@@ -1298,238 +1809,6 @@
       ]
     },
     {
-      "name": "Receipt Recall",
-      "item": [
-        {
-          "name": "Recall Breakdowns (Admin)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/receiptRecall",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "receiptRecall"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"receiptNo\": \"{{receipt_no}}\",\n  \"rollNo\": \"{{student_roll_no}}\",\n  \"reason\": \"Incorrect payment entry — wrong semester selected\",\n  \"feeHeadIds\": [\"PASTE_FEE_HEAD_OBJECT_ID_HERE\"]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Breakdown(s) recalled successfully', function () {",
-                  "  pm.response.to.have.status(201);",
-                  "  const body = pm.response.json();",
-                  "  pm.expect(body.success).to.equal(true);",
-                  "  pm.expect(body.data.feeHeadIds).to.be.an('array');",
-                  "  pm.expect(body.data.breakdownSnapshots).to.be.an('array');",
-                  "  pm.expect(body.data.receiptNo).to.be.a('string');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "response": []
-        },
-        {
-          "name": "Get Recall History",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/receiptRecall",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "receiptRecall"
-              ],
-              "query": [
-                {
-                  "key": "recallId",
-                  "value": "",
-                  "description": "Single popup mode: Fetch a specific recall record by ID",
-                  "disabled": true
-                },
-                {
-                  "key": "rollNo",
-                  "value": "25CS101",
-                  "disabled": true
-                },
-                {
-                  "key": "receiptNo",
-                  "value": "REC-20260303-001",
-                  "disabled": true
-                },
-                {
-                  "key": "search",
-                  "value": "John",
-                  "disabled": true
-                },
-                {
-                  "key": "department",
-                  "value": "CSE",
-                  "disabled": true
-                },
-                {
-                  "key": "year",
-                  "value": "1",
-                  "disabled": true
-                },
-                {
-                  "key": "paymentMode",
-                  "value": "CASH",
-                  "disabled": true
-                },
-                {
-                  "key": "feeHead",
-                  "value": "exam",
-                  "disabled": true
-                },
-                {
-                  "key": "fromDate",
-                  "value": "2026-03-01",
-                  "disabled": true
-                },
-                {
-                  "key": "toDate",
-                  "value": "2026-03-31",
-                  "disabled": true
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "disabled": true
-                },
-                {
-                  "key": "limit",
-                  "value": "20",
-                  "disabled": true
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Recall records fetched', function () {",
-                  "  pm.response.to.have.status(200);",
-                  "  const body = pm.response.json();",
-                  "  pm.expect(body.success).to.equal(true);",
-                  "  pm.expect(body.data.records).to.be.an('array');",
-                  "  pm.expect(body.data.pagination).to.be.an('object');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "response": [
-            {
-              "name": "Table Mode (All records)",
-              "originalRequest": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{admin_token}}"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/api/receiptRecall?page=1&limit=20",
-                  "host": [
-                    "{{base_url}}"
-                  ],
-                  "path": [
-                    "api",
-                    "receiptRecall"
-                  ],
-                  "query": [
-                    {
-                      "key": "page",
-                      "value": "1"
-                    },
-                    {
-                      "key": "limit",
-                      "value": "20"
-                    }
-                  ]
-                }
-              },
-              "status": "OK",
-              "code": 200,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "body": "{\n  \"success\": true,\n  \"message\": \"Recall records fetched successfully\",\n  \"data\": {\n    \"records\": [\n      {\n        \"studentPhoto\": \"photo.jpg\",\n        \"studentName\": \"John Doe\",\n        \"year\": 1,\n        \"semester\": 1,\n        \"department\": \"CSE\",\n        \"rollNo\": \"25CS101\",\n        \"academicYear\": \"2025-2026\",\n        \"feeHead\": \"exam\",\n        \"amount\": 1500,\n        \"raisedOn\": \"2026-03-07T10:30:00.000Z\",\n        \"paymentMode\": \"CASH\",\n        \"bank\": null,\n        \"receiptNo\": \"REC-20260303-001\",\n        \"recallId\": \"67c9a1b2e4f5a60012345678\"\n      }\n    ],\n    \"pagination\": {\n      \"total\": 42,\n      \"page\": 1,\n      \"limit\": 20,\n      \"totalPages\": 3\n    }\n  }\n}"
-            },
-            {
-              "name": "Single Popup Mode",
-              "originalRequest": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{admin_token}}"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/api/receiptRecall?recallId=67c9a1b2e4f5a60012345678",
-                  "host": [
-                    "{{base_url}}"
-                  ],
-                  "path": [
-                    "api",
-                    "receiptRecall"
-                  ],
-                  "query": [
-                    {
-                      "key": "recallId",
-                      "value": "67c9a1b2e4f5a60012345678"
-                    }
-                  ]
-                }
-              },
-              "status": "OK",
-              "code": 200,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "body": "{\n  \"success\": true,\n  \"message\": \"Recall fetched successfully\",\n  \"data\": {\n    \"recall\": {\n      \"studentPhoto\": \"photo.jpg\",\n      \"studentName\": \"John Doe\",\n      \"year\": 1,\n      \"semester\": 1,\n      \"department\": \"CSE\",\n      \"rollNo\": \"25CS101\",\n      \"academicYear\": \"2025-2026\",\n      \"feeHead\": \"exam\",\n      \"amount\": 1500,\n      \"raisedOn\": \"2026-03-07T10:30:00.000Z\",\n      \"paymentMode\": \"CASH\",\n      \"bank\": null,\n      \"receiptNo\": \"REC-20260303-001\",\n      \"reason\": \"Wrong semester selected\"\n    }\n  }\n}"
-            }
-          ]
-        }
-      ]
-    },
-    {
       "name": "Superadmin",
       "item": [
         {
@@ -1551,284 +1830,6 @@
                   "key": "tablename",
                   "value": "users,students,feestructuremasters,hostels,receiptrecallrequests,studentfeetrackings,receiptcounters,studenttransactions,transports",
                   "description": "Comma-separated list of collection names to clear, or 'all' to clear everything."
-                }
-              ]
-            }
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "Fee Details",
-      "item": [
-        {
-          "name": "Get Fee Details List",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/feedetails?rollNo={{student_roll_no}}",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "feedetails"
-              ],
-              "query": [
-                {
-                  "key": "rollNo",
-                  "value": "{{student_roll_no}}",
-                  "description": "Exact roll number lookup"
-                },
-                {
-                  "key": "batch",
-                  "value": "{{batch_year}}",
-                  "description": "Filter by batch (YYYY-YYYY)",
-                  "disabled": true
-                },
-                {
-                  "key": "department",
-                  "value": "CSE",
-                  "description": "Filter by department",
-                  "disabled": true
-                },
-                {
-                  "key": "academicYear",
-                  "value": "{{academic_year}}",
-                  "description": "Limit fee aggregation to one academic year",
-                  "disabled": true
-                },
-                {
-                  "key": "studyingYear",
-                  "value": "1",
-                  "description": "Filter by currently studying year (1-4)",
-                  "disabled": true
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Fee details list fetched', function () {",
-                  "  pm.response.to.have.status(200);",
-                  "  const body = pm.response.json();",
-                  "  pm.expect(body.success).to.equal(true);",
-                  "  pm.expect(body.data).to.be.an('array');",
-                  "  pm.expect(body.pagination).to.be.an('object');",
-                  "  pm.expect(body.pagination.totalRecords).to.be.a('number');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "response": []
-        },
-        {
-          "name": "Get Fee Details By Roll No",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/feedetails/{{student_roll_no}}",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "feedetails",
-                "{{student_roll_no}}"
-              ],
-              "query": [
-                {
-                  "key": "includeProfile",
-                  "value": "true",
-                  "description": "Include student profile and contact (default true)",
-                  "disabled": true
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Year-wise fee summary fetched', function () {",
-                  "  pm.response.to.have.status(200);",
-                  "  const body = pm.response.json();",
-                  "  pm.expect(body.success).to.equal(true);",
-                  "  pm.expect(body.data.feeSummary).to.be.an('array');",
-                  "  pm.expect(body.data.overall).to.be.an('object');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "response": []
-        },
-        {
-          "name": "Get Fee Details By Roll No & Academic Year",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/feedetails/{{student_roll_no}}/{{academic_year}}",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "feedetails",
-                "{{student_roll_no}}",
-                "{{academic_year}}"
-              ],
-              "query": [
-                {
-                  "key": "semester",
-                  "value": "odd",
-                  "description": "Filter to odd or even semester only",
-                  "disabled": true
-                },
-                {
-                  "key": "includeProfile",
-                  "value": "true",
-                  "description": "Include student profile and contact (default true)",
-                  "disabled": true
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Semester breakdown fetched', function () {",
-                  "  pm.response.to.have.status(200);",
-                  "  const body = pm.response.json();",
-                  "  pm.expect(body.success).to.equal(true);",
-                  "  pm.expect(body.data.semesters).to.be.an('array');",
-                  "  pm.expect(body.data.academicYear).to.be.a('string');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "Reports",
-      "item": [
-        {
-          "name": "Individual Fee Report",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/reports/individual?rollNo={{student_roll_no}}",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "reports",
-                "individual"
-              ],
-              "query": [
-                {
-                  "key": "rollNo",
-                  "value": "{{student_roll_no}}",
-                  "description": "Exact roll number lookup"
-                },{
-                  "key": "academicYear",
-                  "value": "{{academic_year}}",
-                  "description": "Filter by academicYear "
-                },
-                {
-                  "key": "semester",
-                  "value": "odd",
-                  "description": "Filter by semester ('odd' or 'even')",
-                  "disabled": true
-                },
-                {
-                  "key": "fromDate",
-                  "value": "2026-01-01",
-                  "description": "Start date for transaction lookup (YYYY-MM-DD)",
-                  "disabled": true
-                },
-                {
-                  "key": "toDate",
-                  "value": "2026-12-31",
-                  "description": "End date for transaction lookup (YYYY-MM-DD)",
-                  "disabled": true
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Datewise Fee Report",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/reports/datewise",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "reports",
-                "datewise"
-              ],
-              "query": [
-                {
-                  "key": "fromDate",
-                  "value": "2026-01-01",
-                  "description": "Start date (YYYY-MM-DD)",
-                  "disabled": true
-                },
-                {
-                  "key": "toDate",
-                  "value": "2026-12-31",
-                  "description": "End date (YYYY-MM-DD)",
-                  "disabled": true
-                },
-                {
-                  "key": "academicYear",
-                  "value": "{{academic_year}}",
-                  "description": "Filter by academic year breakdown",
-                  "disabled": true
-                },
-                {
-                  "key": "paymentMode",
-                  "value": "Cash",
-                  "description": "Filter by payment mode (Cash/UPI/etc)",
-                  "disabled": true
-                },
-                {
-                  "key": "feeHead",
-                  "value": "tuition",
-                  "description": "Filter by specific fee head type (tuition/exam/erp/etc)",
-                  "disabled": true
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "description": "Page number",
-                  "disabled": true
-                },
-                {
-                  "key": "limit",
-                  "value": "20",
-                  "description": "Items per page",
-                  "disabled": true
                 }
               ]
             }
