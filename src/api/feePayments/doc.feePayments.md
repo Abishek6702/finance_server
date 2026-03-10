@@ -1,6 +1,6 @@
 # Transaction API Documentation
 
-Base path: `/api/transactions`
+Base path: `/api/feePayment`
 All routes require `Authorization: Bearer <token>` (admin role).
 
 ---
@@ -19,7 +19,7 @@ All routes require `Authorization: Bearer <token>` (admin role).
 
 Records a fee payment for a student across one or more academic years and fee categories.
 
-**`POST /api/transactions/pay`**
+**`POST /api/feePayment/pay`**
 
 ### Headers
 
@@ -174,7 +174,7 @@ Records a fee payment for a student across one or more academic years and fee ca
 
 Returns all transactions across all students, with optional filters. Can be paginated.
 
-**`GET /api/transactions`**
+**`GET /api/feePayment`**
 
 ### Headers
 
@@ -207,7 +207,7 @@ Returns all transactions across all students, with optional filters. Can be pagi
 ### Request Example
 
 ```
-GET /api/transactions?department=CSE&paymentMode=UPI&fromDate=2026-01-01&toDate=2026-03-04&page=1&limit=10
+GET /api/feePayment?department=CSE&paymentMode=UPI&fromDate=2026-01-01&toDate=2026-03-04&page=1&limit=10
 ```
 
 ---
@@ -299,7 +299,7 @@ GET /api/transactions?department=CSE&paymentMode=UPI&fromDate=2026-01-01&toDate=
 
 Returns all transactions for a specific student.
 
-**`GET /api/transactions/:rollNo`**
+**`GET /api/feePayment/:rollNo`**
 
 ### Headers
 
@@ -334,7 +334,7 @@ Returns all transactions for a specific student.
 ### Request Example
 
 ```
-GET /api/transactions/22CSE001?fromDate=2026-01-01&limit=5&page=1
+GET /api/feePayment/22CSE001?fromDate=2026-01-01&limit=5&page=1
 ```
 
 ---
@@ -436,11 +436,11 @@ GET /api/transactions/22CSE001?fromDate=2026-01-01&limit=5&page=1
 
 ---
 
-## 4. GET /recent — Get Recent Transactions
+## 4. GET /recent — Get Recent feePayment
 
-Returns an unpacked list of individual fee head transactions across all students. This restructures the root transactions so each individual fee component (e.g., tuition, lab, hostel) appears as its own transaction row. Useful for dashboards and generating granular reports. Can be paginated and filtered.
+Returns an unpacked list of individual fee head feePayment across all students. This restructures the root feePayment so each individual fee component (e.g., tuition, lab, hostel) appears as its own transaction row. Useful for dashboards and generating granular reports. Can be paginated and filtered.
 
-**`GET /api/transactions/recent`**
+**`GET /api/feePayment/recent`**
 
 ### Headers
 
@@ -458,6 +458,7 @@ Returns an unpacked list of individual fee head transactions across all students
 | `paymentMode`  | string | No       | Filter by payment type. One of: `Cash`, `Card`, `UPI`, `NetBanking`, `Cheque`, `DD` |
 | `feeHead`      | string | No       | Filter by fee category. One of: `tuition`, `exam`, `erp`, `book`, `lab`, `hostel`, `transport` |
 | `yearStudying` | string | No       | Filter by student's current year of study (`1`, `2`, `3`, `4`) |
+| `rollNo`       | string | No       | Filter by exact student roll number (case-insensitive — converted to uppercase) |
 | `fromDate`     | string | No       | Start of date range based on `transaction.paidOn` (inclusive) |
 | `toDate`       | string | No       | End of date range based on `transaction.paidOn` (inclusive, up to 23:59:59) |
 | `page`         | integer| No       | Page number (≥ 1). Default: `1`. Only with `limit` |
@@ -471,13 +472,15 @@ Returns an unpacked list of individual fee head transactions across all students
 | `paymentMode` | Must be one of the valid payment types when provided |
 | `feeHead` | Must be one of the valid fee head categories when provided |
 | `yearStudying` | Must be an integer between 1 and 4 |
+| `rollNo` | Optional string; automatically uppercased before matching |
 | `fromDate` / `toDate` | Must be parseable dates; `fromDate` cannot be after `toDate` |
 | `page` / `limit` | Must be positive integers |
 
 ### Request Example
 
 ```
-GET /api/transactions/recent?department=CSE&feeHead=tuition&page=1&limit=20
+GET /api/feePayment/recent?department=CSE&feeHead=tuition&page=1&limit=20
+GET /api/feePayment/recent?rollNo=22CSE001&limit=10
 ```
 
 ---
@@ -487,7 +490,7 @@ GET /api/transactions/recent?department=CSE&feeHead=tuition&page=1&limit=20
 ```json
 {
   "success": true,
-  "message": "Transactions fetched successfully",
+  "message": "feePayment fetched successfully",
   "data": {
     "transactions": [
       {

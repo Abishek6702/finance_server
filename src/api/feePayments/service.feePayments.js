@@ -713,7 +713,7 @@ const getRecentTransactions = async (query) => {
       feeHead: "$transactions.breakdowns.feeHeads.type",
       amount: "$transactions.breakdowns.feeHeads.fee",
 
-      breakdownId: "$transactions.breakdowns._id",
+      breakdownId: "$transactions.breakdowns.feeHeads._id",
       transactionId: "$transactions._id"
     }
   };

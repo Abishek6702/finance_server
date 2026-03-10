@@ -707,6 +707,12 @@
                                     "disabled": true
                                 },
                                 {
+                                    "key": "rollNo",
+                                    "value": "22CSE001",
+                                    "description": "Filter by exact student roll number (case-insensitive)",
+                                    "disabled": true
+                                },
+                                {
                                     "key": "fromDate",
                                     "value": "2025-01-01",
                                     "description": "Filter from date (YYYY-MM-DD)",
