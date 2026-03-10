@@ -10,7 +10,8 @@ All routes require `Authorization: Bearer <token>` (admin role).
 1. [POST /pay — Record a Payment](#1-post-pay--record-a-payment)
 2. [GET / — Get All Transactions](#2-get---get-all-transactions)
 3. [GET /:rollNo — Get Student Transactions](#3-get-rollno--get-student-transactions)
-4. [Error Reference](#5-error-reference)
+4. [GET /recent — Get Recent Transactions](#4-get-recent--get-recent-transactions)
+5. [Error Reference](#5-error-reference)
 
 ---
 
@@ -432,6 +433,105 @@ GET /api/transactions/22CSE001?fromDate=2026-01-01&limit=5&page=1
 |------|----------|---------|
 | `401` | No / invalid token | _(auth error)_ |
 | `403` | Not an admin | _(auth error)_ |
+
+---
+
+## 4. GET /recent — Get Recent Transactions
+
+Returns an unpacked list of individual fee head transactions across all students. This restructures the root transactions so each individual fee component (e.g., tuition, lab, hostel) appears as its own transaction row. Useful for dashboards and generating granular reports. Can be paginated and filtered.
+
+**`GET /api/transactions/recent`**
+
+### Headers
+
+| Key           | Value            | Required |
+|---------------|------------------|----------|
+| Authorization | `Bearer <token>` | Yes      |
+
+---
+
+### Query Parameters
+
+| Parameter      | Type   | Required | Description |
+|----------------|--------|----------|-------------|
+| `department`   | string | No       | Filter by department. One of: `CSE`, `IT`, `AIML`, `AIDS`, `ECE`, `EEE`, `MECH`, `CIVIL` |
+| `paymentMode`  | string | No       | Filter by payment type. One of: `Cash`, `Card`, `UPI`, `NetBanking`, `Cheque`, `DD` |
+| `feeHead`      | string | No       | Filter by fee category. One of: `tuition`, `exam`, `erp`, `book`, `lab`, `hostel`, `transport` |
+| `yearStudying` | string | No       | Filter by student's current year of study (`1`, `2`, `3`, `4`) |
+| `fromDate`     | string | No       | Start of date range based on `transaction.paidOn` (inclusive) |
+| `toDate`       | string | No       | End of date range based on `transaction.paidOn` (inclusive, up to 23:59:59) |
+| `page`         | integer| No       | Page number (≥ 1). Default: `1`. Only with `limit` |
+| `limit`        | integer| No       | Results per page (≥ 1, max 500). When omitted, all results are returned un-paginated |
+
+### Validation Rules
+
+| Parameter | Rules |
+|---|---|
+| `department` | Must be one of the valid department codes when provided |
+| `paymentMode` | Must be one of the valid payment types when provided |
+| `feeHead` | Must be one of the valid fee head categories when provided |
+| `yearStudying` | Must be an integer between 1 and 4 |
+| `fromDate` / `toDate` | Must be parseable dates; `fromDate` cannot be after `toDate` |
+| `page` / `limit` | Must be positive integers |
+
+### Request Example
+
+```
+GET /api/transactions/recent?department=CSE&feeHead=tuition&page=1&limit=20
+```
+
+---
+
+### Success Response — `200 OK` (with `limit`)
+
+```json
+{
+  "success": true,
+  "message": "Transactions fetched successfully",
+  "data": {
+    "transactions": [
+      {
+        "_id": "664abc000000000000000011",
+        "receiptNo": "REC-20260304-001",
+        "student": {
+          "name": "Arjun Kumar",
+          "rollNo": "22CSE001",
+          "department": "CSE",
+          "yearStudying": 3
+        },
+        "feeHead": "tuition",
+        "amount": 45000,
+        "paymentMode": "UPI",
+        "date": "2026-03-04T10:23:45.000Z"
+      }
+    ],
+    "pagination": {
+      "total": 1,
+      "page": 1,
+      "limit": 20,
+      "totalPages": 1
+    }
+  }
+}
+```
+
+### Success Response — `200 OK` (without `limit`, all results)
+
+```json
+{
+  "success": true,
+  "message": "Transactions fetched successfully",
+  "data": {
+    "transactions": [ "...all matching transaction objects..." ],
+    "pagination": {
+      "total": 12,
+      "page": 1,
+      "limit": 12,
+      "totalPages": 1
+    }
+  }
+}
+```
 
 ---
 
