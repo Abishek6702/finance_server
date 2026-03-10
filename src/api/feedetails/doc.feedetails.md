@@ -11,7 +11,6 @@ The **Fee Details** module provides purpose-built read-only views of student fee
 | `students` | `Student` | Student profile, contact, family, transport/hostel flags |
 | `studentfeetrackings` | `StudentFeeTracking` | Per-year, per-semester fee ledger |
 
-> `fine` is always `0` — fine tracking is not yet modelled.  
 > `demand` = NET fee after concession (`total.total`).  
 > `total` (where present) = GROSS fee before concession (`subTotal`).
 
@@ -142,7 +141,6 @@ Include `Authorization: Bearer <token>`.
         "demand": 50000,
         "concession": 2000,
         "paid": 2100,
-        "fine": 0,
         "overdue": 47900,
         "status": "Partially Paid",
         "total": 52000,
@@ -153,7 +151,6 @@ Include `Authorization: Bearer <token>`.
       "demand": 50000,
       "concession": 2000,
       "paid": 2100,
-      "fine": 0,
       "overdue": 47900,
       "status": "Partially Paid",
       "total": 52000
@@ -224,7 +221,6 @@ Include `Authorization: Bearer <token>`.
           "demand": 52000,
           "concession": 5000,
           "paid": 10000,
-          "fine": 0,
           "overdue": 42000,
           "status": "Partially Paid",
           "total": 57000,
@@ -235,7 +231,6 @@ Include `Authorization: Bearer <token>`.
             "name": "Tuition Fees",
             "total": 40000,
             "concession": 4000,
-            "fine": 0,
             "paid": 9000,
             "overdue": 31000,
             "status": "Partially Paid"
@@ -244,7 +239,6 @@ Include `Authorization: Bearer <token>`.
             "name": "Transport Fees",
             "total": 6000,
             "concession": 500,
-            "fine": 0,
             "paid": 1000,
             "overdue": 5000,
             "status": "Partially Paid"
@@ -258,7 +252,6 @@ Include `Authorization: Bearer <token>`.
           "demand": 0,
           "concession": 0,
           "paid": 0,
-          "fine": 0,
           "overdue": 0,
           "status": "Unpaid",
           "total": 0,

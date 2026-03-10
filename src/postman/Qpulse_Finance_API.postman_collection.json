@@ -1476,9 +1476,9 @@
                         "method": "GET",
                         "header": [],
                         "url": {
-                            "raw": "{{base_url}}/api/reports/individual?rollNo={{student_roll_no}}",
+                            "raw": "{{base_url}}/reports/individual?rollNo={{student_roll_no}}",
                             "host": ["{{base_url}}"],
-                            "path": ["api", "v1", "reports", "individual"],
+                            "path": ["reports", "individual"],
                             "query": [
                                 {
                                     "key": "rollNo",
@@ -1514,9 +1514,9 @@
                         "method": "GET",
                         "header": [],
                         "url": {
-                            "raw": "{{base_url}}/api/reports/datewise",
+                            "raw": "{{base_url}}/reports/datewise",
                             "host": ["{{base_url}}"],
-                            "path": ["api", "v1", "reports", "datewise"],
+                            "path": ["reports", "datewise"],
                             "query": [
                                 {
                                     "key": "fromDate",

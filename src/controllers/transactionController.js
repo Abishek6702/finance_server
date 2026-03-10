@@ -1,4 +1,4 @@
-const StudentTransaction = require("../api/transaction/model.studentTransaction");
+const StudentTransaction = require("../api/feePayments/model.studentFeePayments");
 
 const dateWiseTransaction = async (req, res) => {
   try {

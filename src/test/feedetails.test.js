@@ -229,13 +229,11 @@ describe("Fee Details API", () => {
     expect(entry).toHaveProperty("demand");
     expect(entry).toHaveProperty("concession");
     expect(entry).toHaveProperty("paid");
-    expect(entry).toHaveProperty("fine");
     expect(entry).toHaveProperty("overdue");
     expect(entry).toHaveProperty("status");
     expect(entry).toHaveProperty("total");
     expect(entry.studentType).toHaveProperty("transport");
     expect(entry.studentType).toHaveProperty("hostel");
-    expect(entry.fine).toBe(0);
   });
 
   it("returns 404 for non-existent rollNo", async () => {
@@ -287,7 +285,6 @@ describe("Fee Details API", () => {
     expect(odd.overall).toHaveProperty("demand");
     expect(odd.overall).toHaveProperty("concession");
     expect(odd.overall).toHaveProperty("paid");
-    expect(odd.overall).toHaveProperty("fine");
     expect(odd.overall).toHaveProperty("overdue");
     expect(odd.overall).toHaveProperty("status");
     expect(odd.overall).toHaveProperty("total");
@@ -309,11 +306,9 @@ describe("Fee Details API", () => {
     expect(head).toHaveProperty("name");
     expect(head).toHaveProperty("total");
     expect(head).toHaveProperty("concession");
-    expect(head).toHaveProperty("fine");
     expect(head).toHaveProperty("paid");
     expect(head).toHaveProperty("overdue");
     expect(head).toHaveProperty("status");
-    expect(head.fine).toBe(0);
   });
 
   it("filters to odd semester only", async () => {
