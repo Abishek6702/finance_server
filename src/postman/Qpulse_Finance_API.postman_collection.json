@@ -1745,6 +1745,10 @@
                   "key": "rollNo",
                   "value": "{{student_roll_no}}",
                   "description": "Exact roll number lookup"
+                },{
+                  "key": "academicYear",
+                  "value": "{{academic_year}}",
+                  "description": "Filter by academicYear "
                 },
                 {
                   "key": "semester",

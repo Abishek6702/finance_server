@@ -660,8 +660,10 @@ const getRecentTransactions = async (query) => {
             "personal.studentName": 1,
             "personal.studentPhoto": 1,
             "academic.departmentName": 1,
-            "academic.yearStudying": 1
-          }
+            "academic.yearStudying": 1,
+            "academic.section": 1,
+            "acadamic.currentAcademicYear": 1
+          } 
         }
       ],
       as: "student"

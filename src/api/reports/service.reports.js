@@ -71,7 +71,7 @@ const getTrackingInfo = (trackingRecord, academicYear, semesterNumber, feeType) 
 };
 
 exports.generateIndividualReport = async (query) => {
-  const { rollNo, semester, fromDate, toDate } = query;
+  const { rollNo, semester, fromDate, toDate , academicYear } = query;
 
   /* ────────────────────────────────────────────────
      1. Fetch Student
@@ -120,6 +120,10 @@ exports.generateIndividualReport = async (query) => {
   }
 
   const matchBreakdowns = {};
+ 
+  if (academicYear) {
+    matchBreakdowns["transactions.breakdowns.academicYear"] = academicYear;
+  }
 
   if (semester) {
     if (semester === "odd") {
