@@ -625,6 +625,74 @@
                     "response": []
                 },
                 {
+                    "name": "Get Recent Transactions",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/feePayment/recent",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "feePayment",
+                                "recent"
+                            ],
+                            "query": [
+                                {
+                                    "key": "department",
+                                    "value": "CSE",
+                                    "description": "Filter by department (CSE, IT, AIML, AIDS, ECE, EEE, MECH, CIVIL)",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "paymentMode",
+                                    "value": "Cash",
+                                    "description": "Filter by payment mode (Cash, Card, UPI, NetBanking, Cheque, DD)",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "feeHead",
+                                    "value": "tuition",
+                                    "description": "Filter by fee head (tuition, exam, erp, book, lab, hostel, transport)",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "yearStudying",
+                                    "value": "1",
+                                    "description": "Filter by current year studying (1 to 4)",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "fromDate",
+                                    "value": "2025-01-01",
+                                    "description": "Filter from date (YYYY-MM-DD)",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "toDate",
+                                    "value": "2026-12-31",
+                                    "description": "Filter to date (YYYY-MM-DD)",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "page",
+                                    "value": "1",
+                                    "description": "Page number (default: 1)",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "20",
+                                    "description": "Results per page (omit for all results)",
+                                    "disabled": true
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
                     "name": "Get Student Transactions",
                     "request": {
                         "method": "GET",

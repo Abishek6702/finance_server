@@ -16,8 +16,14 @@ const getStudentTransactions = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, data, message: "Student transactions fetched successfully" });
 });
 
+const getRecentTransactions = asyncHandler(async (req, res) => {
+  const data = await feePaymentsService.getRecentTransactions(req.query);
+  res.status(200).json({ success: true, data, message: "Transactions fetched successfully" });
+});
+
 module.exports = {
   createPayment,
   getAllTransactions,
   getStudentTransactions,
+  getRecentTransactions,
 };

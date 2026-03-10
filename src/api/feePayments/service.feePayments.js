@@ -582,8 +582,161 @@ const getNextReceiptNo = async () => {
 };
 
 
+/* ============================================================
+   GET RECENT TRANSACTIONS (flat: one row per fee head)
+============================================================ */
+const RECENT_DEFAULT_LIMIT = 10;
+
+const getRecentTransactions = async (query) => {
+  const {
+    department,
+    paymentMode,
+    fromDate,
+    toDate,
+    feeHead,
+    search,
+    yearStudying,
+    page,
+    limit
+  } = query;
+
+  const pageNum =
+    Number.isInteger(Number(page)) && Number(page) > 0 ? Number(page) : DEFAULT_PAGE;
+  const limitNum =
+    Number.isInteger(Number(limit)) && Number(limit) > 0
+      ? Math.min(Number(limit), MAX_LIMIT)
+      : RECENT_DEFAULT_LIMIT;
+  const skip = (pageNum - 1) * limitNum;
+
+  const pipeline = [];
+
+  pipeline.push({ $unwind: "$transactions" });
+
+  // Early date and paymentMode filters (before lookup)
+  const earlyMatch = {};
+
+  if (paymentMode) {
+    earlyMatch["transactions.paymentType"] = paymentMode;
+  }
+
+  if (fromDate || toDate) {
+    earlyMatch["transactions.paidOn"] = {};
+    if (fromDate) earlyMatch["transactions.paidOn"]["$gte"] = new Date(fromDate);
+    if (toDate) {
+      const endDate = new Date(toDate);
+      endDate.setHours(23, 59, 59, 999);
+      earlyMatch["transactions.paidOn"]["$lte"] = endDate;
+    }
+  }
+
+  if (Object.keys(earlyMatch).length > 0) {
+    pipeline.push({ $match: earlyMatch });
+  }
+
+  // Student lookup with optional department and yearStudying filter
+  const studentMatchClauses = [{ $expr: { $eq: ["$_id", "$$studentId"] } }];
+  if (department) {
+    studentMatchClauses.push({ "academic.departmentName": department });
+  }
+  if (yearStudying) {
+    studentMatchClauses.push({ "academic.yearStudying": Number(yearStudying) });
+  }
+
+  pipeline.push({
+    $lookup: {
+      from: "students",
+      let: { studentId: "$student" },
+      pipeline: [
+        { $match: { $and: studentMatchClauses } },
+        {
+          $project: {
+            _id: 0,
+            "personal.rollNo": 1,
+            "personal.studentName": 1,
+            "personal.studentPhoto": 1,
+            "academic.departmentName": 1,
+            "academic.yearStudying": 1
+          }
+        }
+      ],
+      as: "student"
+    }
+  });
+
+  // Drop docs where student didn't match the filter
+  pipeline.push({ $unwind: "$student" });
+
+  // Optional search on rollNo
+  if (search) {
+    pipeline.push({
+      $match: {
+        "student.personal.rollNo": { $regex: search, $options: "i" }
+      }
+    });
+  }
+
+  // Unwind breakdowns
+  pipeline.push({ $unwind: "$transactions.breakdowns" });
+
+  // Unwind feeHeads array directly (model stores [{type, fee}])
+  pipeline.push({ $unwind: "$transactions.breakdowns.feeHeads" });
+
+  // Optional feeHead filter
+  if (feeHead) {
+    pipeline.push({ $match: { "transactions.breakdowns.feeHeads.type": feeHead } });
+  }
+
+  pipeline.push({ $sort: { "transactions.paidOn": -1 } });
+
+  const projectStage = {
+    $project: {
+      _id: 0,
+      studentName: "$student.personal.studentName",
+      rollNo: "$student.personal.rollNo",
+      photo: "$student.personal.studentPhoto",
+      department: "$student.academic.departmentName",
+      year: "$student.academic.yearStudying",
+
+      receiptNo: "$transactions.receiptNo",
+      paymentMode: "$transactions.paymentType",
+      bank: "$transactions.bankName",
+      paidOn: "$transactions.paidOn",
+
+      semester: "$transactions.breakdowns.semesterNumber",
+      academicYear: "$transactions.breakdowns.academicYear",
+
+      feeHead: "$transactions.breakdowns.feeHeads.type",
+      amount: "$transactions.breakdowns.feeHeads.fee",
+
+      breakdownId: "$transactions.breakdowns._id",
+      transactionId: "$transactions._id"
+    }
+  };
+
+  pipeline.push({
+    $facet: {
+      metadata: [{ $count: "total" }],
+      data: [{ $skip: skip }, { $limit: limitNum }, projectStage]
+    }
+  });
+
+  const [result] = await StudentTransaction.aggregate(pipeline);
+  const total = result.metadata[0]?.total || 0;
+
+  return {
+    transactions: result.data,
+    pagination: {
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum)
+    }
+  };
+};
+
 module.exports = {
   createPayment,
   getAllTransactions,
   getStudentTransactions,
+  getRecentTransactions,
 };

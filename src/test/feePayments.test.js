@@ -131,4 +131,93 @@ describe("Fee Payment / Transaction API", () => {
       Student.deleteMany({ "personal.rollNo": rollNo }),
     ]);
   });
+
+  describe("GET /api/feePayment/recent", () => {
+    it("returns array of flat rows with required fields", async () => {
+      const res = await request(app)
+        .get("/api/feePayment/recent")
+        .set(adminAuth());
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(Array.isArray(res.body.data.transactions)).toBe(true);
+
+      if (res.body.data.transactions.length > 0) {
+        const row = res.body.data.transactions[0];
+        expect(row).toHaveProperty("studentName");
+        expect(row).toHaveProperty("rollNo");
+        expect(row).toHaveProperty("feeHead");
+        expect(row).toHaveProperty("amount");
+        expect(row).toHaveProperty("paidOn");
+        expect(row).toHaveProperty("receiptNo");
+        expect(row).toHaveProperty("breakdownId");
+      }
+    });
+
+    it("returns pagination metadata", async () => {
+      const res = await request(app)
+        .get("/api/feePayment/recent")
+        .set(adminAuth())
+        .query({ limit: 5 });
+
+      expect(res.status).toBe(200);
+      const { pagination } = res.body.data;
+      expect(pagination).toHaveProperty("total");
+      expect(pagination).toHaveProperty("page", 1);
+      expect(pagination).toHaveProperty("limit", 5);
+      expect(pagination).toHaveProperty("totalPages");
+    });
+
+    it("filters by feeHead=tuition — all rows should have feeHead tuition", async () => {
+      const res = await request(app)
+        .get("/api/feePayment/recent")
+        .set(adminAuth())
+        .query({ feeHead: "tuition", limit: 20 });
+
+      expect(res.status).toBe(200);
+      const rows = res.body.data.transactions;
+      rows.forEach((row) => expect(row.feeHead).toBe("tuition"));
+    });
+
+    it("filters by paymentMode=Cash — all rows should have paymentMode Cash", async () => {
+      const res = await request(app)
+        .get("/api/feePayment/recent")
+        .set(adminAuth())
+        .query({ paymentMode: "Cash", limit: 20 });
+
+      expect(res.status).toBe(200);
+      res.body.data.transactions.forEach((row) =>
+        expect(row.paymentMode).toBe("Cash")
+      );
+    });
+
+    it("filters by today's date range and finds the payment made in beforeAll", async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const res = await request(app)
+        .get("/api/feePayment/recent")
+        .set(adminAuth())
+        .query({ fromDate: today, toDate: today, paymentMode: "Cash", limit: 50 });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.pagination.total).toBeGreaterThanOrEqual(1);
+    });
+
+    it("rejects invalid feeHead with 400", async () => {
+      const res = await request(app)
+        .get("/api/feePayment/recent")
+        .set(adminAuth())
+        .query({ feeHead: "invalid_head" });
+
+      expect(res.status).toBe(400);
+    });
+
+    it("rejects invalid yearStudying with 400", async () => {
+      const res = await request(app)
+        .get("/api/feePayment/recent")
+        .set(adminAuth())
+        .query({ yearStudying: "9" });
+
+      expect(res.status).toBe(400);
+    });
+  });
 });

@@ -152,4 +152,50 @@ const validateStudentTransactionsQuery = (req, res, next) => {
 };
 
 
-module.exports = { validatePayment, validateAllTransactionsQuery, validateStudentTransactionsQuery };
+const VALID_FEE_HEADS = ["tuition", "exam", "erp", "book", "lab", "hostel", "transport"];
+const VALID_DEPARTMENTS = ["CSE", "IT", "AIML", "AIDS", "ECE", "EEE", "MECH", "CIVIL"];
+const VALID_PAYMENT_MODES = ["Cash", "Card", "UPI", "NetBanking", "Cheque", "DD"];
+
+const validateRecentTransactionsQuery = (req, res, next) => {
+  const { department, paymentMode, fromDate, toDate, feeHead, yearStudying, page, limit } = req.query;
+
+  if (department && !VALID_DEPARTMENTS.includes(department)) {
+    return next(new AppError(`department must be one of: ${VALID_DEPARTMENTS.join(", ")}`, 400));
+  }
+
+  if (paymentMode && !VALID_PAYMENT_MODES.includes(paymentMode)) {
+    return next(new AppError(`paymentMode must be one of: ${VALID_PAYMENT_MODES.join(", ")}`, 400));
+  }
+
+  if (fromDate && isNaN(Date.parse(fromDate))) {
+    return next(new AppError("fromDate must be a valid date", 400));
+  }
+  if (toDate && isNaN(Date.parse(toDate))) {
+    return next(new AppError("toDate must be a valid date", 400));
+  }
+  if (fromDate && toDate && new Date(fromDate) > new Date(toDate)) {
+    return next(new AppError("fromDate cannot be after toDate", 400));
+  }
+
+  if (feeHead && !VALID_FEE_HEADS.includes(feeHead)) {
+    return next(new AppError(`feeHead must be one of: ${VALID_FEE_HEADS.join(", ")}`, 400));
+  }
+
+  if (yearStudying !== undefined && yearStudying !== "") {
+    const yr = Number(yearStudying);
+    if (!Number.isInteger(yr) || yr < 1 || yr > 4) {
+      return next(new AppError("yearStudying must be an integer between 1 and 4", 400));
+    }
+  }
+
+  if (page && (!Number.isInteger(Number(page)) || Number(page) < 1)) {
+    return next(new AppError("page must be a positive integer", 400));
+  }
+  if (limit && (!Number.isInteger(Number(limit)) || Number(limit) < 1)) {
+    return next(new AppError("limit must be a positive integer", 400));
+  }
+
+  next();
+};
+
+module.exports = { validatePayment, validateAllTransactionsQuery, validateStudentTransactionsQuery, validateRecentTransactionsQuery };
