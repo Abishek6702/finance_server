@@ -2,16 +2,31 @@ const mongoose = require("mongoose");
 const AppError = require("../../utils/AppError");
 
 const validateCreateRecall = (req, res, next) => {
-  const { receiptNo, rollNo, reason, feeHeadIds } = req.body;
+  const { receiptNo, rollNo, reason, feeHeadIds, breakdownId } = req.body;
 
-  if (!receiptNo || typeof receiptNo !== "string" || !receiptNo.trim()) {
-    return next(new AppError("receiptNo is required", 400));
-  }
   if (!rollNo || typeof rollNo !== "string" || !rollNo.trim()) {
     return next(new AppError("rollNo is required", 400));
   }
   if (!reason || typeof reason !== "string" || !reason.trim()) {
     return next(new AppError("reason is required", 400));
+  }
+
+  // Mode B: recall entire breakdown by its ID (no receiptNo or feeHeadIds needed)
+  if (breakdownId !== undefined) {
+    if (!mongoose.Types.ObjectId.isValid(breakdownId)) {
+      return next(new AppError("Invalid breakdownId", 400));
+    }
+    req.body = {
+      rollNo: rollNo.trim(),
+      reason: reason.trim(),
+      breakdownId: breakdownId.toString(),
+    };
+    return next();
+  }
+
+  // Mode A: recall specific fee heads by ID within a known receipt
+  if (!receiptNo || typeof receiptNo !== "string" || !receiptNo.trim()) {
+    return next(new AppError("receiptNo is required (or provide breakdownId)", 400));
   }
   if (!Array.isArray(feeHeadIds) || feeHeadIds.length === 0) {
     return next(new AppError("feeHeadIds must be a non-empty array of feeHead ObjectIds", 400));

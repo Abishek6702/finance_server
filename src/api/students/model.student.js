@@ -30,7 +30,7 @@ const personalSchema=new mongoose.Schema({
 /* ======================================================
    ACADEMIC
 ====================================================== */
-const departments=["CSE","IT","AIML","AIDS","ECE","EEE","MECH","CIVIL"];
+const departments=["CSE","IT","AIML","AIDS","ECE","EEE","MECH","CCE","CSE(CYB)"];
 
 const academicSchema=new mongoose.Schema({
   educationType:{type:String,enum:["UG","PG"]},

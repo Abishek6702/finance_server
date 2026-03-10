@@ -27,7 +27,30 @@ const setStatus = (target) => {
    • If all breakdowns are removed, removes the entire receipt
 =================================================================== */
 const createRecall = async (data, userId) => {
-  const { receiptNo, rollNo, reason, feeHeadIds } = data;
+  let { receiptNo, rollNo, reason, feeHeadIds, breakdownId } = data;
+
+  // ── Mode B: resolve breakdownId → receiptNo + feeHeadIds automatically ──
+  if (breakdownId) {
+    const transDoc = await StudentTransaction.findOne({ rollNo });
+    if (!transDoc) throw new AppError("No transactions found for this student", 404);
+
+    let foundReceipt = null;
+    let foundBreakdown = null;
+    for (const txn of transDoc.transactions) {
+      const bd = txn.breakdowns.find(b => b._id.toString() === breakdownId);
+      if (bd) { foundReceipt = txn; foundBreakdown = bd; break; }
+    }
+    if (!foundReceipt || !foundBreakdown) {
+      throw new AppError(`Breakdown '${breakdownId}' not found for student ${rollNo}`, 404);
+    }
+    if (foundBreakdown.feeHeads.length === 0) {
+      throw new AppError(`Breakdown '${breakdownId}' has no fee heads to recall`, 400);
+    }
+
+    receiptNo = foundReceipt.receiptNo;
+    feeHeadIds = foundBreakdown.feeHeads.map(fh => fh._id.toString());
+  }
+  // ── End Mode B resolution ──
 
   // 1. Check if any of these feeHeads were already recalled
   const alreadyRecalled = await ReceiptRecallRequest.findOne({
