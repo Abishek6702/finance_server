@@ -662,7 +662,8 @@ const getRecentTransactions = async (query) => {
             "academic.departmentName": 1,
             "academic.yearStudying": 1,
             "academic.section": 1,
-            "acadamic.currentAcademicYear": 1
+            "acadamic.currentAcademicYear": 1,
+            "academic.section": 1
           } 
         }
       ],
@@ -711,7 +712,7 @@ const getRecentTransactions = async (query) => {
 
       semester: "$transactions.breakdowns.semesterNumber",
       academicYear: "$transactions.breakdowns.academicYear",
-
+      section: "$student.academic.section",
       feeHead: "$transactions.breakdowns.feeHeads.type",
       amount: "$transactions.breakdowns.feeHeads.fee",
 
