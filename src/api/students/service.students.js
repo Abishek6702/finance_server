@@ -153,6 +153,45 @@ const getStudents = async ({ rollNo, fields } = {}) => {
   return await query;
 };
 
+
+const getBasicStudents = async ({ academicYear, department, yearStudying, search }) => {
+  
+  const query = {};
+
+  if (academicYear) query["academic.currentAcademicYear"] = academicYear;
+  if (department) query["academic.departmentName"] = department;
+  if (yearStudying) query["academic.yearStudying"] = Number(yearStudying);
+
+  if (search) {
+    query["$or"] = [
+      { "personal.rollNo": { $regex: search, $options: "i" } },
+      { "personal.studentName": { $regex: search, $options: "i" } }
+    ];
+  }
+
+  const students = await Student.find(query)
+    .select({
+      "personal.studentName": 1,
+      "personal.rollNo": 1,
+      "personal.studentPhoto": 1,
+      "academic.departmentName": 1,
+      "academic.yearStudying": 1,
+      "academic.section": 1
+    })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  return students.map(student => ({
+    _id: student._id,
+    name: student.personal?.studentName || "",
+    rollNo: student.personal?.rollNo || "",
+    profile: student.personal?.studentPhoto || "",
+    department: student.academic?.departmentName || "",
+    currentYear: student.academic?.yearStudying || "",
+    section: student.academic?.section || ""
+  }));
+};
+
 const searchStudents = async (q) => {
   // Regex search on rollNo (starts-with query)
   // Maps results safely using optional chaining.
@@ -324,5 +363,6 @@ module.exports = {
   deleteStudentByRollNo,
   bulkCreateStudents,
   bulkUpdateStudents,
+  getBasicStudents,
 };
 

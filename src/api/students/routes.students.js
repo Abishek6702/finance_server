@@ -7,7 +7,11 @@ const { protect, superadmin, admin } = require("../../middleware/authMiddleware"
 router.use(protect);
 
 router.get("/search", admin, searchStudentsValidation, controller.searchStudents);
+
 router.get("/", admin, getStudentsValidation, controller.getStudents);
+
+router.get("/basic", admin, getStudentsValidation, controller.getBasicStudents);
+
 
 router.post("/", superadmin, createStudentValidation, controller.createStudent);
 

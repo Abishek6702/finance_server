@@ -353,6 +353,46 @@ Same as `POST /bulk` — `multipart/form-data` with a `file` field.
 
 ---
 
+### GET `/api/studentsManagement/basic`
+
+**Auth required:** Yes — Admin or Superadmin
+
+**Description:** Returns basic student records intended for dropdowns, quick listings, and lightweight lookup. Supports filtering by academic year, department, and studying year, as well as a fast search by name or roll number.
+
+#### Request
+
+##### Query Parameters
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `academicYear` | string | No | Filter by academic year (e.g. `2024-2025`) |
+| `department` | string | No | Filter by department (e.g. `CSE`, `IT`) |
+| `yearStudying` | number | No | Filter by the current year of study (`1`–`4`) |
+| `search` | string | No | Regex search across `rollNo` or `studentName` |
+
+#### Response
+
+**200 — Success**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "665f1a2b3c4d5e6f7a8b9c20",
+      "name": "Surya Chandran",
+      "rollNo": "23CS101",
+      "profile": "https://example.com/student-photo.jpg",
+      "department": "CSE",
+      "currentYear": 2,
+      "section": "A"
+    }
+  ],
+  "message": "Students fetched successfully"
+}
+```
+
+---
+
 ### GET `/api/studentsManagement`
 
 **Auth required:** Yes — Admin or Superadmin

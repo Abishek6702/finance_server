@@ -419,6 +419,49 @@
                     "response": []
                 },
                 {
+                    "name": "Get Basic Students",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/studentsManagement/basic?academicYear={{academic_year}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "studentsManagement",
+                                "basic"
+                            ],
+                            "query": [
+                                {
+                                    "key": "academicYear",
+                                    "value": "{{academic_year}}",
+                                    "description": "Filter by academic year (YYYY-YYYY)"
+                                },
+                                {
+                                    "key": "department",
+                                    "value": "CSE",
+                                    "description": "Filter by department",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "yearStudying",
+                                    "value": "1",
+                                    "description": "Filter by current year studying",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "search",
+                                    "value": "25C",
+                                    "description": "Search by roll number or name",
+                                    "disabled": true
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
                     "name": "Get Student ",
                     "request": {
                         "method": "GET",
