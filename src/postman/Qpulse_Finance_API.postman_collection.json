@@ -1470,6 +1470,12 @@
                                     "value": "{{academic_year}}",
                                     "description": "Limit fee aggregation to one academic year",
                                     "disabled": true
+                                },
+                                {
+                                    "key": "studyingYear",
+                                    "value": "1",
+                                    "description": "Filter by currently studying year (1-4)",
+                                    "disabled": true
                                 }
                             ]
                         }

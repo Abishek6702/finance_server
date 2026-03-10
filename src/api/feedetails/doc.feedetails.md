@@ -35,6 +35,7 @@ Include `Authorization: Bearer <token>`.
 | `batch` | string | No | Format `YYYY-YYYY` (e.g. `2025-2029`) |
 | `department` | string | No | One of: `CSE`, `IT`, `AIML`, `AIDS`, `ECE`, `EEE`, `MECH`, `CIVIL` |
 | `academicYear` | string | No | Format `YYYY-YYYY` — limits fee aggregation to this year only |
+| `studyingYear` | number | No | Currently studying year of the student (e.g. `1`, `2`, `3`, `4`) |
 
 #### Validation
 
@@ -43,6 +44,7 @@ Include `Authorization: Bearer <token>`.
 | `department` not in allowed list | 400 |
 | `batch` not in `YYYY-YYYY` format | 400 |
 | `academicYear` not in `YYYY-YYYY` format | 400 |
+| `studyingYear` not between 1 and 4 | 400 |
 | `rollNo` contains non-alphanumeric characters | 400 |
 
 #### Response — 200

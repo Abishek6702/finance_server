@@ -332,10 +332,13 @@ exports.generateDatewiseReport = async (query) => {
         },
         feeType: "$transactions.breakdowns.feeHeads.type",
         semesterNumber: "$transactions.breakdowns.semesterNumber",
+        paymentAcademicYear: "$transactions.breakdowns.academicYear",
         studentName: "$studentDoc.personal.studentName",
         studentPhoto: "$studentDoc.personal.studentPhoto",
         department: "$studentDoc.academic.departmentName",
-        year: "$studentDoc.academic.yearStudying"
+        year: "$studentDoc.academic.yearStudying",
+        section: "$studentDoc.academic.section",
+        currentAcademicYear: "$studentDoc.academic.currentAcademicYear"
       }
     },
     { $sort: { date: -1 } },
@@ -374,10 +377,14 @@ exports.generateDatewiseReport = async (query) => {
         studentName: row.studentName || "",
         studentPhoto: row.studentPhoto || "",
         department: row.department || "",
-        year: row.year || ""
+        year: row.year || "",
+        section: row.section || "",
+        currentAcademicYear: row.currentAcademicYear || ""
       },
       rollNo: row.rollNo,
       semPeriod,
+      paymentSemester: row.semesterNumber || "-",
+      paymentAcademicYear: row.paymentAcademicYear || "-",
       feeHead: feeInfo.feeHead,
       subHead: feeInfo.subHead,
       amount: normalizeMoney(row.amount),

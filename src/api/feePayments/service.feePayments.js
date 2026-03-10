@@ -596,6 +596,7 @@ const getRecentTransactions = async (query) => {
     feeHead,
     search,
     yearStudying,
+    rollNo,
     page,
     limit
   } = query;
@@ -618,6 +619,10 @@ const getRecentTransactions = async (query) => {
   if (paymentMode) {
     earlyMatch["transactions.paymentType"] = paymentMode;
   }
+
+  if (rollNo) {
+    earlyMatch["rollNo"] = rollNo.toUpperCase();
+  } 
 
   if (fromDate || toDate) {
     earlyMatch["transactions.paidOn"] = {};

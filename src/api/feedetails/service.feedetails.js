@@ -60,11 +60,12 @@ const buildContactBlock = (s) => ({
    Summary list with optional filters
 ──────────────────────────────────────────────── */
 const getFeeDetailsList = async (query = {}) => {
-  const { rollNo, batch, department, academicYear } = query;
+  const { rollNo, batch, department, academicYear ,studyingYear } = query;
 
   const studentFilter = {};
   if (rollNo) studentFilter["personal.rollNo"] = rollNo.toUpperCase();
   if (batch) studentFilter["academic.batch"] = batch;
+  if (studyingYear) studentFilter["academic.yearStudying"] = Number(studyingYear);
   if (department) {
     studentFilter["academic.departmentName"] = {
       $regex: new RegExp(`^${department}$`, "i"),

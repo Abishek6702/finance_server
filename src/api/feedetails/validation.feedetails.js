@@ -3,7 +3,7 @@ const AppError = require("../../utils/AppError");
 const VALID_DEPARTMENTS = ["CSE", "IT", "AIML", "AIDS", "ECE", "EEE", "MECH", "CIVIL"];
 
 const validateGetList = (req, res, next) => {
-  const { rollNo, batch, department, academicYear } = req.query;
+  const { rollNo, batch, department, academicYear, studyingYear } = req.query;
 
   if (department && !VALID_DEPARTMENTS.includes(department.toUpperCase())) {
     return next(new AppError(`department must be one of: ${VALID_DEPARTMENTS.join(", ")}`, 400));
@@ -15,6 +15,10 @@ const validateGetList = (req, res, next) => {
 
   if (academicYear && !/^\d{4}-\d{4}$/.test(academicYear)) {
     return next(new AppError("academicYear must be in YYYY-YYYY format", 400));
+  }
+  
+  if (studyingYear && !/^[1-4]$/.test(studyingYear)) {
+    return next(new AppError("studyingYear must be a number between 1 and 4", 400));
   }
 
   if (rollNo && !/^[A-Za-z0-9]+$/.test(rollNo)) {
