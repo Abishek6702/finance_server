@@ -364,6 +364,7 @@ const getRecalls = async (query) => {
         bank: recall.bankName,
         receiptNo: recall.receiptNo,
         recallId: recall._id,
+        reason: recall.reason
 
       });
     }

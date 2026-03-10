@@ -176,7 +176,8 @@ const getBasicStudents = async ({ academicYear, department, yearStudying, search
       "personal.studentPhoto": 1,
       "academic.departmentName": 1,
       "academic.yearStudying": 1,
-      "academic.section": 1
+      "academic.section": 1,
+      "academic.currentAcademicYear": 1
     })
     .sort({ createdAt: -1 })
     .lean();
@@ -188,7 +189,8 @@ const getBasicStudents = async ({ academicYear, department, yearStudying, search
     profile: student.personal?.studentPhoto || "",
     department: student.academic?.departmentName || "",
     currentYear: student.academic?.yearStudying || "",
-    section: student.academic?.section || ""
+    section: student.academic?.section || "",
+    currentAcademicYear: student.academic?.currentAcademicYear || ""
   }));
 };
 

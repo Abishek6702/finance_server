@@ -99,12 +99,20 @@ Allows admins to **instantly reverse specific fee heads** from a payment receipt
 
 | Param | Type | Description |
 |---|---|---|
+| `recallId` | string | **Single popup mode:** Fetch a specific recall record by its `_id` |
 | `rollNo` | string | Filter by student |
 | `receiptNo` | string | Filter by receipt |
+| `search` | string | Search by rollNo, receiptNo, or studentName |
+| `department` | string | Filter by department |
+| `year` | number | Filter by year of study |
+| `paymentMode` | string | Filter by payment method |
+| `feeHead` | string | Filter by fee head type (e.g., 'tuition', 'exam') |
+| `fromDate` | string | Filter records created from this date |
+| `toDate` | string | Filter records created up to this date |
 | `page` | number | Page number (default: `1`) |
-| `limit` | number | Results per page (omit to return all) |
+| `limit` | number | Results per page (default: `20`, max: `500`) |
 
-### Response `200`
+### Response `200` (Table Mode - No `recallId` provided)
 
 ```json
 {
@@ -113,33 +121,20 @@ Allows admins to **instantly reverse specific fee heads** from a payment receipt
   "data": {
     "records": [
       {
-        "_id": "67c9a1b2e4f5a60012345678",
-        "receiptId": "67b8f0a1c3d2e50011223344",
-        "receiptNo": "REC-20260303-001",
+        "studentPhoto": "photo.jpg",
+        "studentName": "John Doe",
+        "year": 1,
+        "semester": 1,
+        "department": "CSE",
         "rollNo": "25CS101",
-        "reason": "Wrong semester selected",
-        "feeHeadIds": ["664abc123def456789000011"],
-        "feeHeadSnapshots": [
-          {
-            "_id": "664abc123def456789000011",
-            "type": "exam",
-            "fee": 1500,
-            "academicYear": "2025-2026",
-            "semesterNumber": 1
-          }
-        ],
-        "studentInfo": {
-          "studentName": "John Doe",
-          "studentPhoto": "photo.jpg",
-          "departmentName": "CSE",
-          "section": "A",
-          "currentAcademicYear": "2025-2026",
-          "yearStudying": 1,
-          "currentSemesterNumber": 1
-        },
-        "recalledBy": "65f1a2b3c4d5e60011223344",
-        "createdAt": "2026-03-07T10:30:00.000Z",
-        "updatedAt": "2026-03-07T10:30:00.000Z"
+        "academicYear": "2025-2026",
+        "feeHead": "exam",
+        "amount": 1500,
+        "raisedOn": "2026-03-07T10:30:00.000Z",
+        "paymentMode": "CASH",
+        "bank": null,
+        "receiptNo": "REC-20260303-001",
+        "recallId": "67c9a1b2e4f5a60012345678"
       }
     ],
     "pagination": {
@@ -152,4 +147,31 @@ Allows admins to **instantly reverse specific fee heads** from a payment receipt
 }
 ```
 
-> When `limit` is omitted, all matching records are returned and `pagination.totalPages` will be `1`.
+### Response `200` (Single Popup Mode - `recallId` provided)
+
+```json
+{
+  "success": true,
+  "message": "Recall fetched successfully",
+  "data": {
+    "recall": {
+      "studentPhoto": "photo.jpg",
+      "studentName": "John Doe",
+      "year": 1,
+      "semester": 1,
+      "department": "CSE",
+      "rollNo": "25CS101",
+      "academicYear": "2025-2026",
+      "feeHead": "exam",
+      "amount": 1500,
+      "raisedOn": "2026-03-07T10:30:00.000Z",
+      "paymentMode": "CASH",
+      "bank": null,
+      "receiptNo": "REC-20260303-001",
+      "reason": "Wrong semester selected"
+    }
+  }
+}
+```
+
+> The `records` array in Table Mode flattens the result so each recalled fee head appears as a separate row.

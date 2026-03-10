@@ -198,12 +198,13 @@ exports.generateIndividualReport = async (query) => {
       row.feeType
     );
 
-    const feeInfo = formatFeeHeadInfo(row.feeType);
-
+    const feeInfo = formatFeeHeadInfo(row.feeType); 
     return {
       receiptNo: row.receiptNo,
       feeHead: feeInfo.feeHead,
       subHead: feeInfo.subHead,
+      paidForAcademicYear: row.academicYear,
+      paidForSemester: row.semesterNumber || "-",
       demand: normalizeMoney(trackingInfo.demand),
       concession: normalizeMoney(trackingInfo.concession),
       paid: normalizeMoney(row.paidAmount),
