@@ -1,4 +1,4 @@
-const StudentFeeTracking = require("../studentFeeTracking/model.studentFeeTracking");
+const StudentFeeTracking = require("../feePayment/studentFeeTracking/model.studentFeeTracking");
 const FeeStructureMaster = require("../feeStructure/acadamic/model.acadamic");
 const { Transport } = require("../feeStructure/transport/model.transport");
 const { Hostel } = require("../feeStructure/hostel/model.hostel");

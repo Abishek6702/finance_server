@@ -1,7 +1,7 @@
 const Student = require("../students/model.student");
 const { Transport } = require("../feeStructure/transport/model.transport");
 const { Hostel } = require("../feeStructure/hostel/model.hostel");
-const StudentFeeTracking = require("../studentFeeTracking/model.studentFeeTracking");
+const StudentFeeTracking = require("../feePayment/studentFeeTracking/model.studentFeeTracking");
 const AppError = require("../../utils/AppError");
 
 function normalizeMoney(value) {

@@ -1838,6 +1838,180 @@
         }
       ]
     }
+    ,
+    {
+      "name": "Student Facility Management",
+      "description": "Manage student transport and hostel facility assignments. Requires admin auth.\n\nEndpoint: PUT /api/studentFacility/:rollNo\n\n- Updates transport and/or hostel for a student from `applyFromAcademicYear` onwards (up to batch end).\n- Blocked if the facility fee for `applyFromAcademicYear` is already Paid or Partial.",
+      "item": [
+        {
+          "name": "Update Transport Only",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/studentFacility/{{student_roll_no}}",
+              "host": ["{{base_url}}"],
+              "path": ["studentFacility", "{{student_roll_no}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applyFromAcademicYear\": \"{{academic_year}}\",\n  \"transport\": {\n    \"isApplicable\": true,\n    \"route\": \"Bharathiyar University\",\n    \"stopName\": \"Vadavalli\"\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Assign or change a student's transport from the given academic year onwards. Provide `transport.isApplicable: false` to remove transport."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Update transport success', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.be.true;",
+                  "  pm.expect(body.data.student).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Remove Transport",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/studentFacility/{{student_roll_no}}",
+              "host": ["{{base_url}}"],
+              "path": ["studentFacility", "{{student_roll_no}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applyFromAcademicYear\": \"{{academic_year}}\",\n  \"transport\": {\n    \"isApplicable\": false\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Remove transport facility from the given academic year onwards."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Hostel Only",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/studentFacility/{{student_roll_no}}",
+              "host": ["{{base_url}}"],
+              "path": ["studentFacility", "{{student_roll_no}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applyFromAcademicYear\": \"{{academic_year}}\",\n  \"hostel\": {\n    \"isApplicable\": true,\n    \"block\": \"A\",\n    \"sharing\": 2,\n    \"isAttached\": true\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Assign or change a student's hostel from the given academic year onwards. Fields required when `isApplicable: true`: `block` (string), `sharing` (number of occupants), `isAttached` (boolean, attached bathroom)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Update hostel success', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.be.true;",
+                  "  pm.expect(body.data.student).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Remove Hostel",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/studentFacility/{{student_roll_no}}",
+              "host": ["{{base_url}}"],
+              "path": ["studentFacility", "{{student_roll_no}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applyFromAcademicYear\": \"{{academic_year}}\",\n  \"hostel\": {\n    \"isApplicable\": false\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Remove hostel facility from the given academic year onwards."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Transport + Hostel",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/studentFacility/{{student_roll_no}}",
+              "host": ["{{base_url}}"],
+              "path": ["studentFacility", "{{student_roll_no}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applyFromAcademicYear\": \"{{academic_year}}\",\n  \"transport\": {\n    \"isApplicable\": true,\n    \"route\": \"Bharathiyar University\",\n    \"stopName\": \"Vadavalli\"\n  },\n  \"hostel\": {\n    \"isApplicable\": true,\n    \"block\": \"A\",\n    \"sharing\": 2,\n    \"isAttached\": true\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Update both transport and hostel for a student in a single request."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Update transport + hostel success', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    }
   ],
   "auth": {
     "type": "bearer",

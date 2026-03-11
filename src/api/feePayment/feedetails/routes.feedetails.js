@@ -6,7 +6,7 @@ const {
   validateGetByRollNo,
   validateGetBySemester,
 } = require("./validation.feedetails");
-const { protect, admin } = require("../../middleware/authMiddleware");
+const { protect, admin } = require("../../../middleware/authMiddleware");
 
 router.use(protect, admin);
 

@@ -1,6 +1,6 @@
 const xlsx = require("xlsx");
 const FeeStructureMaster = require("./model.acadamic");
-const StudentFeeTracking = require("../../studentFeeTracking/model.studentFeeTracking");
+const StudentFeeTracking = require("../../feePayment/studentFeeTracking/model.studentFeeTracking");
 const Student = require("../../students/model.student");
 const AppError = require("../../../utils/AppError");
 

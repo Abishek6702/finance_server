@@ -4,8 +4,8 @@ require("dotenv").config();
 const request = require("supertest");
 const Student = require("../api/students/model.student");
 const FeeStructureMaster = require("../api/feeStructure/acadamic/model.acadamic");
-const StudentTransaction = require("../api/feePayments/model.studentFeePayments");
-const StudentFeeTracking = require("../api/studentFeeTracking/model.studentFeeTracking");
+const StudentTransaction = require("../api/feePayment/payFeeAndGetRecentPayments/model.studentFeePayments");
+const StudentFeeTracking = require("../api/feePayment/studentFeeTracking/model.studentFeeTracking");
 const ActivityLog = require("../models/ActivityLog");
 const { app, startServer, stopServer } = require("../server");
 

@@ -1,4 +1,4 @@
-const asyncHandler = require("../../utils/asyncHandler");
+const asyncHandler = require("../../../utils/asyncHandler");
 const reportService = require("./service.reports");
 
 exports.getIndividualReport = asyncHandler(async (req, res, next) => {

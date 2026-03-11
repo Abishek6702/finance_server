@@ -11,15 +11,14 @@ const { seedHostel } = require("./api/feeStructure/hostel/model.hostel");
 const authRoutes = require("./api/auth/routes.auth");
 const feeStructureRoutes = require("./api/feeStructure/acadamic/routes.acadamic");
 const studentsManagementRoutes = require("./api/students/routes.students");
-const paymentTransactionRoutes = require("./api/feePayments/routes.feePayments");
-const studentFeeTrackingRoutes = require("./api/studentFeeTracking/routes.studentFeeTracking");
-const feeDetailsRoutes = require("./api/feedetails/routes.feedetails");
+const paymentTransactionRoutes = require("./api/feePayment/payFeeAndGetRecentPayments/routes.feePayments");
+const studentFeeTrackingRoutes = require("./api/feePayment/studentFeeTracking/routes.studentFeeTracking");
+const feeDetailsRoutes = require("./api/feePayment/feedetails/routes.feedetails");
 const transportRoutes = require("./api/feeStructure/transport/routes.transport");
 const hostelRoutes = require("./api/feeStructure/hostel/routes.hostel");
-const receiptRecallRoutes = require("./api/receiptRecall/routes.receiptRecall");
+const receiptRecallRoutes = require("./api/feePayment/receiptRecall/routes.receiptRecall");
 const superadminRoutes = require("./api/superadmin/routes.superadmin");
-const transactionRoutes = require("./routes/transactionRoutes");
-const reportsRoutes = require("./api/reports/routes.reports");
+const reportsRoutes = require("./api/feePayment/reports/routes.reports");
 const studentFacilityRoutes = require("./api/StudentFacilityManagement/routes.StudentFacilityManagement");
 
 const corsMiddleware = require("./middleware/corsMiddleware");
@@ -41,7 +40,6 @@ app.use("/api/transport", transportRoutes);
 app.use("/api/hostel", hostelRoutes);
 app.use("/api/receiptRecall", receiptRecallRoutes);
 app.use("/api/superadmin", superadminRoutes);
-app.use("/api/transaction", transactionRoutes);
 app.use("/api/reports", reportsRoutes);
 app.use("/api/studentFacility", studentFacilityRoutes);
 

@@ -1,4 +1,4 @@
-const AppError = require("../../utils/AppError");
+const AppError = require("../../../utils/AppError");
 
 exports.validateIndividualReportQuery = (req, res, next) => {
   let { rollNo, semester, fromDate, toDate } = req.query;

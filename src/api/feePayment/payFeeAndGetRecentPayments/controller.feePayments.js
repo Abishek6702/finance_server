@@ -1,5 +1,5 @@
 const feePaymentsService = require("./service.feePayments");
-const asyncHandler = require("../../utils/asyncHandler");
+const asyncHandler = require("../../../utils/asyncHandler");
 
 const createPayment = asyncHandler(async (req, res) => {
   const data = await feePaymentsService.createPayment(req.body);

@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
-const StudentTransaction = require("../feePayments/model.studentFeePayments");
+const StudentTransaction = require("../payFeeAndGetRecentPayments/model.studentFeePayments");
 const StudentFeeTracking = require("../studentFeeTracking/model.studentFeeTracking");
-const Student = require("../students/model.student");
+const Student = require("../../students/model.student");
 
 const normalizeMoney = (val) => Math.round((Number(val) || 0) * 100) / 100;
 

@@ -1,5 +1,5 @@
 const recallService = require("./service.receiptRecall");
-const asyncHandler = require("../../utils/asyncHandler");
+const asyncHandler = require("../../../utils/asyncHandler");
 
 const createRecall = asyncHandler(async (req, res) => {
   const data = await recallService.createRecall(req.body, req.user._id);

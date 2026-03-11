@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const controller = require("./controller.feePayments");
 const { validatePayment, validateAllTransactionsQuery, validateStudentTransactionsQuery, validateRecentTransactionsQuery } = require("./validation.feePayments");
-const { protect, admin } = require("../../middleware/authMiddleware");
+const { protect, admin } = require("../../../middleware/authMiddleware");
 
 router.use(protect, admin);
 

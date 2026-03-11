@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const AppError = require("../../utils/AppError");
+const AppError = require("../../../utils/AppError");
 
 const validateCreateRecall = (req, res, next) => {
   const { receiptNo, rollNo, reason, feeHeadIds, breakdownId } = req.body;

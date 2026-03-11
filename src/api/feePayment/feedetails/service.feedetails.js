@@ -1,6 +1,6 @@
-const Student = require("../students/model.student");
+const Student = require("../../students/model.student");
 const StudentFeeTracking = require("../studentFeeTracking/model.studentFeeTracking");
-const AppError = require("../../utils/AppError");
+const AppError = require("../../../utils/AppError");
 
 const normalizeMoney = (value) => {
   const n = Number(value);

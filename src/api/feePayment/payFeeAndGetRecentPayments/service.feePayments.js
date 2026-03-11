@@ -1,9 +1,9 @@
 const StudentTransaction = require("./model.studentFeePayments");
 const StudentFeeTracking = require("../studentFeeTracking/model.studentFeeTracking");
-const Student = require("../students/model.student");
+const Student = require("../../students/model.student");
 const ReceiptCounter = require("./model.receiptCounter");
-const FeeStructureMaster = require("../feeStructure/acadamic/model.acadamic");
-const AppError = require("../../utils/AppError");
+const FeeStructureMaster = require("../../feeStructure/acadamic/model.acadamic");
+const AppError = require("../../../utils/AppError");
 
 const parseBillingDate = (billingDate) => {
   if (!billingDate) return new Date();

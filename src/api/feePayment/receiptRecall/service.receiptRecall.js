@@ -1,10 +1,10 @@
 const mongoose = require("mongoose");
 const ReceiptRecallRequest = require("./model.receiptRecall");
-const StudentTransaction = require("../feePayments/model.studentFeePayments");
+const StudentTransaction = require("../payFeeAndGetRecentPayments/model.studentFeePayments");
 const StudentFeeTracking = require("../studentFeeTracking/model.studentFeeTracking");
-const Student = require("../students/model.student");
-const ActivityLog = require("../../models/ActivityLog");
-const AppError = require("../../utils/AppError");
+const Student = require("../../students/model.student");
+const ActivityLog = require("../../../models/ActivityLog");
+const AppError = require("../../../utils/AppError");
 
 const normalizeMoney = (value) => {
   const number = Number(value);
