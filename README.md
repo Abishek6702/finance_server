@@ -90,13 +90,13 @@ backend/
     │   │   ├── routes.reports.js
     │   │   ├── service.reports.js
     │   │   └── validation.reports.js
-    │   ├── StudentFacilityManagement/
-    │   │   ├── controller.StudentFacilityManagement.js
-    │   │   ├── doc.StudentFacilityManagement.md
+    │   ├── StudentFacility/
+    │   │   ├── controller.StudentFacility.js
+    │   │   ├── doc.StudentFacility.md
     │   │   ├── plan.md
-    │   │   ├── routes.StudentFacilityManagement.js
-    │   │   ├── service.StudentFacilityManagement.js
-    │   │   └── validation.StudentFacilityManagement.js
+    │   │   ├── routes.StudentFacility.js
+    │   │   ├── service.StudentFacility.js
+    │   │   └── validation.StudentFacility.js
     │   ├── studentFeeTracking/
     │   │   ├── controller.studentFeeTracking.js
     │   │   ├── doc.studentFeeTracking.md
@@ -143,7 +143,7 @@ backend/
     │   ├── reporter.js
     │   ├── reports.test.js
     │   ├── setup.js
-    │   ├── StudentFacilityManagement.test.js
+    │   ├── StudentFacility.test.js
     │   ├── studentFeeTracking.test.js
     │   ├── students.test.js
     │   ├── studentsBulk.test.js

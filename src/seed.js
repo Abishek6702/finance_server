@@ -1,4 +1,4 @@
-const User = require("./api/auth/model.user");
+const User = require("./api/auth/modelUser");
 
 const seedUsers = async () => {
   const users = [

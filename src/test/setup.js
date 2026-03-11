@@ -4,14 +4,14 @@
  */
 require("dotenv").config();
 const request = require("supertest");
-const Student = require("../api/students/model.student");
-const FeeStructureMaster = require("../api/feeStructure/acadamic/model.acadamic");
-const StudentTransaction = require("../api/feePayment/payFeeAndGetRecentPayments/model.studentFeePayments");
-const StudentFeeTracking = require("../api/feePayment/studentFeeTracking/model.studentFeeTracking");
-const ReceiptRecallRequest = require("../api/feePayment/receiptRecall/model.receiptRecall");
-const ActivityLog = require("../models/ActivityLog");
-const { Transport } = require("../api/feeStructure/transport/model.transport");
-const { Hostel } = require("../api/feeStructure/hostel/model.hostel");
+const Student = require("../api/students/modelStudent");
+const FeeStructureMaster = require("../api/fee-structure/acadamic/modelAcadamic");
+const StudentTransaction = require("../api/fee-payment/payments/modelStudentFeePayments");
+const StudentFeeTracking = require("../api/fee-payment/student-fee-tracking/modelStudentFeeTracking");
+const ReceiptRecallRequest = require("../api/fee-payment/receipt-recall/modelReceiptRecall");
+const ActivityLog = require("../models/activityLog");
+const { Transport } = require("../api/fee-structure/transport/modelTransport");
+const { Hostel } = require("../api/fee-structure/hostel/modelHostel");
 const { app, startServer, stopServer } = require("../server");
 
 jest.setTimeout(180000);

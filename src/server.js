@@ -5,21 +5,21 @@ dotenv.config();
 
 const { connectDB, disconnectDB, isTestRuntime } = require("./config/db");
 const seedUsers = require("./seed");
-const { seedTransport } = require("./api/feeStructure/transport/model.transport");
-const { seedHostel } = require("./api/feeStructure/hostel/model.hostel");
+const { seedTransport } = require("./api/fee-structure/transport/modelTransport");
+const { seedHostel } = require("./api/fee-structure/hostel/modelHostel");
 
-const authRoutes = require("./api/auth/routes.auth");
-const feeStructureRoutes = require("./api/feeStructure/acadamic/routes.acadamic");
-const studentsManagementRoutes = require("./api/students/routes.students");
-const paymentTransactionRoutes = require("./api/feePayment/payFeeAndGetRecentPayments/routes.feePayments");
-const studentFeeTrackingRoutes = require("./api/feePayment/studentFeeTracking/routes.studentFeeTracking");
-const feeDetailsRoutes = require("./api/feePayment/feedetails/routes.feedetails");
-const transportRoutes = require("./api/feeStructure/transport/routes.transport");
-const hostelRoutes = require("./api/feeStructure/hostel/routes.hostel");
-const receiptRecallRoutes = require("./api/feePayment/receiptRecall/routes.receiptRecall");
-const superadminRoutes = require("./api/superadmin/routes.superadmin");
-const reportsRoutes = require("./api/feePayment/reports/routes.reports");
-const studentFacilityRoutes = require("./api/StudentFacilityManagement/routes.StudentFacilityManagement");
+const authRoutes = require("./api/auth/routesAuth");
+const feeStructureRoutes = require("./api/fee-structure/acadamic/routesAcadamic");
+const studentsManagementRoutes = require("./api/students/routesStudents");
+const paymentTransactionRoutes = require("./api/fee-payment/payments/routesFeePayments");
+const studentFeeTrackingRoutes = require("./api/fee-payment/student-fee-tracking/routesStudentFeeTracking");
+const feeDetailsRoutes = require("./api/fee-payment/feedetails/routesFeedetails");
+const transportRoutes = require("./api/fee-structure/transport/routesTransport");
+const hostelRoutes = require("./api/fee-structure/hostel/routesHostel");
+const receiptRecallRoutes = require("./api/fee-payment/receipt-recall/routesReceiptRecall");
+const superadminRoutes = require("./api/superadmin/routesSuperadmin");
+const reportsRoutes = require("./api/fee-payment/reports/routesReports");
+const studentFacilityRoutes = require("./api/student-facility/routesStudentFacility");
 
 const corsMiddleware = require("./middleware/corsMiddleware");
 const { notFoundHandler, errorHandler } = require("./middleware/errorHandler");

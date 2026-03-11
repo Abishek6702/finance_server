@@ -2,11 +2,11 @@ require("dotenv").config();
  
 
 const request = require("supertest");
-const Student = require("../api/students/model.student");
-const FeeStructureMaster = require("../api/feeStructure/acadamic/model.acadamic");
-const StudentTransaction = require("../api/feePayment/payFeeAndGetRecentPayments/model.studentFeePayments");
-const StudentFeeTracking = require("../api/feePayment/studentFeeTracking/model.studentFeeTracking");
-const ActivityLog = require("../models/ActivityLog");
+const Student = require("../api/students/modelStudent");
+const FeeStructureMaster = require("../api/fee-structure/acadamic/modelAcadamic");
+const StudentTransaction = require("../api/fee-payment/payments/modelStudentFeePayments");
+const StudentFeeTracking = require("../api/fee-payment/student-fee-tracking/modelStudentFeeTracking");
+const ActivityLog = require("../models/activityLog");
 const { app, startServer, stopServer } = require("../server");
 
 jest.setTimeout(120000);

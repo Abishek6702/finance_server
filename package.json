@@ -7,7 +7,7 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "build": "echo Build step not required",
-    "test": "jest --runInBand --forceExit --testPathPatterns=\"src/test/.*\\.test\\.js$\""
+    "test": "jest --runInBand --forceExit --testPathPatterns=\"src/test/.*Test\\.js$\""
   },
   "keywords": [],
   "author": "",
@@ -36,6 +36,7 @@
   "jest": {
     "testEnvironment": "node",
     "silent": true,
+    "testMatch": ["**/src/test/*Test.js"],
     "reporters": [
       "./src/test/reporter.js"
     ],
