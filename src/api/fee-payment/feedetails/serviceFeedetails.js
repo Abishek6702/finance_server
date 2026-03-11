@@ -1,4 +1,4 @@
-const Student = require("../../students/modelStudent");
+const Student = require("../../student/students-management/modelStudent");
 const StudentFeeTracking = require("../student-fee-tracking/modelStudentFeeTracking");
 const AppError = require("../../../utils/appError");
 

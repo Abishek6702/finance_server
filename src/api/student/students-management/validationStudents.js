@@ -1,4 +1,4 @@
-const AppError = require("../../utils/appError");
+const AppError = require("../../../utils/appError");
 
 const GENDERS = ["Male", "Female", "Other"];
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];

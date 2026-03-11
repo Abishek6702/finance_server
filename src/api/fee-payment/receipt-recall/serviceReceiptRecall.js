@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 const ReceiptRecallRequest = require("./modelReceiptRecall");
 const StudentTransaction = require("../payments/modelStudentFeePayments");
 const StudentFeeTracking = require("../student-fee-tracking/modelStudentFeeTracking");
-const Student = require("../../students/modelStudent");
+const Student = require("../../student/students-management/modelStudent");
 const ActivityLog = require("../../../models/activityLog");
 const AppError = require("../../../utils/appError");
 

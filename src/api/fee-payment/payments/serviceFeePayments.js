@@ -1,6 +1,6 @@
 const StudentTransaction = require("./modelStudentFeePayments");
 const StudentFeeTracking = require("../student-fee-tracking/modelStudentFeeTracking");
-const Student = require("../../students/modelStudent");
+const Student = require("../../student/students-management/modelStudent");
 const ReceiptCounter = require("./modelReceiptCounter");
 const FeeStructureMaster = require("../../fee-structure/acadamic/modelAcadamic");
 const AppError = require("../../../utils/appError");

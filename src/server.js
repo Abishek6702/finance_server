@@ -10,7 +10,7 @@ const { seedHostel } = require("./api/fee-structure/hostel/modelHostel");
 
 const authRoutes = require("./api/auth/routesAuth");
 const feeStructureRoutes = require("./api/fee-structure/acadamic/routesAcadamic");
-const studentsManagementRoutes = require("./api/students/routesStudents");
+const studentsManagementRoutes = require("./api/student/students-management/routesStudents");
 const paymentTransactionRoutes = require("./api/fee-payment/payments/routesFeePayments");
 const studentFeeTrackingRoutes = require("./api/fee-payment/student-fee-tracking/routesStudentFeeTracking");
 const feeDetailsRoutes = require("./api/fee-payment/feedetails/routesFeedetails");
@@ -19,7 +19,7 @@ const hostelRoutes = require("./api/fee-structure/hostel/routesHostel");
 const receiptRecallRoutes = require("./api/fee-payment/receipt-recall/routesReceiptRecall");
 const superadminRoutes = require("./api/superadmin/routesSuperadmin");
 const reportsRoutes = require("./api/fee-payment/reports/routesReports");
-const studentFacilityRoutes = require("./api/student-facility/routesStudentFacility");
+const studentFacilityRoutes = require("./api/student/student-facility/routesStudentFacility");
 
 const corsMiddleware = require("./middleware/corsMiddleware");
 const { notFoundHandler, errorHandler } = require("./middleware/errorHandler");

@@ -1,5 +1,5 @@
 const facilityService = require("./serviceStudentFacility");
-const asyncHandler = require("../../utils/asyncHandler");
+const asyncHandler = require("../../../utils/asyncHandler");
 
 const updateFacility = asyncHandler(async (req, res) => {
   const { rollNo } = req.params;

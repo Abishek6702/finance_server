@@ -1,7 +1,7 @@
 const xlsx = require("xlsx");
 const FeeStructureMaster = require("./modelAcadamic");
 const StudentFeeTracking = require("../../fee-payment/student-fee-tracking/modelStudentFeeTracking");
-const Student = require("../../students/modelStudent");
+const Student = require("../../student/students-management/modelStudent");
 const AppError = require("../../../utils/appError");
 
 const normalizeMoney = (value) => {

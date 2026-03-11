@@ -1,7 +1,7 @@
 const studentService = require("./serviceStudents");
 const { parseStudentFile } = require("./utilsBulkParse");
-const AppError = require("../../utils/appError");
-const asyncHandler = require("../../utils/asyncHandler");
+const AppError = require("../../../utils/appError");
+const asyncHandler = require("../../../utils/asyncHandler");
 
 const createStudent = asyncHandler(async (req, res) => {
   const data = await studentService.createStudent(req.body);

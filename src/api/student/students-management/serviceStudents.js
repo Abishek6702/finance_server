@@ -1,11 +1,11 @@
-const Student=require("../students/modelStudent");
-const { Transport }=require("../fee-structure/transport/modelTransport");
-const { Hostel }=require("../fee-structure/hostel/modelHostel");
-const StudentFeeTracking=require("../fee-payment/student-fee-tracking/modelStudentFeeTracking");
+const Student=require("./modelStudent");
+const { Transport }=require("../../fee-structure/transport/modelTransport");
+const { Hostel }=require("../../fee-structure/hostel/modelHostel");
+const StudentFeeTracking=require("../../fee-payment/student-fee-tracking/modelStudentFeeTracking");
 const generateLedger = require("./utilsStudents").generateLedger;
 const { validateStudentPayload } = require("./validationStudents");
 const mongoose=require("mongoose");
-const AppError=require("../../utils/appError");
+const AppError=require("../../../utils/appError");
 
 const isTransactionUnsupported=(error)=>{
   const message=String(error?.message||"").toLowerCase();

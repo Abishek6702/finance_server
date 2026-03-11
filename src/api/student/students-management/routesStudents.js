@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router(); 
 const controller = require("./controllerStudents");
 const { createStudentValidation, updateStudentValidation, getStudentsValidation, searchStudentsValidation } = require("./validationStudents");
-const { protect, superadmin, admin } = require("../../middleware/authMiddleware");
+const { protect, superadmin, admin } = require("../../../middleware/authMiddleware");
  
 router.use(protect);
 

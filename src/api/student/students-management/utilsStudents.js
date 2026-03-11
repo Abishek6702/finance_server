@@ -1,7 +1,7 @@
-const StudentFeeTracking = require("../fee-payment/student-fee-tracking/modelStudentFeeTracking");
-const FeeStructureMaster = require("../fee-structure/acadamic/modelAcadamic");
-const { Transport } = require("../fee-structure/transport/modelTransport");
-const { Hostel } = require("../fee-structure/hostel/modelHostel");
+const StudentFeeTracking = require("../../fee-payment/student-fee-tracking/modelStudentFeeTracking");
+const FeeStructureMaster = require("../../fee-structure/acadamic/modelAcadamic");
+const { Transport } = require("../../fee-structure/transport/modelTransport");
+const { Hostel } = require("../../fee-structure/hostel/modelHostel");
 
 const MAX_SEMESTER = 8;
 
