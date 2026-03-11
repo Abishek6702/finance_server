@@ -66,7 +66,7 @@ Include `Authorization: Bearer <token>`.
         "concession": 25000,
         "paid": 6000,
         "overdue": 77000,
-        "status": "Partially Paid"
+        "status": "Partial"
       },
       "studentType": {
         "transport": true,
@@ -144,7 +144,7 @@ Include `Authorization: Bearer <token>`.
         "concession": 2000,
         "paid": 2100,
         "overdue": 47900,
-        "status": "Partially Paid",
+        "status": "Partial",
         "total": 52000,
         "studentType": { "transport": true, "hostel": false }
       }
@@ -154,7 +154,7 @@ Include `Authorization: Bearer <token>`.
       "concession": 2000,
       "paid": 2100,
       "overdue": 47900,
-      "status": "Partially Paid",
+      "status": "Partial",
       "total": 52000
     }
   },
@@ -224,7 +224,7 @@ Include `Authorization: Bearer <token>`.
           "concession": 5000,
           "paid": 10000,
           "overdue": 42000,
-          "status": "Partially Paid",
+          "status": "Partial",
           "total": 57000,
           "studentType": { "transport": true, "hostel": false }
         },
@@ -235,7 +235,7 @@ Include `Authorization: Bearer <token>`.
             "concession": 4000,
             "paid": 9000,
             "overdue": 31000,
-            "status": "Partially Paid"
+            "status": "Partial"
           },
           {
             "name": "Transport Fees",
@@ -243,7 +243,7 @@ Include `Authorization: Bearer <token>`.
             "concession": 500,
             "paid": 1000,
             "overdue": 5000,
-            "status": "Partially Paid"
+            "status": "Partial"
           }
         ]
       },

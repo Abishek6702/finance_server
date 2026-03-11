@@ -15,7 +15,7 @@ function normalizeAmountSchema(amount) {
 
   if (target.total === 0) target.status = "Paid";
   else if (target.paid >= target.total) target.status = "Paid";
-  else if (target.paid > 0) target.status = "Partially Paid";
+  else if (target.paid > 0) target.status = "Partial";
   else target.status = "Unpaid";
 
   return target;
@@ -31,7 +31,7 @@ function normalizeComponentSchema(comp) {
 
   if (target.total === 0) target.status = "Paid";
   else if (target.paid >= target.total) target.status = "Paid";
-  else if (target.paid > 0) target.status = "Partially Paid";
+  else if (target.paid > 0) target.status = "Partial";
   else target.status = "Unpaid";
 
   return target;
@@ -42,7 +42,7 @@ const amountSchema = new mongoose.Schema({
   paid: { type: Number, default: 0, min: 0 },
   status: {
     type: String,
-    enum: ["Paid", "Partially Paid", "Unpaid"],
+    enum: ["Paid", "Partial", "Unpaid"],
     default: "Unpaid",
   },
 }, { _id: false });
@@ -54,7 +54,7 @@ const academicComponentSchema = new mongoose.Schema({
   paid: { type: Number, default: 0, min: 0 },
   status: {
     type: String,
-    enum: ["Paid", "Partially Paid", "Unpaid"],
+    enum: ["Paid", "Partial", "Unpaid"],
     default: "Unpaid",
   },
 }, { _id: false });
@@ -206,7 +206,7 @@ studentFeeTrackingSchema.pre("save", function () {
 
       if (netTotal === 0) sem.total.status = "Paid";
       else if (sem.total.paid >= netTotal) sem.total.status = "Paid";
-      else if (sem.total.paid > 0) sem.total.status = "Partially Paid";
+      else if (sem.total.paid > 0) sem.total.status = "Partial";
       else sem.total.status = "Unpaid";
     };
 
@@ -237,7 +237,7 @@ studentFeeTrackingSchema.pre("save", function () {
 
     if (academicNetTotal === 0) academic.total.status = "Paid";
     else if (academic.total.paid >= academicNetTotal) academic.total.status = "Paid";
-    else if (academic.total.paid > 0) academic.total.status = "Partially Paid";
+    else if (academic.total.paid > 0) academic.total.status = "Partial";
     else academic.total.status = "Unpaid";
 
     /* ──────────────────────────────────────────────

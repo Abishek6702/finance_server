@@ -153,7 +153,7 @@ const generateTransportId = (busNo, stop) => {
     .replace(/[^a-z0-9]/g, "");
 
   return `${busNo}${cleanedStop}`;
-};
+};`1l`
 
 const seedTransport = async () => {
   const docs = [];

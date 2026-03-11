@@ -41,7 +41,7 @@ const setStatus = (target) => {
   if (!target) return;
   if (target.total === 0) target.status = "Paid";
   else if (target.paid >= target.total) target.status = "Paid";
-  else if (target.paid > 0) target.status = "Partially Paid";
+  else if (target.paid > 0) target.status = "Partial";
   else target.status = "Unpaid";
 };
 
@@ -703,7 +703,7 @@ const getRecentTransactions = async (query) => {
       rollNo: "$student.personal.rollNo",
       photo: "$student.personal.studentPhoto",
       department: "$student.academic.departmentName",
-      year: "$student.academic.yearStudying",
+      year: "$student.academic.yearStudying", 
 
       receiptNo: "$transactions.receiptNo",
       paymentMode: "$transactions.paymentType",

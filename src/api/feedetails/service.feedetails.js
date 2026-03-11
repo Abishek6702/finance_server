@@ -11,7 +11,7 @@ const normalizeMoney = (value) => {
 const computeStatus = (demand, paid) => {
   if (demand === 0) return "Paid";
   if (paid >= demand) return "Paid";
-  if (paid > 0) return "Partially Paid";
+  if (paid > 0) return "Partial";
   return "Unpaid";
 };
 
