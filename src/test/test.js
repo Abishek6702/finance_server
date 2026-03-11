@@ -4,7 +4,7 @@ require("dotenv").config();
 const request = require("supertest");
 const Student = require("../api/students/model.student");
 const FeeStructureMaster = require("../api/feeStructure/acadamic/model.acadamic");
-const StudentTransaction = require("../api/transaction/model.studentTransaction");
+const StudentTransaction = require("../api/feePayments/model.studentFeePayments");
 const StudentFeeTracking = require("../api/studentFeeTracking/model.studentFeeTracking");
 const ActivityLog = require("../models/ActivityLog");
 const { app, startServer, stopServer } = require("../server");
@@ -1016,7 +1016,6 @@ describe("QPulse API integration (full coverage)", () => {
           paymentType: "Cash",
           bankName: "Indian Bank",
           bankLocation: "Kinathukadavu",
-          remarks: "first payment",
           breakdowns: [
             {
               academicYear: testCtx.academicYearPrimary,
@@ -1038,7 +1037,6 @@ describe("QPulse API integration (full coverage)", () => {
           rollNo: testCtx.studentRollFinance,
           receiptNo: testCtx.receiptTwo,
           paymentType: "UPI",
-          remarks: "second payment",
           breakdowns: [
             {
               academicYear: testCtx.academicYearPrimary,

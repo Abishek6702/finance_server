@@ -382,7 +382,76 @@ describe("Students API", () => {
     expect(res.status).toBe(409);
   });
 
-  /* ─── LIST / GET ───────────────────────────────────── */
+  /* ─── SEARCH ───────────────────────────────────────── */
+
+  it("returns 400 on /search if 'q' is missing", async () => {
+    const res = await request(app).get("/api/studentsManagement/search").set(adminAuth());
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/query 'q' is required/i);
+  });
+
+  it("returns 400 on /search if 'q' is empty", async () => {
+    const res = await request(app).get("/api/studentsManagement/search?q=   ").set(adminAuth());
+    expect(res.status).toBe(400);
+  });
+
+  it("searches students by rollNo prefix successfully (200)", async () => {
+    // First ensure we have some students starting with a known prefix
+    const rollPre = testCtx.studentRollCrud.substring(0, 4); // E.g., '12CS'
+    const res = await request(app).get(`/api/studentsManagement/search?q=${rollPre}`).set(adminAuth());
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    // Should find at least our test setup students
+    expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+
+    // Validate the projection structure
+    const first = res.body.data[0];
+    expect(first.rollNo).toBeDefined();
+    expect(first.name).toBeDefined();
+    expect(first.profile).toBeDefined();
+    expect(first.currentYear).toBeDefined();
+    expect(first.department).toBeDefined();
+    expect(first.batch).toBeDefined();
+  });
+
+  it("returns empty array when search prefix matches no students (200)", async () => {
+    const res = await request(app).get("/api/studentsManagement/search?q=99ZZ999").set(adminAuth());
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual([]);
+  });
+
+  /* ─── BASIC LISITING ───────────────────────────────── */
+
+  it("returns 200 on /basic and lists basic student details", async () => {
+    const res = await request(app).get(`/api/studentsManagement/basic?academicYear=${testCtx.academicYearPrimary}`).set(adminAuth());
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    
+    // Validate the mapped projection structure
+    const first = res.body.data[0];
+    if (first) {
+      expect(first._id).toBeDefined();
+      expect(first.rollNo).toBeDefined();
+      expect(first.name).toBeDefined();
+      expect(first.profile).toBeDefined();
+      expect(first.currentYear).toBeDefined();
+      expect(first.department).toBeDefined();
+      expect(first.section).toBeDefined();
+      expect(first.batch).toBeUndefined(); // ensure lean extra fields aren't there
+    }
+  });
+
+  it("filters basic students by search parameter", async () => {
+    const rollPre = testCtx.studentRollCrud.substring(0, 4);
+    const res = await request(app).get(`/api/studentsManagement/basic?search=${rollPre}`).set(adminAuth());
+    expect(res.status).toBe(200);
+    expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+    expect(res.body.data[0].rollNo).toMatch(new RegExp(rollPre, "i"));
+  });
+
+  /* ─── LIST / GET  ───────────────────────────────────── */
 
   it("lists all students (200)", async () => {
     const res = await request(app).get("/api/studentsManagement").set(superadminAuth());

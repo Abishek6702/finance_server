@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const ReceiptRecallRequest = require("./model.receiptRecall");
-const StudentTransaction = require("../transaction/model.studentTransaction");
+const StudentTransaction = require("../feePayments/model.studentFeePayments");
 const StudentFeeTracking = require("../studentFeeTracking/model.studentFeeTracking");
 const Student = require("../students/model.student");
 const ActivityLog = require("../../models/ActivityLog");
@@ -27,7 +27,30 @@ const setStatus = (target) => {
    • If all breakdowns are removed, removes the entire receipt
 =================================================================== */
 const createRecall = async (data, userId) => {
-  const { receiptNo, rollNo, reason, feeHeadIds } = data;
+  let { receiptNo, rollNo, reason, feeHeadIds, breakdownId } = data;
+
+  // ── Mode B: resolve breakdownId → receiptNo + feeHeadIds automatically ──
+  if (breakdownId) {
+    const transDoc = await StudentTransaction.findOne({ rollNo });
+    if (!transDoc) throw new AppError("No transactions found for this student", 404);
+
+    let foundReceipt = null;
+    let foundBreakdown = null;
+    for (const txn of transDoc.transactions) {
+      const bd = txn.breakdowns.find(b => b._id.toString() === breakdownId);
+      if (bd) { foundReceipt = txn; foundBreakdown = bd; break; }
+    }
+    if (!foundReceipt || !foundBreakdown) {
+      throw new AppError(`Breakdown '${breakdownId}' not found for student ${rollNo}`, 404);
+    }
+    if (foundBreakdown.feeHeads.length === 0) {
+      throw new AppError(`Breakdown '${breakdownId}' has no fee heads to recall`, 400);
+    }
+
+    receiptNo = foundReceipt.receiptNo;
+    feeHeadIds = foundBreakdown.feeHeads.map(fh => fh._id.toString());
+  }
+  // ── End Mode B resolution ──
 
   // 1. Check if any of these feeHeads were already recalled
   const alreadyRecalled = await ReceiptRecallRequest.findOne({
@@ -169,7 +192,6 @@ const createRecall = async (data, userId) => {
     bankName: receipt.bankName,
     bankLocation: receipt.bankLocation,
     billingDate: receipt.billingDate,
-    remarks: receipt.remarks,
   };
 
   // 10. If all breakdowns gone, remove entire receipt
@@ -198,7 +220,6 @@ const createRecall = async (data, userId) => {
     bankName: receiptMeta.bankName || null,
     bankLocation: receiptMeta.bankLocation || null,
     billingDate: receiptMeta.billingDate || null,
-    remarks: receiptMeta.remarks || null,
     totalAmount: totalRecalled,
     studentInfo,
     recalledBy: userId,
@@ -226,36 +247,142 @@ const createRecall = async (data, userId) => {
    GET RECALL RECORDS
 =================================================================== */
 const getRecalls = async (query) => {
-  const { rollNo, receiptNo, page, limit } = query;
+  const {
+    rollNo,
+    receiptNo,
+    recallId,
+    search,
+    department,
+    year,
+    paymentMode,
+    feeHead,
+    fromDate,
+    toDate,
+    page,
+    limit
+  } = query;
+
+  /* =========================================
+     SINGLE POPUP MODE
+  ========================================= */
+
+  if (recallId) {
+    const recall = await ReceiptRecallRequest.findById(recallId).lean();
+    if (!recall) throw new Error("Recall record not found");
+
+    const fee = recall.feeHeadSnapshots?.[0];
+
+    return {
+      recall: {
+        studentPhoto: recall.studentInfo.studentPhoto,
+        studentName: recall.studentInfo.studentName,
+        year: recall.studentInfo.yearStudying,
+        semester: fee?.semesterNumber,
+        department: recall.studentInfo.departmentName,
+        rollNo: recall.rollNo,
+        academicYear: fee?.academicYear,
+        section: recall.studentInfo.section,
+        feeHead: fee?.type,
+        amount: fee?.fee,
+        raisedOn: recall.createdAt,
+        paymentMode: recall.paymentType,
+        bank: recall.bankName,
+        receiptNo: recall.receiptNo,
+        reason: recall.reason
+      }
+    };
+  }
+
+  /* =========================================
+     TABLE MODE
+  ========================================= */
 
   const filter = {};
-  if (rollNo) filter.rollNo = rollNo;
+
+  if (rollNo) filter.rollNo = rollNo.toUpperCase();
   if (receiptNo) filter.receiptNo = receiptNo;
 
+  if (paymentMode) filter.paymentType = paymentMode;
+
+  if (department) filter["studentInfo.departmentName"] = department;
+
+  if (year) filter["studentInfo.yearStudying"] = Number(year);
+
+  if (feeHead) filter["feeHeadSnapshots.type"] = feeHead;
+
+  if (fromDate || toDate) {
+    filter.createdAt = {};
+    if (fromDate) filter.createdAt.$gte = new Date(fromDate);
+
+    if (toDate) {
+      const end = new Date(toDate);
+      end.setHours(23, 59, 59, 999);
+      filter.createdAt.$lte = end;
+    }
+  }
+
+  /* SEARCH */
+  if (search) {
+    filter.$or = [
+      { rollNo: { $regex: search, $options: "i" } },
+      { receiptNo: { $regex: search, $options: "i" } },
+      { "studentInfo.studentName": { $regex: search, $options: "i" } }
+    ];
+  }
+
   const pageNum = Math.max(1, parseInt(page) || 1);
-  const hasLimit = limit !== undefined && limit !== null && limit !== "";
-  const limitNum = hasLimit ? Math.min(500, Math.max(1, parseInt(limit) || 20)) : 0;
+  const limitNum = Math.min(500, Math.max(1, parseInt(limit) || 20));
+  const skip = (pageNum - 1) * limitNum;
 
   const totalCount = await ReceiptRecallRequest.countDocuments(filter);
 
-  let dbQuery = ReceiptRecallRequest.find(filter).sort({ createdAt: -1 });
+  const recalls = await ReceiptRecallRequest.find(filter)
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limitNum)
+    .lean();
 
-  if (hasLimit) {
-    dbQuery = dbQuery.skip((pageNum - 1) * limitNum).limit(limitNum);
+  /* =========================================
+     FLATTEN FOR UI TABLE
+  ========================================= */
+
+  const records = [];
+
+  for (const recall of recalls) {
+    for (const fee of recall.feeHeadSnapshots || []) {
+      records.push({
+         studentPhoto: recall.studentInfo.studentPhoto,
+        studentName: recall.studentInfo.studentName,
+        year: recall.studentInfo.yearStudying,
+        semester: fee?.semesterNumber,
+        department: recall.studentInfo.departmentName,
+        rollNo: recall.rollNo,
+        academicYear: fee?.academicYear,
+        section: recall.studentInfo.section,
+        feeHead: fee?.type,
+        amount: fee?.fee,
+        raisedOn: recall.createdAt,
+        paymentMode: recall.paymentType,
+        bank: recall.bankName,
+        receiptNo: recall.receiptNo,
+        recallId: recall._id,
+        reason: recall.reason
+
+      });
+    }
   }
-
-  const records = await dbQuery.lean();
 
   return {
     records,
     pagination: {
       total: totalCount,
-      page: hasLimit ? pageNum : 1,
-      limit: hasLimit ? limitNum : totalCount,
-      totalPages: hasLimit && limitNum > 0 ? Math.ceil(totalCount / limitNum) : 1,
-    },
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(totalCount / limitNum)
+    }
   };
 };
+
 
 module.exports = {
   createRecall,

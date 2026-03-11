@@ -305,6 +305,94 @@ Same as `POST /bulk` — `multipart/form-data` with a `file` field.
 
 ---
 
+### GET `/api/studentsManagement/search`
+
+**Auth required:** Yes — Admin or Superadmin
+
+**Description:** Performs a fast, indexed, regex lookup on the student `rollNo`. This acts as an autocomplete endpoint. Matches records where the `rollNo` exactly starts with the query provided. Returns 10-20 projected student records quickly instead of heavy objects.
+
+#### Request
+
+##### Query Parameters
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `q` | string | Yes | The roll number or prefix query (e.g., `23C`). |
+
+#### Response
+
+**200 — Success**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "rollNo": "23CS101",
+      "name": "Surya Chandran",
+      "profile": "https://example.com/student-photo.jpg",
+      "registerNumber": "713521104001",
+      "currentYear": 2,
+      "section": "A",
+      "department": "CSE",
+      "batch": "2023-2027",
+      "currentSemester": 3
+    }
+  ],
+  "message": "Students searched successfully"
+}
+```
+
+**400 — Validation error**
+```json
+{
+  "success": false,
+  "data": null,
+  "message": "Search query 'q' is required"
+}
+```
+
+---
+
+### GET `/api/studentsManagement/basic`
+
+**Auth required:** Yes — Admin or Superadmin
+
+**Description:** Returns basic student records intended for dropdowns, quick listings, and lightweight lookup. Supports filtering by academic year, department, and studying year, as well as a fast search by name or roll number.
+
+#### Request
+
+##### Query Parameters
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `academicYear` | string | No | Filter by academic year (e.g. `2024-2025`) |
+| `department` | string | No | Filter by department (e.g. `CSE`, `IT`) |
+| `yearStudying` | number | No | Filter by the current year of study (`1`–`4`) |
+| `search` | string | No | Regex search across `rollNo` or `studentName` |
+
+#### Response
+
+**200 — Success**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "665f1a2b3c4d5e6f7a8b9c20",
+      "name": "Surya Chandran",
+      "rollNo": "23CS101",
+      "profile": "https://example.com/student-photo.jpg",
+      "department": "CSE",
+      "currentYear": 2,
+      "section": "A"
+    }
+  ],
+  "message": "Students fetched successfully"
+}
+```
+
+---
+
 ### GET `/api/studentsManagement`
 
 **Auth required:** Yes — Admin or Superadmin

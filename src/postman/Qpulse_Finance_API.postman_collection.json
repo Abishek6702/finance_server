@@ -1,1314 +1,1852 @@
 {
-    "info": {
-        "name": "Qpulse Finance API",
-        "description": "Complete collection aligned with all backend routes, validations, and realistic body payloads. Covers Auth, Fee Structure, Students, Fee Payment & Tracking, Hostel, and Transport modules.",
-        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-    },
-    "event": [
-        {
-            "listen": "prerequest",
-            "script": {
-                "type": "text/javascript",
-                "exec": [
-                    "",
-                    "const yyyy = new Date().getFullYear();",
-                    "if (!pm.environment.get('academic_year')) pm.environment.set('academic_year', `${yyyy}-${yyyy + 1}`);",
-                    "if (!pm.environment.get('batch_year')) pm.environment.set('batch_year', `${yyyy}-${yyyy + 4}`);",
-                    "",
-                    "if (!pm.environment.get('student_roll_no') || pm.environment.get('student_roll_no').length !== 7) {",
-                    "  const suffix = String(Date.now()).slice(-3);",
-                    "  pm.environment.set('student_roll_no', `25CS${suffix}`);",
-                    "}",
-                    "",
-                    "if (!pm.environment.get('receipt_no')) {",
-                    "  const rs = String(Date.now()).slice(-6);",
-                    "  pm.environment.set('receipt_no', `REC${rs}`);",
-                    "}"
-                ]
-            }
-        },
-        {
-            "listen": "test",
-            "script": {
-                "type": "text/javascript",
-                "exec": [
-                    "// Auto-capture token from any response that returns one (e.g. login)",
-                    "try {",
-                    "  const res = pm.response.json();",
-                    "  const tok = (res && res.data && res.data.token) || (res && res.token);",
-                    "  if (tok) pm.environment.set('token', tok);",
-                    "} catch (e) {}"
-                ]
-            }
-        }
-    ],
-    "item": [
-        {
-            "name": "Auth",
-            "item": [
-                {
-                    "name": "Login Superadmin",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/auth/login",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "login"
-                            ]
-                        },
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"email\": \"superadmin@sece.ac.in\",\n  \"password\": \"superadmin@123\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        }
-                    },
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "type": "text/javascript",
-                                "exec": [
-                                    "pm.test('Login superadmin success', function () {",
-                                    "  pm.response.to.have.status(200);",
-                                    "});",
-                                    "const data = pm.response.json();",
-                                    "const tok = data && data.data && data.data.token;",
-                                    "pm.expect(tok).to.be.a('string');",
-                                    "pm.environment.set('token', tok);"
-                                ]
-                            }
-                        }
-                    ],
-                    "response": []
-                },
-                {
-                    "name": "Login Admin",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/auth/login",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "login"
-                            ]
-                        },
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"email\": \"admin@sece.ac.in\",\n  \"password\": \"admin@123\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        }
-                    },
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "type": "text/javascript",
-                                "exec": [
-                                    "pm.test('Login admin success', function () {",
-                                    "  pm.response.to.have.status(200);",
-                                    "});",
-                                    "const data = pm.response.json();",
-                                    "const tok = data && data.data && data.data.token;",
-                                    "if (tok) pm.environment.set('token', tok);"
-                                ]
-                            }
-                        }
-                    ],
-                    "response": []
-                },
-                {
-                    "name": "Logout",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "url": {
-                            "raw": "{{base_url}}/auth/logout",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "logout"
-                            ]
-                        }
-                    },
-                    "response": []
-                }
-            ]
-        },
-        {
-            "name": "Fee Structure Master",
-            "item": [
-                {
-                    "name": "Create Fee Structure",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/feeStructureMaster",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "feeStructureMaster"
-                            ]
-                        },
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"academicYear\": \"{{academic_year}}\",\n  \"academicStructures\": [\n    {\n      \"quota\": \"Government Quota\",\n      \"educationType\": \"UG\",\n      \"degreeProgram\": \"BE\",\n      \"departments\": [\n        {\n          \"departmentName\": \"CSE\",\n          \"semesters\": [\n            {\n              \"semesterNumber\": 1,\n              \"tuition\": {\n                \"fee\": 40000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 45000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 2,\n              \"tuition\": {\n                \"fee\": 40000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 45000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 3,\n              \"tuition\": {\n                \"fee\": 42000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 47000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 4,\n              \"tuition\": {\n                \"fee\": 42000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 47000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 5,\n              \"tuition\": {\n                \"fee\": 44000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 49000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 6,\n              \"tuition\": {\n                \"fee\": 44000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 49000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 7,\n              \"tuition\": {\n                \"fee\": 46000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 51000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 8,\n              \"tuition\": {\n                \"fee\": 46000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 51000\n              },\n              \"isActive\": true\n            }\n          ],\n          \"total\": {\n            \"fee\": 388000\n          },\n          \"isActive\": true\n        }\n      ],\n      \"total\": {\n        \"fee\": 388000\n      },\n      \"isActive\": true\n    }\n  ],\n  \"total\": {\n    \"fee\": 388000\n  },\n  \"isActive\": true\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Get All Fee Structures",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{base_url}}/feeStructureMaster",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "feeStructureMaster"
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Get Fee Structure By Year",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{base_url}}/feeStructureMaster/{{academic_year}}",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "feeStructureMaster",
-                                "{{academic_year}}"
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Update Fee Structure",
-                    "request": {
-                        "method": "PUT",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/feeStructureMaster/{{academic_year}}",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "feeStructureMaster",
-                                "{{academic_year}}"
-                            ]
-                        },
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"academicYear\": \"{{academic_year}}\",\n  \"academicStructures\": [\n    {\n      \"quota\": \"Government Quota\",\n      \"educationType\": \"UG\",\n      \"degreeProgram\": \"BE\",\n      \"departments\": [\n        {\n          \"departmentName\": \"CSE\",\n          \"semesters\": [\n            {\n              \"semesterNumber\": 1,\n              \"tuition\": {\n                \"fee\": 40500\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 45500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 2,\n              \"tuition\": {\n                \"fee\": 40500\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 45500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 3,\n              \"tuition\": {\n                \"fee\": 42000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 47000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 4,\n              \"tuition\": {\n                \"fee\": 42000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 47000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 5,\n              \"tuition\": {\n                \"fee\": 44000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 49000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 6,\n              \"tuition\": {\n                \"fee\": 44000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 49000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 7,\n              \"tuition\": {\n                \"fee\": 46000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 51000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 8,\n              \"tuition\": {\n                \"fee\": 46000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 51000\n              },\n              \"isActive\": true\n            }\n          ],\n          \"total\": {\n            \"fee\": 388500\n          },\n          \"isActive\": true\n        }\n      ],\n      \"total\": {\n        \"fee\": 388500\n      },\n      \"isActive\": true\n    }\n  ],\n  \"total\": {\n    \"fee\": 388500\n  },\n  \"isActive\": true\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Delete Fee Structure",
-                    "request": {
-                        "method": "DELETE",
-                        "header": [],
-                        "url": {
-                            "raw": "{{base_url}}/feeStructureMaster/{{academic_year}}",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "feeStructureMaster",
-                                "{{academic_year}}"
-                            ]
-                        }
-                    },
-                    "response": []
-                }
-            ]
-        },
-        {
-            "name": "Students Management",
-            "item": [
-                {
-                    "name": "Create Student",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/studentsManagement",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "studentsManagement"
-                            ]
-                        },
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"personal\": {\n    \"rollNo\": \"{{student_roll_no}}\",\n    \"studentName\": \"Arun Prakash\",\n    \"gender\": \"Male\",\n    \"dob\": \"2006-08-15\",\n    \"bloodGroup\": \"O+\",\n    \"aadharNo\": \"987654321012\",\n    \"emisNo\": \"98765432101234\",\n    \"religion\": \"Hindu\",\n    \"community\": \"BC\",\n    \"casteName\": \"Kongu Vellalar\",\n    \"nationality\": \"Indian\",\n    \"studentPhoto\": \"https://example.com/student-photo.jpg\",\n    \"registerNumber\": \"713521104001\"\n  },\n  \"academic\": {\n    \"educationType\": \"UG\",\n    \"academicType\": \"REG\",\n    \"isLateralEntry\": false,\n    \"departmentName\": \"CSE\",\n    \"degreeProgram\": \"BE\",\n    \"yearStudying\": 1,\n    \"currentSemesterNumber\": 1,\n    \"section\": \"A\",\n    \"batch\": \"{{batch_year}}\",\n    \"currentAcademicYear\": \"{{academic_year}}\"\n  },\n  \"contact\": {\n    \"selfMobileNo\": \"9876543210\",\n    \"selfEmail\": \"arun.prakash@example.com\",\n    \"officialEmail\": \"arun.prakash@sece.ac.in\"\n  },\n  \"family\": {\n    \"father\": {\n      \"name\": \"Prakash\",\n      \"mobile\": \"9988776655\",\n      \"workType\": \"Business\",\n      \"qualification\": \"B.Sc\"\n    },\n    \"mother\": {\n      \"name\": \"Kavitha\",\n      \"mobile\": \"9988776644\",\n      \"workType\": \"Homemaker\",\n      \"qualification\": \"B.A\"\n    },\n    \"guardian\": {\n      \"name\": \"Ramesh\",\n      \"mobile\": \"9988776633\"\n    },\n    \"familyIncomeAsPerCertificate\": 200000,\n    \"communityCertificateNo\": \"CC123456789\"\n  },\n  \"address\": {\n    \"permanent\": {\n      \"doorNo\": \"12/3\",\n      \"street\": \"Main Street\",\n      \"taluk\": \"Coimbatore North\",\n      \"district\": \"Coimbatore\",\n      \"state\": \"Tamil Nadu\",\n      \"pincode\": \"641001\"\n    },\n    \"communication\": {\n      \"doorNo\": \"12/3\",\n      \"street\": \"Main Street\",\n      \"taluk\": \"Coimbatore North\",\n      \"district\": \"Coimbatore\",\n      \"state\": \"Tamil Nadu\",\n      \"pincode\": \"641001\"\n    }\n  },\n  \"enrollment\": {\n    \"quota\": \"Government Quota\",\n    \"firstGraduate\": {\n      \"isApplicable\": true,\n      \"yearlyTuitionConcessionAmount\": 20000,\n      \"yearlyExamConcessionAmount\": 1000,\n      \"yearlyErpConcessionAmount\": 500,\n      \"yearlyBookConcessionAmount\": 1000,\n      \"yearlyLabConcessionAmount\": 1500,\n      \"yearlyTransportConcessionAmount\": 1000,\n      \"yearlyHostelConcessionAmount\": 0\n    },\n    \"scheme7point5\": {\n      \"isApplicable\": false,\n      \"yearlyTuitionConcessionAmount\": 0,\n      \"yearlyExamConcessionAmount\": 0,\n      \"yearlyErpConcessionAmount\": 0,\n      \"yearlyBookConcessionAmount\": 0,\n      \"yearlyLabConcessionAmount\": 0,\n      \"yearlyTransportConcessionAmount\": 0,\n      \"yearlyHostelConcessionAmount\": 0\n    },\n    \"pmssScheme\": {\n      \"isApplicable\": false,\n      \"yearlyTuitionConcessionAmount\": 0,\n      \"yearlyExamConcessionAmount\": 0,\n      \"yearlyErpConcessionAmount\": 0,\n      \"yearlyBookConcessionAmount\": 0,\n      \"yearlyLabConcessionAmount\": 0,\n      \"yearlyTransportConcessionAmount\": 0,\n      \"yearlyHostelConcessionAmount\": 0\n    },\n    \"sakthiScheme\": {\n      \"isApplicable\": false,\n      \"yearlyTuitionConcessionAmount\": 0,\n      \"yearlyExamConcessionAmount\": 0,\n      \"yearlyErpConcessionAmount\": 0,\n      \"yearlyBookConcessionAmount\": 0,\n      \"yearlyLabConcessionAmount\": 0,\n      \"yearlyTransportConcessionAmount\": 0,\n      \"yearlyHostelConcessionAmount\": 0\n    },\n    \"specialConcession\": {\n      \"isApplicable\": false,\n      \"yearlyTuitionConcessionAmount\": 0,\n      \"yearlyExamConcessionAmount\": 0,\n      \"yearlyErpConcessionAmount\": 0,\n      \"yearlyBookConcessionAmount\": 0,\n      \"yearlyLabConcessionAmount\": 0,\n      \"yearlyTransportConcessionAmount\": 0,\n      \"yearlyHostelConcessionAmount\": 0\n    }\n  },\n  \"transport\": {\n    \"isApplicable\": true,\n    \"route\": \"Bharathiyar University\",\n    \"stopName\": \"Vadavalli\"\n  },\n  \"hostel\": {\n    \"isApplicable\": false\n  }\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        }
-                    },
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "type": "text/javascript",
-                                "exec": [
-                                    "let reqBody = {};",
-                                    "try { reqBody = JSON.parse(pm.request.body.raw || '{}'); } catch (e) {}",
-                                    "if (reqBody?.personal?.rollNo) pm.environment.set('student_roll_no', reqBody.personal.rollNo);",
-                                    "",
-                                    "let resBody = {};",
-                                    "try { resBody = pm.response.json(); } catch (e) {}",
-                                    "if (resBody?.data?.personal?.rollNo) pm.environment.set('student_roll_no', resBody.data.personal.rollNo);"
-                                ]
-                            }
-                        }
-                    ],
-                    "response": []
-                },
-                {
-                    "name": "Bulk Create Students (CSV/Excel)",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "url": {
-                            "raw": "{{base_url}}/studentsManagement/bulk",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "studentsManagement",
-                                "bulk"
-                            ]
-                        },
-                        "body": {
-                            "mode": "formdata",
-                            "formdata": [
-                                {
-                                    "key": "file",
-                                    "type": "file",
-                                    "src": "",
-                                    "description": "CSV or Excel file (.csv, .xls, .xlsx) with student data. Max 10 MB."
-                                }
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Bulk Update Students (CSV/Excel)",
-                    "request": {
-                        "method": "PUT",
-                        "header": [],
-                        "url": {
-                            "raw": "{{base_url}}/studentsManagement/bulk",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "studentsManagement",
-                                "bulk"
-                            ]
-                        },
-                        "body": {
-                            "mode": "formdata",
-                            "formdata": [
-                                {
-                                    "key": "file",
-                                    "type": "file",
-                                    "src": "",
-                                    "description": "CSV or Excel file (.csv, .xls, .xlsx) with student data to update (matched by rollNo). Max 10 MB."
-                                }
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-               
-                {
-                    "name": "Get Student ",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{base_url}}/studentsManagement?rollNo={{student_roll_no}}",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "studentsManagement"
-                            ],
-                            "query": [
-                                {
-                                    "key": "rollNo",
-                                    "value": "{{student_roll_no}}",
-                                    "description": "Student roll number (e.g. 25CS101). When provided returns a single student record."
-                                },
-                                {
-                                    "key": "fields",
-                                    "value": "personal,academic,transport,hostel",
-                                    "description": "Comma-separated sections to include. Omit to return all sections.",
-                                    "disabled": true
-                                }
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Update Student",
-                    "request": {
-                        "method": "PUT",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/studentsManagement/{{student_roll_no}}",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "studentsManagement",
-                                "{{student_roll_no}}"
-                            ]
-                        },
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"personal\": { \"studentName\": \"Arun Prakash Updated\" },\n  \"contact\": { \"selfMobileNo\": \"9876543211\" }\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Delete Student",
-                    "request": {
-                        "method": "DELETE",
-                        "header": [],
-                        "url": {
-                            "raw": "{{base_url}}/studentsManagement/{{student_roll_no}}",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "studentsManagement",
-                                "{{student_roll_no}}"
-                            ]
-                        }
-                    },
-                    "response": []
-                }
-            ]
-        },
-        {
-            "name": "Fee Payment",
-            "item": [
-                {
-                    "name": "Record Payment (Pay)",
-                    "request": {
-                        "method": "POST",
-                        "description": "Records a fee payment. All breakdown amounts are validated against **concession-adjusted net totals** — the net amount after enrollment-based concessions (firstGraduate, scheme7point5, pmss, sakthi, special) have been applied to each fee category. Attempting to pay more than the remaining net due returns HTTP 400 with a message like: `\"tuition payment ₹X exceeds remaining concession-adjusted due ₹Y for Semester N (YYYY-YYYY)\"`.",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/feePayment/pay",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "feePayment",
-                                "pay"
-                            ]
-                        },
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"rollNo\": \"{{student_roll_no}}\",\n  \"paymentType\": \"Cash\",\n  \"bankName\": \"Indian Bank\",\n  \"bankLocation\": \"Kinathukadavu\",\n  \"billingDate\": \"03/03/2026\",\n  \"remarks\": \"Semester-1 fee payment\",\n  \"breakdowns\": [\n    {\n      \"academicYear\": \"{{academic_year}}\",\n      \"academic\": {\n        \"semesterNumber\": 1,\n        \"tuition\": 5000,\n        \"exam\": 500,\n        \"erp\": 100,\n        \"book\": 200,\n        \"lab\": 200\n      },\n      \"hostel\": 0,\n      \"transport\": 0\n    }\n  ]\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        }
-                    },
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "type": "text/javascript",
-                                "exec": [
-                                    "let reqBody = {};",
-                                    "try { reqBody = JSON.parse(pm.request.body.raw || '{}'); } catch (e) {}",
-                                    "if (reqBody?.receiptNo) pm.environment.set('receipt_no', reqBody.receiptNo);"
-                                ]
-                            }
-                        }
-                    ],
-                    "response": []
-                },
-                {
-                    "name": "Get All Transactions",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{base_url}}/feePayment",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "feePayment"
-                            ],
-                            "query": [
-                                {
-                                    "key": "department",
-                                    "value": "CSE",
-                                    "description": "Filter by department (CSE, IT, AIML, AIDS, ECE, EEE, MECH, CIVIL)",
-                                    "disabled": true
-                                },
-                                {
-                                    "key": "paymentMode",
-                                    "value": "Cash",
-                                    "description": "Filter by payment mode (Cash, Card, UPI, NetBanking, Cheque, DD)",
-                                    "disabled": true
-                                },
-                                {
-                                    "key": "fromDate",
-                                    "value": "2025-01-01",
-                                    "description": "Filter from date (YYYY-MM-DD)",
-                                    "disabled": true
-                                },
-                                {
-                                    "key": "toDate",
-                                    "value": "2026-12-31",
-                                    "description": "Filter to date (YYYY-MM-DD)",
-                                    "disabled": true
-                                },
-                                {
-                                    "key": "page",
-                                    "value": "1",
-                                    "description": "Page number (default: 1)",
-                                    "disabled": true
-                                },
-                                {
-                                    "key": "limit",
-                                    "value": "20",
-                                    "description": "Results per page (omit for all results)",
-                                    "disabled": true
-                                }
-                            ]
-                        }
-                    },
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "type": "text/javascript",
-                                "exec": [
-                                    "pm.test('All transactions fetched', function () {",
-                                    "  pm.response.to.have.status(200);",
-                                    "  const body = pm.response.json();",
-                                    "  pm.expect(body.data.transactions).to.be.an('array');",
-                                    "  pm.expect(body.data.pagination).to.be.an('object');",
-                                    "  if (body.data.transactions.length > 0) {",
-                                    "    pm.expect(body.data.transactions[0].student).to.be.an('object');",
-                                    "    pm.expect(body.data.transactions[0].transaction).to.be.an('object');",
-                                    "  }",
-                                    "});"
-                                ]
-                            }
-                        }
-                    ],
-                    "response": []
-                },
-                {
-                    "name": "Get Student Transactions",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{base_url}}/feePayment/{{student_roll_no}}",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "feePayment",
-                                "{{student_roll_no}}"
-                            ],
-                            "query": [
-                                {
-                                    "key": "fromDate",
-                                    "value": "2025-01-01",
-                                    "description": "Filter from date (YYYY-MM-DD)",
-                                    "disabled": true
-                                },
-                                {
-                                    "key": "toDate",
-                                    "value": "2026-12-31",
-                                    "description": "Filter to date (YYYY-MM-DD)",
-                                    "disabled": true
-                                },
-                                {
-                                    "key": "page",
-                                    "value": "1",
-                                    "description": "Page number (default: 1)",
-                                    "disabled": true
-                                },
-                                {
-                                    "key": "limit",
-                                    "value": "20",
-                                    "description": "Results per page (omit for all results)",
-                                    "disabled": true
-                                }
-                            ]
-                        }
-                    },
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "type": "text/javascript",
-                                "exec": [
-                                    "pm.test('Student transactions fetched', function () {",
-                                    "  pm.response.to.have.status(200);",
-                                    "  const body = pm.response.json();",
-                                    "  pm.expect(body.data.student).to.be.an('object');",
-                                    "  pm.expect(body.data.transactions).to.be.an('array');",
-                                    "  pm.expect(body.data.pagination).to.be.an('object');",
-                                    "  if (body.data.transactions.length > 0) {",
-                                    "    pm.expect(body.data.transactions[0].breakdowns).to.be.an('array');",
-                                    "  }",
-                                    "});"
-                                ]
-                            }
-                        }
-                    ],
-                    "response": []
-                }
-            ]
-        },
-        {
-            "name": "Student Fee Tracking",
-            "item": [
-                {
-                    "name": "Get Students with Fee Tracking",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{base_url}}/studentFeeTracking?batch={{academic_year}}&department=CSE&rollNo={{student_roll_no}}",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "studentFeeTracking"
-                            ],
-                            "query": [
-                                {
-                                    "key": "batch",
-                                    "value": "{{academic_year}}",
-                                    "description": "Filter by batch (YYYY-YYYY format)",
-                                    "disabled": true
-                                },
-                                {
-                                    "key": "department",
-                                    "value": "CSE",
-                                    "description": "Filter by department (CSE, IT, AIML, AIDS, ECE, EEE, MECH, CIVIL)",
-                                    "disabled": true
-                                },
-                                {
-                                    "key": "rollNo",
-                                    "value": "{{student_roll_no}}",
-                                    "description": "Filter by exact roll number"
-                                }
-                            ]
-                        }
-                    },
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "type": "text/javascript",
-                                "exec": [
-                                    "pm.test('Students with fee tracking fetched', function () {",
-                                    "  pm.response.to.have.status(200);",
-                                    "  const body = pm.response.json();",
-                                    "  pm.expect(body.success).to.equal(true);",
-                                    "  pm.expect(body.data).to.be.an('array');",
-                                    "  if (body.data.length > 0) {",
-                                    "    pm.expect(body.data[0].student).to.be.an('object');",
-                                    "    pm.expect(body.data[0].student.personal).to.be.an('object');",
-                                    "    pm.expect(body.data[0].student.academic).to.be.an('object');",
-                                    "  }",
-                                    "});"
-                                ]
-                            }
-                        }
-                    ],
-                    "response": []
-                }
-            ]
-        },
-        {
-            "name": "Hostel",
-            "item": [
-                {
-                    "name": "Get Full Mapping",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{base_url}}/hostel",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "hostel"
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Get Blocks",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/hostel/blocks",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "hostel",
-                                "blocks"
-                            ]
-                        },
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"sharing\": 3,\n  \"isAttached\": true\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Get Room Types",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/hostel/roomTypes",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "hostel",
-                                "roomTypes"
-                            ]
-                        },
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"block\": \"A-BLOCK\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Get Fees",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/hostel/fees",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "hostel",
-                                "fees"
-                            ]
-                        },
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"block\": \"A-BLOCK\",\n  \"sharing\": 3,\n  \"isAttached\": true\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Add Hostel",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/hostel/add",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "hostel",
-                                "add"
-                            ]
-                        },
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"block\": \"B-BLOCK\",\n  \"sharing\": 2,\n  \"isAttached\": false,\n  \"fee\": 45000\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Bulk Add Hostel",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/hostel/bulk",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "hostel",
-                                "bulk"
-                            ]
-                        },
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"records\": [\n    {\n      \"block\": \"C-BLOCK\",\n      \"sharing\": 4,\n      \"isAttached\": false,\n      \"fee\": 35000\n    },\n    {\n      \"block\": \"C-BLOCK\",\n      \"sharing\": 3,\n      \"isAttached\": true,\n      \"fee\": 42000\n    }\n  ]\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Update Hostel",
-                    "request": {
-                        "method": "PUT",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/hostel/{{hostel_id}}",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "hostel",
-                                "{{hostel_id}}"
-                            ]
-                        },
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"fee\": 48000,\n  \"sharing\": 2,\n  \"isAttached\": true\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        }
-                    },
-                    "response": []
-                }
-            ]
-        },
-        {
-            "name": "Transport",
-            "item": [
-                {
-                    "name": "Get Full Mapping",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{base_url}}/transport",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "transport"
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Get Stops",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/transport/stops",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "transport",
-                                "stops"
-                            ]
-                        },
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"route\": \"Bharathiyar University\",\n  \"busNo\": \"1\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Get Buses",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/transport/buses",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "transport",
-                                "buses"
-                            ]
-                        },
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"stop\": \"Vadavalli\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Get Fees",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/transport/fees",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "transport",
-                                "fees"
-                            ]
-                        },
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"busNo\": \"1\",\n  \"stop\": \"Vadavalli\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Add Transport",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/transport/add",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "transport",
-                                "add"
-                            ]
-                        },
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"route\": \"Gandhipuram\",\n  \"busNo\": \"10\",\n  \"stop\": \"Peelamedu\",\n  \"fee\": 15000\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Bulk Add Transport",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/transport/bulk",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "transport",
-                                "bulk"
-                            ]
-                        },
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"records\": [\n    {\n      \"route\": \"Gandhipuram\",\n      \"busNo\": \"10\",\n      \"stop\": \"Singanallur\",\n      \"fee\": 12000\n    },\n    {\n      \"route\": \"Gandhipuram\",\n      \"busNo\": \"10\",\n      \"stop\": \"Ukkadam\",\n      \"fee\": 14000\n    }\n  ]\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Update Transport",
-                    "request": {
-                        "method": "PUT",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/transport/{{transport_id}}",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "transport",
-                                "{{transport_id}}"
-                            ]
-                        },
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"fee\": 16000,\n  \"stop\": \"Peelamedu Junction\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        }
-                    },
-                    "response": []
-                }
-            ]
-        },
-        {
-            "name": "Receipt Recall",
-            "item": [
-                {
-                    "name": "Recall Breakdowns (Admin)",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/receiptRecall",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "receiptRecall"
-                            ]
-                        },
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"receiptNo\": \"{{receipt_no}}\",\n  \"rollNo\": \"{{student_roll_no}}\",\n  \"reason\": \"Incorrect payment entry — wrong semester selected\",\n  \"feeHeadIds\": [\"PASTE_FEE_HEAD_OBJECT_ID_HERE\"]\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        }
-                    },
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "type": "text/javascript",
-                                "exec": [
-                                    "pm.test('Breakdown(s) recalled successfully', function () {",
-                                    "  pm.response.to.have.status(201);",
-                                    "  const body = pm.response.json();",
-                                    "  pm.expect(body.success).to.equal(true);",
-                                    "  pm.expect(body.data.feeHeadIds).to.be.an('array');",
-                                    "  pm.expect(body.data.breakdownSnapshots).to.be.an('array');",
-                                    "  pm.expect(body.data.receiptNo).to.be.a('string');",
-                                    "});"
-                                ]
-                            }
-                        }
-                    ],
-                    "response": []
-                },
-                {
-                    "name": "Get Recall History",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{base_url}}/receiptRecall",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "receiptRecall"
-                            ],
-                            "query": [
-                                {
-                                    "key": "rollNo",
-                                    "value": "{{student_roll_no}}",
-                                    "description": "Filter by student roll number",
-                                    "disabled": true
-                                },
-                                {
-                                    "key": "receiptNo",
-                                    "value": "{{receipt_no}}",
-                                    "description": "Filter by receipt number",
-                                    "disabled": true
-                                },
-                                {
-                                    "key": "page",
-                                    "value": "1",
-                                    "description": "Page number (default: 1)",
-                                    "disabled": true
-                                },
-                                {
-                                    "key": "limit",
-                                    "value": "20",
-                                    "description": "Results per page (omit for all results)",
-                                    "disabled": true
-                                }
-                            ]
-                        }
-                    },
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "type": "text/javascript",
-                                "exec": [
-                                    "pm.test('Recall records fetched', function () {",
-                                    "  pm.response.to.have.status(200);",
-                                    "  const body = pm.response.json();",
-                                    "  pm.expect(body.success).to.equal(true);",
-                                    "  pm.expect(body.data.records).to.be.an('array');",
-                                    "  pm.expect(body.data.pagination).to.be.an('object');",
-                                    "});"
-                                ]
-                            }
-                        }
-                    ],
-                    "response": []
-                }
-            ]
-        },
-        {
-            "name": "Superadmin",
-            "item": [
-                {
-                    "name": "Clear Tables",
-                    "request": {
-                        "method": "DELETE",
-                        "header": [],
-                        "url": {
-                            "raw": "{{base_url}}/superadmin/clear-tables?tablename=users,students,feestructuremasters,hostels,receiptrecallrequests,studentfeetrackings,receiptcounters,studenttransactions,transports",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "superadmin",
-                                "clear-tables"
-                            ],
-                            "query": [
-                                {
-                                    "key": "tablename",
-                                    "value": "users,students,feestructuremasters,hostels,receiptrecallrequests,studentfeetrackings,receiptcounters,studenttransactions,transports",
-                                    "description": "Comma-separated list of collection names to clear, or 'all' to clear everything."
-                                }
-                            ]
-                        }
-                    },
-                    "response": []
-                }
-            ]
-        }
-    ],
-    "auth": {
-        "type": "bearer",
-        "bearer": [
-            {
-                "key": "token",
-                "value": "{{token}}",
-                "type": "string"
-            }
+  "info": {
+    "name": "Qpulse Finance API",
+    "description": "Complete collection aligned with all backend routes, validations, and realistic body payloads. Covers Auth, Fee Structure, Students, Fee Payment & Tracking, Hostel, and Transport modules.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "",
+          "const yyyy = new Date().getFullYear();",
+          "if (!pm.environment.get('academic_year')) pm.environment.set('academic_year', `${yyyy}-${yyyy + 1}`);",
+          "if (!pm.environment.get('batch_year')) pm.environment.set('batch_year', `${yyyy}-${yyyy + 4}`);",
+          "",
+          "if (!pm.environment.get('student_roll_no') || pm.environment.get('student_roll_no').length !== 7) {",
+          "  const suffix = String(Date.now()).slice(-3);",
+          "  pm.environment.set('student_roll_no', `25CS${suffix}`);",
+          "}",
+          "",
+          "if (!pm.environment.get('receipt_no')) {",
+          "  const rs = String(Date.now()).slice(-6);",
+          "  pm.environment.set('receipt_no', `REC${rs}`);",
+          "}"
         ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-capture token from any response that returns one (e.g. login)",
+          "try {",
+          "  const res = pm.response.json();",
+          "  const tok = (res && res.data && res.data.token) || (res && res.token);",
+          "  if (tok) pm.environment.set('token', tok);",
+          "} catch (e) {}"
+        ]
+      }
     }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login Superadmin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"superadmin@sece.ac.in\",\n  \"password\": \"superadmin@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login superadmin success', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const data = pm.response.json();",
+                  "const tok = data && data.data && data.data.token;",
+                  "pm.expect(tok).to.be.a('string');",
+                  "pm.environment.set('token', tok);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Login Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@sece.ac.in\",\n  \"password\": \"admin@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login admin success', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const data = pm.response.json();",
+                  "const tok = data && data.data && data.data.token;",
+                  "if (tok) pm.environment.set('token', tok);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Fee Structure Master",
+      "item": [
+        {
+          "name": "Create Fee Structure",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/feeStructureMaster",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feeStructureMaster"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"academicYear\": \"{{academic_year}}\",\n  \"academicStructures\": [\n    {\n      \"quota\": \"Government Quota\",\n      \"educationType\": \"UG\",\n      \"degreeProgram\": \"BE\",\n      \"departments\": [\n        {\n          \"departmentName\": \"CSE\",\n          \"semesters\": [\n            {\n              \"semesterNumber\": 1,\n              \"tuition\": {\n                \"fee\": 40000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 45000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 2,\n              \"tuition\": {\n                \"fee\": 40000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 45000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 3,\n              \"tuition\": {\n                \"fee\": 42000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 47000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 4,\n              \"tuition\": {\n                \"fee\": 42000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 47000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 5,\n              \"tuition\": {\n                \"fee\": 44000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 49000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 6,\n              \"tuition\": {\n                \"fee\": 44000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 49000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 7,\n              \"tuition\": {\n                \"fee\": 46000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 51000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 8,\n              \"tuition\": {\n                \"fee\": 46000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 51000\n              },\n              \"isActive\": true\n            }\n          ],\n          \"total\": {\n            \"fee\": 388000\n          },\n          \"isActive\": true\n        }\n      ],\n      \"total\": {\n        \"fee\": 388000\n      },\n      \"isActive\": true\n    }\n  ],\n  \"total\": {\n    \"fee\": 388000\n  },\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Fee Structures",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/feeStructureMaster",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feeStructureMaster"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Fee Structure By Year",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/feeStructureMaster/{{academic_year}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feeStructureMaster",
+                "{{academic_year}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Fee Structure",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/feeStructureMaster/{{academic_year}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feeStructureMaster",
+                "{{academic_year}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"academicYear\": \"{{academic_year}}\",\n  \"academicStructures\": [\n    {\n      \"quota\": \"Government Quota\",\n      \"educationType\": \"UG\",\n      \"degreeProgram\": \"BE\",\n      \"departments\": [\n        {\n          \"departmentName\": \"CSE\",\n          \"semesters\": [\n            {\n              \"semesterNumber\": 1,\n              \"tuition\": {\n                \"fee\": 40500\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 45500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 2,\n              \"tuition\": {\n                \"fee\": 40500\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 45500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 3,\n              \"tuition\": {\n                \"fee\": 42000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 47000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 4,\n              \"tuition\": {\n                \"fee\": 42000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 47000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 5,\n              \"tuition\": {\n                \"fee\": 44000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 49000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 6,\n              \"tuition\": {\n                \"fee\": 44000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 49000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 7,\n              \"tuition\": {\n                \"fee\": 46000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 51000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 8,\n              \"tuition\": {\n                \"fee\": 46000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 51000\n              },\n              \"isActive\": true\n            }\n          ],\n          \"total\": {\n            \"fee\": 388500\n          },\n          \"isActive\": true\n        }\n      ],\n      \"total\": {\n        \"fee\": 388500\n      },\n      \"isActive\": true\n    }\n  ],\n  \"total\": {\n    \"fee\": 388500\n  },\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Fee Structure",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/feeStructureMaster/{{academic_year}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feeStructureMaster",
+                "{{academic_year}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Students Management",
+      "item": [
+        {
+          "name": "Create Student",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/studentsManagement",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "studentsManagement"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"personal\": {\n    \"rollNo\": \"{{student_roll_no}}\",\n    \"studentName\": \"Arun Prakash\",\n    \"gender\": \"Male\",\n    \"dob\": \"2006-08-15\",\n    \"bloodGroup\": \"O+\",\n    \"aadharNo\": \"987654321012\",\n    \"emisNo\": \"98765432101234\",\n    \"religion\": \"Hindu\",\n    \"community\": \"BC\",\n    \"casteName\": \"Kongu Vellalar\",\n    \"nationality\": \"Indian\",\n    \"studentPhoto\": \"https://example.com/student-photo.jpg\",\n    \"registerNumber\": \"713521104001\"\n  },\n  \"academic\": {\n    \"educationType\": \"UG\",\n    \"academicType\": \"REG\",\n    \"isLateralEntry\": false,\n    \"departmentName\": \"CSE\",\n    \"degreeProgram\": \"BE\",\n    \"yearStudying\": 1,\n    \"currentSemesterNumber\": 1,\n    \"section\": \"A\",\n    \"batch\": \"{{batch_year}}\",\n    \"currentAcademicYear\": \"{{academic_year}}\"\n  },\n  \"contact\": {\n    \"selfMobileNo\": \"9876543210\",\n    \"selfEmail\": \"arun.prakash@example.com\",\n    \"officialEmail\": \"arun.prakash@sece.ac.in\"\n  },\n  \"family\": {\n    \"father\": {\n      \"name\": \"Prakash\",\n      \"mobile\": \"9988776655\",\n      \"workType\": \"Business\",\n      \"qualification\": \"B.Sc\"\n    },\n    \"mother\": {\n      \"name\": \"Kavitha\",\n      \"mobile\": \"9988776644\",\n      \"workType\": \"Homemaker\",\n      \"qualification\": \"B.A\"\n    },\n    \"guardian\": {\n      \"name\": \"Ramesh\",\n      \"mobile\": \"9988776633\"\n    },\n    \"familyIncomeAsPerCertificate\": 200000,\n    \"communityCertificateNo\": \"CC123456789\"\n  },\n  \"address\": {\n    \"permanent\": {\n      \"doorNo\": \"12/3\",\n      \"street\": \"Main Street\",\n      \"taluk\": \"Coimbatore North\",\n      \"district\": \"Coimbatore\",\n      \"state\": \"Tamil Nadu\",\n      \"pincode\": \"641001\"\n    },\n    \"communication\": {\n      \"doorNo\": \"12/3\",\n      \"street\": \"Main Street\",\n      \"taluk\": \"Coimbatore North\",\n      \"district\": \"Coimbatore\",\n      \"state\": \"Tamil Nadu\",\n      \"pincode\": \"641001\"\n    }\n  },\n  \"enrollment\": {\n    \"quota\": \"Government Quota\",\n    \"firstGraduate\": {\n      \"isApplicable\": true,\n      \"yearlyTuitionConcessionAmount\": 20000,\n      \"yearlyExamConcessionAmount\": 1000,\n      \"yearlyErpConcessionAmount\": 500,\n      \"yearlyBookConcessionAmount\": 1000,\n      \"yearlyLabConcessionAmount\": 1500,\n      \"yearlyTransportConcessionAmount\": 1000,\n      \"yearlyHostelConcessionAmount\": 0\n    },\n    \"scheme7point5\": {\n      \"isApplicable\": false,\n      \"yearlyTuitionConcessionAmount\": 0,\n      \"yearlyExamConcessionAmount\": 0,\n      \"yearlyErpConcessionAmount\": 0,\n      \"yearlyBookConcessionAmount\": 0,\n      \"yearlyLabConcessionAmount\": 0,\n      \"yearlyTransportConcessionAmount\": 0,\n      \"yearlyHostelConcessionAmount\": 0\n    },\n    \"pmssScheme\": {\n      \"isApplicable\": false,\n      \"yearlyTuitionConcessionAmount\": 0,\n      \"yearlyExamConcessionAmount\": 0,\n      \"yearlyErpConcessionAmount\": 0,\n      \"yearlyBookConcessionAmount\": 0,\n      \"yearlyLabConcessionAmount\": 0,\n      \"yearlyTransportConcessionAmount\": 0,\n      \"yearlyHostelConcessionAmount\": 0\n    },\n    \"sakthiScheme\": {\n      \"isApplicable\": false,\n      \"yearlyTuitionConcessionAmount\": 0,\n      \"yearlyExamConcessionAmount\": 0,\n      \"yearlyErpConcessionAmount\": 0,\n      \"yearlyBookConcessionAmount\": 0,\n      \"yearlyLabConcessionAmount\": 0,\n      \"yearlyTransportConcessionAmount\": 0,\n      \"yearlyHostelConcessionAmount\": 0\n    },\n    \"specialConcession\": {\n      \"isApplicable\": false,\n      \"yearlyTuitionConcessionAmount\": 0,\n      \"yearlyExamConcessionAmount\": 0,\n      \"yearlyErpConcessionAmount\": 0,\n      \"yearlyBookConcessionAmount\": 0,\n      \"yearlyLabConcessionAmount\": 0,\n      \"yearlyTransportConcessionAmount\": 0,\n      \"yearlyHostelConcessionAmount\": 0\n    }\n  },\n  \"transport\": {\n    \"isApplicable\": true,\n    \"route\": \"Bharathiyar University\",\n    \"stopName\": \"Vadavalli\"\n  },\n  \"hostel\": {\n    \"isApplicable\": false\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let reqBody = {};",
+                  "try { reqBody = JSON.parse(pm.request.body.raw || '{}'); } catch (e) {}",
+                  "if (reqBody?.personal?.rollNo) pm.environment.set('student_roll_no', reqBody.personal.rollNo);",
+                  "",
+                  "let resBody = {};",
+                  "try { resBody = pm.response.json(); } catch (e) {}",
+                  "if (resBody?.data?.personal?.rollNo) pm.environment.set('student_roll_no', resBody.data.personal.rollNo);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Bulk Create Students (CSV/Excel)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/studentsManagement/bulk",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "studentsManagement",
+                "bulk"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "CSV or Excel file (.csv, .xls, .xlsx) with student data. Max 10 MB."
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Bulk Update Students (CSV/Excel)",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/studentsManagement/bulk",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "studentsManagement",
+                "bulk"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "CSV or Excel file (.csv, .xls, .xlsx) with student data to update (matched by rollNo). Max 10 MB."
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search Students",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/studentsManagement/search?q=25C",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "studentsManagement",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "25C",
+                  "description": "The prefix or exact value of the rollNo to perform a regex starts-with match."
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Basic Students",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/studentsManagement/basic?academicYear={{academic_year}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "studentsManagement",
+                "basic"
+              ],
+              "query": [
+                {
+                  "key": "academicYear",
+                  "value": "{{academic_year}}",
+                  "description": "Filter by academic year (YYYY-YYYY)"
+                },
+                {
+                  "key": "department",
+                  "value": "CSE",
+                  "description": "Filter by department",
+                  "disabled": true
+                },
+                {
+                  "key": "yearStudying",
+                  "value": "1",
+                  "description": "Filter by current year studying",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "25C",
+                  "description": "Search by roll number or name",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Student ",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/studentsManagement?rollNo={{student_roll_no}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "studentsManagement"
+              ],
+              "query": [
+                {
+                  "key": "rollNo",
+                  "value": "{{student_roll_no}}",
+                  "description": "Student roll number (e.g. 25CS101). When provided returns a single student record."
+                },
+                {
+                  "key": "fields",
+                  "value": "personal,academic,transport,hostel",
+                  "description": "Comma-separated sections to include. Omit to return all sections.",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Student",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/studentsManagement/{{student_roll_no}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "studentsManagement",
+                "{{student_roll_no}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"personal\": { \"studentName\": \"Arun Prakash Updated\" },\n  \"contact\": { \"selfMobileNo\": \"9876543211\" }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Student",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/studentsManagement/{{student_roll_no}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "studentsManagement",
+                "{{student_roll_no}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Fee Payment",
+      "item": [
+        {
+          "name": "Record Payment (Pay)",
+          "request": {
+            "method": "POST",
+            "description": "Records a fee payment. All breakdown amounts are validated against **concession-adjusted net totals** — the net amount after enrollment-based concessions (firstGraduate, scheme7point5, pmss, sakthi, special) have been applied to each fee category. Attempting to pay more than the remaining net due returns HTTP 400 with a message like: `\"tuition payment ₹X exceeds remaining concession-adjusted due ₹Y for Semester N (YYYY-YYYY)\"`.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/feePayment/pay",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feePayment",
+                "pay"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rollNo\": \"{{student_roll_no}}\",\n  \"paymentType\": \"Cash\",\n  \"bankName\": \"Indian Bank\",\n  \"bankLocation\": \"Kinathukadavu\",\n  \"billingDate\": \"03/03/2026\",\n  \"breakdowns\": [\n    {\n      \"academicYear\": \"{{academic_year}}\",\n      \"academic\": {\n        \"semesterNumber\": 1,\n        \"tuition\": 5000,\n        \"exam\": 500,\n        \"erp\": 100,\n        \"book\": 200,\n        \"lab\": 200\n      },\n      \"hostel\": 0,\n      \"transport\": 0\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let reqBody = {};",
+                  "try { reqBody = JSON.parse(pm.request.body.raw || '{}'); } catch (e) {}",
+                  "if (reqBody?.receiptNo) pm.environment.set('receipt_no', reqBody.receiptNo);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get All Transactions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/feePayment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feePayment"
+              ],
+              "query": [
+                {
+                  "key": "department",
+                  "value": "CSE",
+                  "description": "Filter by department (CSE, IT, AIML, AIDS, ECE, EEE, MECH, CIVIL)",
+                  "disabled": true
+                },
+                {
+                  "key": "paymentMode",
+                  "value": "Cash",
+                  "description": "Filter by payment mode (Cash, Card, UPI, NetBanking, Cheque, DD)",
+                  "disabled": true
+                },
+                {
+                  "key": "fromDate",
+                  "value": "2025-01-01",
+                  "description": "Filter from date (YYYY-MM-DD)",
+                  "disabled": true
+                },
+                {
+                  "key": "toDate",
+                  "value": "2026-12-31",
+                  "description": "Filter to date (YYYY-MM-DD)",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Results per page (omit for all results)",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('All transactions fetched', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.data.transactions).to.be.an('array');",
+                  "  pm.expect(body.data.pagination).to.be.an('object');",
+                  "  if (body.data.transactions.length > 0) {",
+                  "    pm.expect(body.data.transactions[0].student).to.be.an('object');",
+                  "    pm.expect(body.data.transactions[0].transaction).to.be.an('object');",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get Recent Transactions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/feePayment/recent",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feePayment",
+                "recent"
+              ],
+              "query": [
+                {
+                  "key": "department",
+                  "value": "CSE",
+                  "description": "Filter by department (CSE, IT, AIML, AIDS, ECE, EEE, MECH, CIVIL)",
+                  "disabled": true
+                },
+                {
+                  "key": "paymentMode",
+                  "value": "Cash",
+                  "description": "Filter by payment mode (Cash, Card, UPI, NetBanking, Cheque, DD)",
+                  "disabled": true
+                },
+                {
+                  "key": "feeHead",
+                  "value": "tuition",
+                  "description": "Filter by fee head (tuition, exam, erp, book, lab, hostel, transport)",
+                  "disabled": true
+                },
+                {
+                  "key": "yearStudying",
+                  "value": "1",
+                  "description": "Filter by current year studying (1 to 4)",
+                  "disabled": true
+                },
+                {
+                  "key": "rollNo",
+                  "value": "22CSE001",
+                  "description": "Filter by exact student roll number (case-insensitive)",
+                  "disabled": true
+                },
+                {
+                  "key": "fromDate",
+                  "value": "2025-01-01",
+                  "description": "Filter from date (YYYY-MM-DD)",
+                  "disabled": true
+                },
+                {
+                  "key": "toDate",
+                  "value": "2026-12-31",
+                  "description": "Filter to date (YYYY-MM-DD)",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Results per page (omit for all results)",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Student Transactions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/feePayment/{{student_roll_no}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feePayment",
+                "{{student_roll_no}}"
+              ],
+              "query": [
+                {
+                  "key": "fromDate",
+                  "value": "2025-01-01",
+                  "description": "Filter from date (YYYY-MM-DD)",
+                  "disabled": true
+                },
+                {
+                  "key": "toDate",
+                  "value": "2026-12-31",
+                  "description": "Filter to date (YYYY-MM-DD)",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Results per page (omit for all results)",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Student transactions fetched', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.data.student).to.be.an('object');",
+                  "  pm.expect(body.data.transactions).to.be.an('array');",
+                  "  pm.expect(body.data.pagination).to.be.an('object');",
+                  "  if (body.data.transactions.length > 0) {",
+                  "    pm.expect(body.data.transactions[0].breakdowns).to.be.an('array');",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Student Fee Tracking",
+      "item": [
+        {
+          "name": "Get Students with Fee Tracking",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/studentFeeTracking?batch={{academic_year}}&department=CSE&rollNo={{student_roll_no}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "studentFeeTracking"
+              ],
+              "query": [
+                {
+                  "key": "batch",
+                  "value": "{{academic_year}}",
+                  "description": "Filter by batch (YYYY-YYYY format)",
+                  "disabled": true
+                },
+                {
+                  "key": "department",
+                  "value": "CSE",
+                  "description": "Filter by department (CSE, IT, AIML, AIDS, ECE, EEE, MECH, CIVIL)",
+                  "disabled": true
+                },
+                {
+                  "key": "rollNo",
+                  "value": "{{student_roll_no}}",
+                  "description": "Filter by exact roll number"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Students with fee tracking fetched', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.equal(true);",
+                  "  pm.expect(body.data).to.be.an('array');",
+                  "  if (body.data.length > 0) {",
+                  "    pm.expect(body.data[0].student).to.be.an('object');",
+                  "    pm.expect(body.data[0].student.personal).to.be.an('object');",
+                  "    pm.expect(body.data[0].student.academic).to.be.an('object');",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+   {
+      "name": "Fee Details",
+      "item": [
+        {
+          "name": "Get Fee Details List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/feedetails?rollNo={{student_roll_no}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feedetails"
+              ],
+              "query": [
+                {
+                  "key": "rollNo",
+                  "value": "{{student_roll_no}}",
+                  "description": "Exact roll number lookup"
+                },
+                {
+                  "key": "batch",
+                  "value": "{{batch_year}}",
+                  "description": "Filter by batch (YYYY-YYYY)",
+                  "disabled": true
+                },
+                {
+                  "key": "department",
+                  "value": "CSE",
+                  "description": "Filter by department",
+                  "disabled": true
+                },
+                {
+                  "key": "academicYear",
+                  "value": "{{academic_year}}",
+                  "description": "Limit fee aggregation to one academic year",
+                  "disabled": true
+                },
+                {
+                  "key": "studyingYear",
+                  "value": "1",
+                  "description": "Filter by currently studying year (1-4)",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Fee details list fetched', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.equal(true);",
+                  "  pm.expect(body.data).to.be.an('array');",
+                  "  pm.expect(body.pagination).to.be.an('object');",
+                  "  pm.expect(body.pagination.totalRecords).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get Fee Details By Roll No",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/feedetails/{{student_roll_no}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feedetails",
+                "{{student_roll_no}}"
+              ],
+              "query": [
+                {
+                  "key": "includeProfile",
+                  "value": "true",
+                  "description": "Include student profile and contact (default true)",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Year-wise fee summary fetched', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.equal(true);",
+                  "  pm.expect(body.data.feeSummary).to.be.an('array');",
+                  "  pm.expect(body.data.overall).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get Fee Details By Roll No & Academic Year",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/feedetails/{{student_roll_no}}/{{academic_year}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feedetails",
+                "{{student_roll_no}}",
+                "{{academic_year}}"
+              ],
+              "query": [
+                {
+                  "key": "semester",
+                  "value": "odd",
+                  "description": "Filter to odd or even semester only",
+                  "disabled": true
+                },
+                {
+                  "key": "includeProfile",
+                  "value": "true",
+                  "description": "Include student profile and contact (default true)",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Semester breakdown fetched', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.equal(true);",
+                  "  pm.expect(body.data.semesters).to.be.an('array');",
+                  "  pm.expect(body.data.academicYear).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "Individual Fee Report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reports/individual?rollNo={{student_roll_no}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "individual"
+              ],
+              "query": [
+                {
+                  "key": "rollNo",
+                  "value": "{{student_roll_no}}",
+                  "description": "Exact roll number lookup"
+                },{
+                  "key": "academicYear",
+                  "value": "{{academic_year}}",
+                  "description": "Filter by academicYear "
+                },
+                {
+                  "key": "semester",
+                  "value": "odd",
+                  "description": "Filter by semester ('odd' or 'even')",
+                  "disabled": true
+                },
+                {
+                  "key": "fromDate",
+                  "value": "2026-01-01",
+                  "description": "Start date for transaction lookup (YYYY-MM-DD)",
+                  "disabled": true
+                },
+                {
+                  "key": "toDate",
+                  "value": "2026-12-31",
+                  "description": "End date for transaction lookup (YYYY-MM-DD)",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Datewise Fee Report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reports/datewise",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "datewise"
+              ],
+              "query": [
+                {
+                  "key": "fromDate",
+                  "value": "2026-01-01",
+                  "description": "Start date (YYYY-MM-DD)",
+                  "disabled": true
+                },
+                {
+                  "key": "toDate",
+                  "value": "2026-12-31",
+                  "description": "End date (YYYY-MM-DD)",
+                  "disabled": true
+                },
+                {
+                  "key": "academicYear",
+                  "value": "{{academic_year}}",
+                  "description": "Filter by academic year breakdown",
+                  "disabled": true
+                },
+                {
+                  "key": "paymentMode",
+                  "value": "Cash",
+                  "description": "Filter by payment mode (Cash/UPI/etc)",
+                  "disabled": true
+                },
+                {
+                  "key": "feeHead",
+                  "value": "tuition",
+                  "description": "Filter by specific fee head type (tuition/exam/erp/etc)",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Items per page",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Receipt Recall",
+      "item": [
+        {
+          "name": "Recall Breakdowns (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/receiptRecall",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "receiptRecall"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receiptNo\": \"{{receipt_no}}\",\n  \"rollNo\": \"{{student_roll_no}}\",\n  \"reason\": \"Incorrect payment entry — wrong semester selected\",\n  \"feeHeadIds\": [\"PASTE_FEE_HEAD_OBJECT_ID_HERE\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Breakdown(s) recalled successfully', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.equal(true);",
+                  "  pm.expect(body.data.feeHeadIds).to.be.an('array');",
+                  "  pm.expect(body.data.breakdownSnapshots).to.be.an('array');",
+                  "  pm.expect(body.data.receiptNo).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get Recall History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/receiptRecall",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "receiptRecall"
+              ],
+              "query": [
+                {
+                  "key": "recallId",
+                  "value": "",
+                  "description": "Single popup mode: Fetch a specific recall record by ID",
+                  "disabled": true
+                },
+                {
+                  "key": "rollNo",
+                  "value": "25CS101",
+                  "disabled": true
+                },
+                {
+                  "key": "receiptNo",
+                  "value": "REC-20260303-001",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "John",
+                  "disabled": true
+                },
+                {
+                  "key": "department",
+                  "value": "CSE",
+                  "disabled": true
+                },
+                {
+                  "key": "year",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "paymentMode",
+                  "value": "CASH",
+                  "disabled": true
+                },
+                {
+                  "key": "feeHead",
+                  "value": "exam",
+                  "disabled": true
+                },
+                {
+                  "key": "fromDate",
+                  "value": "2026-03-01",
+                  "disabled": true
+                },
+                {
+                  "key": "toDate",
+                  "value": "2026-03-31",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Recall records fetched', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.equal(true);",
+                  "  pm.expect(body.data.records).to.be.an('array');",
+                  "  pm.expect(body.data.pagination).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Table Mode (All records)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{admin_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/receiptRecall?page=1&limit=20",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "receiptRecall"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Recall records fetched successfully\",\n  \"data\": {\n    \"records\": [\n      {\n        \"studentPhoto\": \"photo.jpg\",\n        \"studentName\": \"John Doe\",\n        \"year\": 1,\n        \"semester\": 1,\n        \"department\": \"CSE\",\n        \"rollNo\": \"25CS101\",\n        \"academicYear\": \"2025-2026\",\n        \"feeHead\": \"exam\",\n        \"amount\": 1500,\n        \"raisedOn\": \"2026-03-07T10:30:00.000Z\",\n        \"paymentMode\": \"CASH\",\n        \"bank\": null,\n        \"receiptNo\": \"REC-20260303-001\",\n        \"recallId\": \"67c9a1b2e4f5a60012345678\"\n      }\n    ],\n    \"pagination\": {\n      \"total\": 42,\n      \"page\": 1,\n      \"limit\": 20,\n      \"totalPages\": 3\n    }\n  }\n}"
+            },
+            {
+              "name": "Single Popup Mode",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{admin_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/receiptRecall?recallId=67c9a1b2e4f5a60012345678",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "receiptRecall"
+                  ],
+                  "query": [
+                    {
+                      "key": "recallId",
+                      "value": "67c9a1b2e4f5a60012345678"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Recall fetched successfully\",\n  \"data\": {\n    \"recall\": {\n      \"studentPhoto\": \"photo.jpg\",\n      \"studentName\": \"John Doe\",\n      \"year\": 1,\n      \"semester\": 1,\n      \"department\": \"CSE\",\n      \"rollNo\": \"25CS101\",\n      \"academicYear\": \"2025-2026\",\n      \"feeHead\": \"exam\",\n      \"amount\": 1500,\n      \"raisedOn\": \"2026-03-07T10:30:00.000Z\",\n      \"paymentMode\": \"CASH\",\n      \"bank\": null,\n      \"receiptNo\": \"REC-20260303-001\",\n      \"reason\": \"Wrong semester selected\"\n    }\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+   
+      {
+      "name": "Hostel",
+      "item": [
+        {
+          "name": "Get Full Mapping",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/hostel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "hostel"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Blocks",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/hostel/blocks",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "hostel",
+                "blocks"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sharing\": 3,\n  \"isAttached\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Room Types",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/hostel/roomTypes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "hostel",
+                "roomTypes"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"block\": \"A-BLOCK\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Fees",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/hostel/fees",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "hostel",
+                "fees"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"block\": \"A-BLOCK\",\n  \"sharing\": 3,\n  \"isAttached\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Hostel",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/hostel/add",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "hostel",
+                "add"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"block\": \"B-BLOCK\",\n  \"sharing\": 2,\n  \"isAttached\": false,\n  \"fee\": 45000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Bulk Add Hostel",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/hostel/bulk",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "hostel",
+                "bulk"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"records\": [\n    {\n      \"block\": \"C-BLOCK\",\n      \"sharing\": 4,\n      \"isAttached\": false,\n      \"fee\": 35000\n    },\n    {\n      \"block\": \"C-BLOCK\",\n      \"sharing\": 3,\n      \"isAttached\": true,\n      \"fee\": 42000\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Hostel",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/hostel/{{hostel_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "hostel",
+                "{{hostel_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fee\": 48000,\n  \"sharing\": 2,\n  \"isAttached\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Transport",
+      "item": [
+        {
+          "name": "Get Full Mapping",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/transport",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "transport"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Stops",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/transport/stops",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "transport",
+                "stops"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"route\": \"Bharathiyar University\",\n  \"busNo\": \"1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Buses",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/transport/buses",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "transport",
+                "buses"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stop\": \"Vadavalli\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Fees",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/transport/fees",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "transport",
+                "fees"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"busNo\": \"1\",\n  \"stop\": \"Vadavalli\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Transport",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/transport/add",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "transport",
+                "add"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"route\": \"Gandhipuram\",\n  \"busNo\": \"10\",\n  \"stop\": \"Peelamedu\",\n  \"fee\": 15000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Bulk Add Transport",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/transport/bulk",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "transport",
+                "bulk"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"records\": [\n    {\n      \"route\": \"Gandhipuram\",\n      \"busNo\": \"10\",\n      \"stop\": \"Singanallur\",\n      \"fee\": 12000\n    },\n    {\n      \"route\": \"Gandhipuram\",\n      \"busNo\": \"10\",\n      \"stop\": \"Ukkadam\",\n      \"fee\": 14000\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Transport",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/transport/{{transport_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "transport",
+                "{{transport_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fee\": 16000,\n  \"stop\": \"Peelamedu Junction\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Superadmin",
+      "item": [
+        {
+          "name": "Clear Tables",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/superadmin/clear-tables?tablename=users,students,feestructuremasters,hostels,receiptrecallrequests,studentfeetrackings,receiptcounters,studenttransactions,transports",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "superadmin",
+                "clear-tables"
+              ],
+              "query": [
+                {
+                  "key": "tablename",
+                  "value": "users,students,feestructuremasters,hostels,receiptrecallrequests,studentfeetrackings,receiptcounters,studenttransactions,transports",
+                  "description": "Comma-separated list of collection names to clear, or 'all' to clear everything."
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  }
 }

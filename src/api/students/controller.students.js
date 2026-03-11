@@ -18,6 +18,18 @@ const getStudents = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, data, message });
 });
 
+const getBasicStudents = asyncHandler(async (req, res) => {
+  const { academicYear, department, yearStudying, search } = req.query;
+  const data = await studentService.getBasicStudents({ academicYear, department, yearStudying, search });
+  const message = "Students fetched successfully";
+  res.status(200).json({ success: true, data, message });
+});
+
+const searchStudents = asyncHandler(async (req, res) => {
+  const data = await studentService.searchStudents(req.query.q);
+  res.status(200).json({ success: true, data, message: "Students searched successfully" });
+});
+
 const updateStudent = asyncHandler(async (req, res) => {
   const data = await studentService.updateStudent(req.params.rollNo, req.body);
   res.status(200).json({ success: true, data, message: "Student updated successfully" });
@@ -123,8 +135,10 @@ const bulkUpdateStudents = asyncHandler(async (req, res) => {
 module.exports = {
   createStudent,
   getStudents,
+  searchStudents,
   updateStudent,
   deleteStudent,
   bulkCreateStudents,
   bulkUpdateStudents,
+  getBasicStudents,
 };
