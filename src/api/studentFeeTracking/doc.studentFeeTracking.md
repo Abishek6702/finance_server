@@ -90,15 +90,15 @@ GET /api/studentFeeTracking?batch=2025-2029&department=CSE
             "academicYear": "2025-2026",
             "academic": {
               "odd": {
-                "tuition": { "total": 75000, "paid": 30000, "status": "Partially Paid" },
+                "tuition": { "total": 75000, "paid": 30000, "status": "Partial" },
                 "exam":    { "total": 1500,  "paid": 1500,  "status": "Paid" },
                 "erp":     { "total": 500,   "paid": 0,     "status": "Unpaid" },
                 "book":    { "total": 1000,  "paid": 0,     "status": "Unpaid" },
                 "lab":     { "total": 2000,  "paid": 0,     "status": "Unpaid" },
-                "total":   { "total": 80000, "paid": 31500, "status": "Partially Paid" }
+                "total":   { "total": 80000, "paid": 31500, "status": "Partial" }
               },
               "even": { "..." : "..." },
-              "total": { "total": 160000, "paid": 31500, "status": "Partially Paid" }
+              "total": { "total": 160000, "paid": 31500, "status": "Partial" }
             },
             "hostel": {
               "block": "A",
@@ -121,7 +121,7 @@ GET /api/studentFeeTracking?batch=2025-2029&department=CSE
               "sakthi": 0,
               "totalConcession": 5000
             },
-            "total": { "total": 242000, "paid": 31500, "status": "Partially Paid" }
+            "total": { "total": 242000, "paid": 31500, "status": "Partial" }
           }
         ]
       }
@@ -193,7 +193,7 @@ GET /api/studentFeeTracking?batch=2025-2029&department=CSE
 - **Filter behaviour:** All filters are ANDed together. Providing no filters returns every student with their tracking record.
 - **`department` is case-insensitive** in the query parameter but is matched case-insensitively against the stored department name.
 - **`rollNo` filter** is an exact match; partial roll number queries are not supported via this endpoint.
-- **Status values** for each fee component: `Unpaid` (paid = 0), `Partially Paid` (0 < paid < total), `Paid` (paid ≥ total). These are computed by the transaction service on payment.
+- **Status values** for each fee component: `Unpaid` (paid = 0), `Partial` (0 < paid < total), `Paid` (paid ≥ total). These are computed by the transaction service on payment.
 - **Read-only endpoint:** This module exposes no mutation endpoints. All writes to tracking records happen via the Transaction module.
 
 ---

@@ -41,7 +41,7 @@ const setStatus = (target) => {
   if (!target) return;
   if (target.total === 0) target.status = "Paid";
   else if (target.paid >= target.total) target.status = "Paid";
-  else if (target.paid > 0) target.status = "Partially Paid";
+  else if (target.paid > 0) target.status = "Partial";
   else target.status = "Unpaid";
 };
 
