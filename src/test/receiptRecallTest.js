@@ -54,10 +54,12 @@ describe("Receipt Recall API", () => {
       });
     expect(payRes.status).toBe(201);
 
-    // Capture the auto-generated receiptNo and all feeHead _ids from the response
-    const txns = payRes.body.data.transactions;
-    const lastTxn = txns[txns.length - 1];
-    recallReceiptNo = lastTxn.receiptNo;
+    // Capture the auto-generated receiptNo and all feeHead _ids
+    recallReceiptNo = payRes.body.data;
+    // Fetch transaction details to extract feeHead _ids
+    const txnRes = await request(app).get(`/api/feePayment/${recallRollNo}`).set(adminAuth());
+    const txns = txnRes.body.data.transactions;
+    const lastTxn = txns.find(t => t.receiptNo === recallReceiptNo);
     // Each non-zero fee head is a subdoc with its own _id
     feeHeadIdsFromReceipt = lastTxn.breakdowns.flatMap(bd => Object.values(bd.feeHeads).map(fh => fh._id));
   });
@@ -217,8 +219,9 @@ describe("Receipt Recall API", () => {
         }],
       });
     expect(payRes.status).toBe(201);
-    const newTxns = payRes.body.data.transactions;
-    const newReceipt = newTxns[newTxns.length - 1];
+    const newReceiptNo = payRes.body.data;
+    const newTxnRes = await request(app).get(`/api/feePayment/${recallRollNo}`).set(adminAuth());
+    const newReceipt = newTxnRes.body.data.transactions.find(t => t.receiptNo === newReceiptNo);
     const newFhIds = newReceipt.breakdowns.flatMap(bd => Object.values(bd.feeHeads).map(fh => fh._id));
 
     // Recall it
@@ -265,9 +268,9 @@ describe("Receipt Recall API", () => {
         ],
       });
     expect(payRes.status).toBe(201);
-
-    const txns = payRes.body.data.transactions;
-    const targetReceipt = txns[txns.length - 1];
+    const targetReceiptNo = payRes.body.data;
+    const txnRes = await request(app).get(`/api/feePayment/${recallRollNo}`).set(adminAuth());
+    const targetReceipt = txnRes.body.data.transactions.find(t => t.receiptNo === targetReceiptNo);
     // Should have one breakdown with 2 fee heads (tuition + exam)
     expect(targetReceipt.breakdowns).toHaveLength(1);
     expect(Object.keys(targetReceipt.breakdowns[0].feeHeads)).toHaveLength(2);
@@ -323,9 +326,9 @@ describe("Receipt Recall API", () => {
         ],
       });
     expect(payRes.status).toBe(201);
-
-    const txns = payRes.body.data.transactions;
-    const multiReceipt = txns[txns.length - 1];
+    const multiReceiptNo = payRes.body.data;
+    const txnRes = await request(app).get(`/api/feePayment/${recallRollNo}`).set(adminAuth());
+    const multiReceipt = txnRes.body.data.transactions.find(t => t.receiptNo === multiReceiptNo);
     expect(multiReceipt.breakdowns).toHaveLength(2);
 
     // Recall the sole fee head of the first breakdown (sem1 tuition)
