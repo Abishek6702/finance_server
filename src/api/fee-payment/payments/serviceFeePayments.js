@@ -2,7 +2,6 @@ const StudentTransaction = require("./modelStudentFeePayments");
 const StudentFeeTracking = require("../student-fee-tracking/modelStudentFeeTracking");
 const Student = require("../../student/students-management/modelStudent");
 const ReceiptCounter = require("./modelReceiptCounter");
-const FeeStructureMaster = require("../../fee-structure/acadamic/modelAcadamic");
 const AppError = require("../../../utils/appError");
 
 const parseBillingDate = (billingDate) => {
@@ -291,7 +290,7 @@ const createPayment = async (data) => {
     ...tx,
     breakdowns: reshapeBreakdowns(tx.breakdowns)
   }));
-  return docObj;
+  return receiptNo;
 };
  
 
@@ -341,12 +340,12 @@ const getAllTransactions = async (query) => {
   }
 
   if (fromDate || toDate) {
-    matchStage["transactions.paidOn"] = {};
-    if (fromDate) matchStage["transactions.paidOn"]["$gte"] = new Date(fromDate);
+    matchStage["transactions.billingDate"] = {};
+    if (fromDate) matchStage["transactions.billingDate"]["$gte"] = new Date(fromDate);
     if (toDate) {
       const endDate = new Date(toDate);
       endDate.setHours(23, 59, 59, 999);
-      matchStage["transactions.paidOn"]["$lte"] = endDate;
+      matchStage["transactions.billingDate"]["$lte"] = endDate;
     }
   }
 
@@ -382,7 +381,7 @@ const getAllTransactions = async (query) => {
 
   pipeline.push({ $unwind: "$student" });
 
-  pipeline.push({ $sort: { "transactions.paidOn": -1 } });
+  pipeline.push({ $sort: { "transactions.createdAt": -1 } });
 
   const projectStage = {
     $project: {
@@ -479,12 +478,12 @@ const studentData = {
   const dateMatch = {};
 
   if (fromDate || toDate) {
-    dateMatch["transactions.paidOn"] = {};
-    if (fromDate) dateMatch["transactions.paidOn"]["$gte"] = new Date(fromDate);
+    dateMatch["transactions.billingDate"] = {};
+    if (fromDate) dateMatch["transactions.billingDate"]["$gte"] = new Date(fromDate);
     if (toDate) {
       const endDate = new Date(toDate);
       endDate.setHours(23, 59, 59, 999);
-      dateMatch["transactions.paidOn"]["$lte"] = endDate;
+      dateMatch["transactions.billingDate"]["$lte"] = endDate;
     }
   }
 
@@ -492,7 +491,7 @@ const studentData = {
     pipeline.push({ $match: dateMatch });
   }
 
-  pipeline.push({ $sort: { "transactions.paidOn": -1 } });
+  pipeline.push({ $sort: { "transactions.createdAt": -1 } });
 
   const projectStage = {
     $project: {
@@ -625,12 +624,12 @@ const getRecentTransactions = async (query) => {
   } 
 
   if (fromDate || toDate) {
-    earlyMatch["transactions.paidOn"] = {};
-    if (fromDate) earlyMatch["transactions.paidOn"]["$gte"] = new Date(fromDate);
+    earlyMatch["transactions.billingDate"] = {};
+    if (fromDate) earlyMatch["transactions.billingDate"]["$gte"] = new Date(fromDate);
     if (toDate) {
       const endDate = new Date(toDate);
       endDate.setHours(23, 59, 59, 999);
-      earlyMatch["transactions.paidOn"]["$lte"] = endDate;
+      earlyMatch["transactions.billingDate"]["$lte"] = endDate;
     }
   }
 
@@ -694,7 +693,7 @@ const getRecentTransactions = async (query) => {
     pipeline.push({ $match: { "transactions.breakdowns.feeHeads.type": feeHead } });
   }
 
-  pipeline.push({ $sort: { "transactions.paidOn": -1 } });
+  pipeline.push({ $sort: { "transactions.createdAt": -1 } });
 
   const projectStage = {
     $project: {
@@ -708,7 +707,7 @@ const getRecentTransactions = async (query) => {
       receiptNo: "$transactions.receiptNo",
       paymentMode: "$transactions.paymentType",
       bank: "$transactions.bankName",
-      paidOn: "$transactions.paidOn",
+      paidOn: "$transactions.billingDate",
 
       semester: "$transactions.breakdowns.semesterNumber",
       academicYear: "$transactions.breakdowns.academicYear",
@@ -742,9 +741,114 @@ const getRecentTransactions = async (query) => {
   };
 };
 
+/* ============================================================
+   GET BILL BY RECEIPT NUMBER
+============================================================ */
+const { toWords } = require("number-to-words");
+
+const FEE_HEAD_LABELS = {
+  tuition: "Tuition Fee",
+  exam: "Exam Fee",
+  erp: "ERP Fee",
+  book: "Book Fee",
+  lab: "Lab Fee",
+  hostel: "Hostel Fee",
+  transport: "Transport Fee",
+};
+
+const DEGREE_LABELS = {
+  BE: "B.E",
+  BTech: "B.Tech",
+  ME: "M.E",
+  MTech: "M.Tech",
+};
+
+const formatBillingDate = (date) => {
+  const d = new Date(date);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
+};
+
+const toAmountInWords = (amount) => {
+  const integer = Math.round(amount);
+  if (integer === 0) return "Zero Only";
+  const words = toWords(integer);
+  const capitalized = words.replace(/\b\w/g, (c) => c.toUpperCase());
+  return `${capitalized} Only`;
+};
+
+const getBillByReceiptNo = async (receiptNo) => {
+  const doc = await StudentTransaction.findOne(
+    { "transactions.receiptNo": receiptNo },
+    { rollNo: 1, student: 1, "transactions.$": 1 }
+  ).lean();
+
+  if (!doc || !doc.transactions || doc.transactions.length === 0) {
+    throw new AppError("Receipt not found", 404);
+  }
+
+  const tx = doc.transactions[0];
+
+  const student = await Student.findById(doc.student, {
+    "personal.rollNo": 1,
+    "personal.studentName": 1,
+    "academic.departmentName": 1,
+    "academic.section": 1,
+    "academic.yearStudying": 1,
+    "academic.currentSemesterNumber": 1,
+    "academic.degreeProgram": 1,
+  }).lean();
+
+  if (!student) throw new AppError("Associated student not found", 404);
+
+  const breakdownsMap = {};
+  for (const bd of tx.breakdowns || []) {
+    for (const fh of bd.feeHeads || []) {
+      const label = FEE_HEAD_LABELS[fh.type] || fh.type;
+      breakdownsMap[label] = normalizeMoney((breakdownsMap[label] || 0) + fh.fee);
+    }
+  }
+
+  let paidForSemNumber = null;
+  let paidForAcadamicYear = null;
+  for (const bd of tx.breakdowns || []) {
+    if (!paidForAcadamicYear) paidForAcadamicYear = bd.academicYear || null;
+    if (bd.semesterNumber && !paidForSemNumber) paidForSemNumber = bd.semesterNumber;
+  }
+
+  const totalAmount = normalizeMoney(tx.totalAmount || 0);
+  const isCash = tx.paymentType === "Cash";
+
+  return {
+    receiptNo: tx.receiptNo,
+    date: formatBillingDate(tx.billingDate),
+    studentName: student.personal.studentName || null,
+    rollNo: student.personal.rollNo,
+    year: student.academic.yearStudying != null ? String(student.academic.yearStudying) : null,
+    section: student.academic.section || null,
+    department: student.academic.departmentName || null,
+    educationType: DEGREE_LABELS[student.academic.degreeProgram] || student.academic.degreeProgram || null,
+    studentCurrentSemNumber: student.academic.currentSemesterNumber != null
+      ? String(student.academic.currentSemesterNumber)
+      : null,
+    paidForSemNumber: paidForSemNumber != null ? String(paidForSemNumber) : null,
+    paidForAcadamicYear: paidForAcadamicYear || null,
+    breakdowns: breakdownsMap,
+    cashAmount: isCash ? totalAmount : 0,
+    bankAmount: isCash ? 0 : totalAmount,
+    totalAmount,
+    amountInWords: toAmountInWords(totalAmount),
+    bankName: tx.bankName || null,
+    bankLocation: tx.bankLocation || null,
+  };
+};
+
 module.exports = {
   createPayment,
   getAllTransactions,
   getStudentTransactions,
   getRecentTransactions,
+  getBillByReceiptNo,
 };

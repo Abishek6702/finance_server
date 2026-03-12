@@ -804,6 +804,48 @@
             }
           ],
           "response": []
+        },
+        {
+          "name": "Get Bill by Receipt Number",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/feePayment/bill/{{receipt_no}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feePayment",
+                "bill",
+                "{{receipt_no}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Bill fetched successfully', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.be.true;",
+                  "  const d = body.data;",
+                  "  pm.expect(d.receiptNo).to.be.a('string');",
+                  "  pm.expect(d.date).to.match(/^\\d{2}-\\d{2}-\\d{4}$/);",
+                  "  pm.expect(d.studentName).to.be.a('string');",
+                  "  pm.expect(d.rollNo).to.be.a('string');",
+                  "  pm.expect(d.breakdowns).to.be.an('object');",
+                  "  pm.expect(d.totalAmount).to.be.a('number');",
+                  "  pm.expect(d.amountInWords).to.include('Only');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
         }
       ]
     },

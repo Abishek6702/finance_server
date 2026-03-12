@@ -156,6 +156,14 @@ const VALID_FEE_HEADS = ["tuition", "exam", "erp", "book", "lab", "hostel", "tra
 const VALID_DEPARTMENTS = ["CSE", "IT", "AIML", "AIDS", "ECE", "EEE", "MECH", "CIVIL"];
 const VALID_PAYMENT_MODES = ["Cash", "Card", "UPI", "NetBanking", "Cheque", "DD"];
 
+const validateBillReceiptParam = (req, res, next) => {
+  const { receiptNo } = req.params;
+  if (!receiptNo || receiptNo.trim() === "") {
+    return next(new AppError("receiptNo path parameter is required", 400));
+  }
+  next();
+};
+
 const validateRecentTransactionsQuery = (req, res, next) => {
   const { department, paymentMode, fromDate, toDate, feeHead, yearStudying, page, limit } = req.query;
 
@@ -198,4 +206,4 @@ const validateRecentTransactionsQuery = (req, res, next) => {
   next();
 };
 
-module.exports = { validatePayment, validateAllTransactionsQuery, validateStudentTransactionsQuery, validateRecentTransactionsQuery };
+module.exports = { validatePayment, validateAllTransactionsQuery, validateStudentTransactionsQuery, validateRecentTransactionsQuery, validateBillReceiptParam };

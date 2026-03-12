@@ -9,6 +9,8 @@
 
 describe("Fee Payment / Transaction API", () => {
 
+  let seededReceiptNo;
+
   beforeAll(async () => {
     await globalSetup();
     // Create fee structure
@@ -41,6 +43,7 @@ describe("Fee Payment / Transaction API", () => {
         }],
       });
     expect(payRes.status).toBe(201);
+    seededReceiptNo = payRes.body.data;
 
   });
 
@@ -218,6 +221,67 @@ describe("Fee Payment / Transaction API", () => {
         .query({ yearStudying: "9" });
 
       expect(res.status).toBe(400);
+    });
+  });
+
+  describe("GET /api/feePayment/bill/:receiptNo", () => {
+    it("returns a formatted bill for a valid receiptNo", async () => {
+      const res = await request(app)
+        .get(`/api/feePayment/bill/${seededReceiptNo}`)
+        .set(adminAuth());
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+
+      const d = res.body.data;
+      expect(d.receiptNo).toBe(seededReceiptNo);
+      expect(d.date).toMatch(/^\d{2}-\d{2}-\d{4}$/);
+      expect(d.studentName).toBeTruthy();
+      expect(d.rollNo).toBe(testCtx.studentRollFinance.toUpperCase());
+      expect(d.breakdowns).toBeDefined();
+      expect(typeof d.breakdowns).toBe("object");
+      expect(d.totalAmount).toBeGreaterThan(0);
+      expect(d.amountInWords).toMatch(/Only$/);
+      expect(typeof d.cashAmount).toBe("number");
+      expect(typeof d.bankAmount).toBe("number");
+    });
+
+    it("cashAmount equals totalAmount when paymentType is Cash", async () => {
+      const res = await request(app)
+        .get(`/api/feePayment/bill/${seededReceiptNo}`)
+        .set(adminAuth());
+
+      expect(res.status).toBe(200);
+      const d = res.body.data;
+      expect(d.cashAmount).toBe(d.totalAmount);
+      expect(d.bankAmount).toBe(0);
+    });
+
+    it("breakdowns keys are human-readable fee labels", async () => {
+      const res = await request(app)
+        .get(`/api/feePayment/bill/${seededReceiptNo}`)
+        .set(adminAuth());
+
+      expect(res.status).toBe(200);
+      const keys = Object.keys(res.body.data.breakdowns);
+      const validLabels = ["Tuition Fee", "Exam Fee", "ERP Fee", "Book Fee", "Lab Fee", "Hostel Fee", "Transport Fee"];
+      keys.forEach((k) => expect(validLabels).toContain(k));
+    });
+
+    it("returns 404 for a non-existent receiptNo", async () => {
+      const res = await request(app)
+        .get("/api/feePayment/bill/REC-99999999-999")
+        .set(adminAuth());
+
+      expect(res.status).toBe(404);
+      expect(res.body.message).toMatch(/receipt not found/i);
+    });
+
+    it("returns 401 when no token is provided", async () => {
+      const res = await request(app)
+        .get(`/api/feePayment/bill/${seededReceiptNo}`);
+
+      expect(res.status).toBe(401);
     });
   });
 });

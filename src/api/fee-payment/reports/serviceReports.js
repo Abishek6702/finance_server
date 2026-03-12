@@ -106,15 +106,15 @@ exports.generateIndividualReport = async (query) => {
   const matchTransactions = {};
 
   if (fromDate || toDate) {
-    matchTransactions["transactions.paidOn"] = {};
+    matchTransactions["transactions.billingDate"] = {};
 
     if (fromDate) {
-      matchTransactions["transactions.paidOn"].$gte =
+      matchTransactions["transactions.billingDate"].$gte =
         new Date(`${fromDate}T00:00:00.000Z`);
     }
 
     if (toDate) {
-      matchTransactions["transactions.paidOn"].$lte =
+      matchTransactions["transactions.billingDate"].$lte =
         new Date(`${toDate}T23:59:59.999Z`);
     }
   }
@@ -173,19 +173,19 @@ exports.generateIndividualReport = async (query) => {
         preserveNullAndEmptyArrays: false
       }
     },
+    { $sort: { "transactions.createdAt": -1 } },
     {
       $project: {
         _id: 0,
         receiptNo: "$transactions.receiptNo",
-        paymentDate: "$transactions.paidOn",
+        paymentDate: "$transactions.billingDate",
         paymentMode: "$transactions.paymentType",
         academicYear: "$transactions.breakdowns.academicYear",
         semesterNumber: "$transactions.breakdowns.semesterNumber",
         feeType: "$transactions.breakdowns.feeHeads.type",
         paidAmount: "$transactions.breakdowns.feeHeads.fee"
       }
-    },
-    { $sort: { paymentDate: -1 } }
+    }
   );
 
   const aggregatedRows = await StudentTransaction.aggregate(pipeline);
@@ -246,15 +246,15 @@ exports.generateDatewiseReport = async (query) => {
   const matchTransactions = {};
 
   if (fromDate || toDate) {
-    matchTransactions["transactions.paidOn"] = {};
+    matchTransactions["transactions.billingDate"] = {};
 
     if (fromDate) {
-      matchTransactions["transactions.paidOn"].$gte =
+      matchTransactions["transactions.billingDate"].$gte =
         new Date(`${fromDate}T00:00:00.000Z`);
     }
 
     if (toDate) {
-      matchTransactions["transactions.paidOn"].$lte =
+      matchTransactions["transactions.billingDate"].$lte =
         new Date(`${toDate}T23:59:59.999Z`);
     }
   }
@@ -324,13 +324,14 @@ exports.generateDatewiseReport = async (query) => {
         preserveNullAndEmptyArrays: true
       }
     },
+    { $sort: { "transactions.createdAt": -1 } },
     {
       $project: {
         _id: 0,
         rollNo: "$rollNo",
         receiptNo: "$transactions.receiptNo",
         amount: "$transactions.breakdowns.feeHeads.fee",
-        date: "$transactions.paidOn",
+        date: "$transactions.billingDate",
         paymentMode: "$transactions.paymentType",
         bank: {
           $ifNull: ["$transactions.bankName", "$transactions.paymentType"]
@@ -346,7 +347,6 @@ exports.generateDatewiseReport = async (query) => {
         currentAcademicYear: "$studentDoc.academic.currentAcademicYear"
       }
     },
-    { $sort: { date: -1 } },
     {
       $facet: {
         metadata: [{ $count: "total" }],

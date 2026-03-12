@@ -11,7 +11,8 @@ All routes require `Authorization: Bearer <token>` (admin role).
 2. [GET / — Get All Transactions](#2-get---get-all-transactions)
 3. [GET /:rollNo — Get Student Transactions](#3-get-rollno--get-student-transactions)
 4. [GET /recent — Get Recent Transactions](#4-get-recent--get-recent-transactions)
-5. [Error Reference](#5-error-reference)
+5. [GET /bill/:receiptNo — Get Bill by Receipt Number](#5-get-billreceiptno--get-bill-by-receipt-number)
+6. [Error Reference](#6-error-reference)
 
 ---
 
@@ -122,48 +123,8 @@ Records a fee payment for a student across one or more academic years and fee ca
   "success": true,
   "message": "Payment recorded successfully",
   "data": {
-    "_id": "665f1a2b3c4d5e6f7a8b9c0d",
-    "student": "665f1a2b3c4d5e6f7a8b9c01",
-    "rollNo": "22CSE001",
-    "transactions": [
-      {
-        "receiptNo": "REC-20260304-001",
-        "paymentType": "UPI",
-        "bankName": null,
-        "bankLocation": null,
-        "billingDate": "2026-03-04T00:00:00.000Z",
-        "paidOn": "2026-03-04T10:23:45.000Z",
-        "totalAmount": 75000,
-        "breakdowns": [
-          {
-            "_id": "664abc000000000000000001",
-            "academicYear": "2022-2023",
-            "semesterNumber": 1,
-            "feeHeads": [
-              { "_id": "664abc000000000000000011", "type": "tuition", "fee": 45000 },
-              { "_id": "664abc000000000000000012", "type": "exam",    "fee": 1500  },
-              { "_id": "664abc000000000000000013", "type": "erp",     "fee": 500   },
-              { "_id": "664abc000000000000000014", "type": "book",    "fee": 1000  },
-              { "_id": "664abc000000000000000015", "type": "lab",     "fee": 2000  }
-            ],
-            "total": 50000
-          },
-          {
-            "_id": "664abc000000000000000002",
-            "academicYear": "2022-2023",
-            "semesterNumber": null,
-            "feeHeads": [
-              { "_id": "664abc000000000000000021", "type": "hostel", "fee": 25000 }
-            ],
-            "total": 25000
-          }
-        ],
-        "createdAt": "2026-03-04T10:23:45.000Z",
-        "updatedAt": "2026-03-04T10:23:45.000Z"
-      }
-    ],
-    "createdAt": "2026-03-04T10:23:45.000Z",
-    "updatedAt": "2026-03-04T10:23:45.000Z"
+    
+        "receiptNo": "REC-20260304-001", 
   }
 }
 ```
@@ -538,7 +499,100 @@ GET /api/feePayment/recent?rollNo=22CSE001&limit=10
 
 ---
 
-## 5. Error Reference
+## 5. GET /bill/:receiptNo — Get Bill by Receipt Number
+
+Returns a formatted bill for a given receipt number.
+
+**`GET /api/feePayment/bill/:receiptNo`**
+
+### Headers
+
+| Key           | Value            | Required |
+|---------------|------------------|----------|
+| Authorization | `Bearer <token>` | Yes      |
+
+### Path Parameter
+
+| Parameter   | Type   | Required | Description                              |
+|-------------|--------|----------|------------------------------------------|
+| `receiptNo` | string | Yes      | Receipt number (e.g. `REC-20260312-001`) |
+
+### Request Example
+
+```
+GET /api/feePayment/bill/REC-20260312-001
+```
+
+### Success Response — `200 OK`
+
+```json
+{
+  "success": true,
+  "message": "Bill fetched successfully",
+  "data": {
+    "receiptNo": "REC-20260312-001",
+    "date": "12-03-2026",
+    "studentName": "AASTHA GUPTA",
+    "rollNo": "24CS002",
+    "year": "2",
+    "section": "A",
+    "department": "CSE",
+    "educationType": "B.E",
+    "studentCurrentSemNumber": "3",
+    "paidForSemNumber": "3",
+    "paidForAcadamicYear": "2025-2026",
+    "breakdowns": {
+      "Tuition Fee": 40000,
+      "Exam Fee": 2000,
+      "ERP Fee": 500,
+      "Book Fee": 1000,
+      "Lab Fee": 1500
+    },
+    "cashAmount": 0,
+    "bankAmount": 45000,
+    "totalAmount": 45000,
+    "amountInWords": "Forty Five Thousand Only",
+    "bankName": "Union Bank of India",
+    "bankLocation": "Kinathukadavu, Coimbatore"
+  }
+}
+```
+
+### Response Fields
+
+| Field                    | Type           | Description |
+|--------------------------|----------------|-------------|
+| `receiptNo`              | string         | Auto-generated receipt number |
+| `date`                   | string         | Billing date in `DD-MM-YYYY` format |
+| `studentName`            | string         | Full name of the student |
+| `rollNo`                 | string         | Student's roll number |
+| `year`                   | string         | Current year of study (1–4) |
+| `section`                | string         | Section (e.g. `A`) |
+| `department`             | string         | Department code (e.g. `CSE`) |
+| `educationType`          | string         | Degree label: `B.E`, `B.Tech`, `M.E`, or `M.Tech` |
+| `studentCurrentSemNumber`| string         | Student's current semester |
+| `paidForSemNumber`       | string \| null | Semester this payment covers (null for hostel/transport-only receipts) |
+| `paidForAcadamicYear`    | string \| null | Academic year this payment covers |
+| `breakdowns`             | object         | Flat map of fee type label → amount paid in this receipt |
+| `cashAmount`             | number         | Amount paid in cash (> 0 only when `paymentType` is `Cash`) |
+| `bankAmount`             | number         | Amount paid via bank (> 0 for all non-Cash payment types) |
+| `totalAmount`            | number         | Total amount of this receipt |
+| `amountInWords`          | string         | `totalAmount` spelled out with "Only" suffix |
+| `bankName`               | string \| null | Bank name (if provided) |
+| `bankLocation`           | string \| null | Bank location (if provided) |
+
+### Error Responses
+
+| HTTP  | Scenario                      | Message                         |
+|-------|-------------------------------|---------------------------------|
+| `400` | `receiptNo` param is empty    | `receiptNo path parameter is required` |
+| `404` | Receipt number not found      | `Receipt not found`             |
+| `401` | No / invalid token            | _(auth error)_                  |
+| `403` | Not an admin                  | _(auth error)_                  |
+
+---
+
+## 6. Error Reference
 
 All error responses follow the structure:
 
@@ -589,6 +643,8 @@ All error responses follow the structure:
 | No hostel record for that year | `No hostel fee record found for <YYYY-YYYY>` |
 | No transport record for that year | `No transport fee record found for <YYYY-YYYY>` |
 | Student not found (GET by rollNo) | `Student not found` |
+| Receipt number not found | `Receipt not found` |
+| Student record missing for a receipt | `Associated student not found` |
 
 ### Auth Errors
 
