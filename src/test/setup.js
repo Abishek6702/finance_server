@@ -9,9 +9,12 @@ const FeeStructureMaster = require("../api/fee-structure/acadamic/modelAcadamic"
 const StudentTransaction = require("../api/fee-payment/payments/modelStudentFeePayments");
 const StudentFeeTracking = require("../api/fee-payment/student-fee-tracking/modelStudentFeeTracking");
 const ReceiptRecallRequest = require("../api/fee-payment/receipt-recall/modelReceiptRecall");
+const FeeRefund = require("../api/fee-payment/refund/model.refund");
 const ActivityLog = require("../models/activityLog");
 const { Transport } = require("../api/fee-structure/transport/modelTransport");
 const { Hostel } = require("../api/fee-structure/hostel/modelHostel");
+const transportData = require("../api/fee-structure/transport/data.json");
+const hostelData = require("../api/fee-structure/hostel/data.json");
 const { app, startServer, stopServer } = require("../server");
 
 jest.setTimeout(180000);
@@ -48,6 +51,7 @@ const testCtx = {
   studentRollConcSingle: `21CS${TS.slice(-3)}`,
   studentRollConcMulti: `22CS${TS.slice(-3)}`,
   studentRollOverpay: `23CS${TS.slice(-3)}`,  // transaction inline test
+  studentRollRefund: `24CS${TS.slice(-3)}`,
   TS,
   // Tracks MongoDB _ids of records created during this run — used for
   // precise ID-based deletion in globalTeardown (safe on production DB).
@@ -358,6 +362,17 @@ const globalSetup = async () => {
 
   expect(adminLogin.status).toBe(200);
   testCtx.adminToken = adminLogin.body.data.token;
+
+  // Run the massive bulk creations using the newly built API endpoints
+  await request(app)
+    .post("/api/hostel/bulk")
+    .set(superadminAuth())
+    .send(hostelData);
+    
+  await request(app)
+    .post("/api/transport/bulk")
+    .set(superadminAuth())
+    .send(transportData);
 };
 
 const globalTeardown = async () => {
@@ -407,8 +422,8 @@ const globalTeardown = async () => {
 
   // ── 3. Seed-table cleanup (transport / hostel records added by tests) ─────
   await Promise.all([
-    testCtx.testTransportId ? Transport.findOneAndDelete({ id: testCtx.testTransportId }) : null,
-    testCtx.testHostelId ? Hostel.findOneAndDelete({ id: testCtx.testHostelId }) : null,
+    Transport.deleteMany({}),
+    Hostel.deleteMany({}),
   ]);
   // Server lifecycle is managed globally by globalLifecycle.js (setupFilesAfterEnv),
   // so stopServer() is NOT called here — avoids 9× reconnect overhead.
@@ -440,6 +455,7 @@ module.exports = {
   StudentTransaction,
   StudentFeeTracking,
   ReceiptRecallRequest,
+  FeeRefund,
   ActivityLog,
   Transport,
   Hostel,

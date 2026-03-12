@@ -1809,6 +1809,237 @@
       ]
     },
     {
+      "name": "Refund",
+      "item": [
+        {
+          "name": "Process Refund (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/refund/{{student_roll_no}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "refund",
+                "{{student_roll_no}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"academicYear\": \"2025-2026\",\n  \"semNumber\": 1,\n  \"feeHead\": \"tuition\",\n  \"refundAmount\": 2000,\n  \"reason\": \"Duplicate payment\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Process a refund for a specific fee head. semNumber is required for academic heads (tuition/exam/erp/book/lab); omit for hostel/transport."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Refund processed successfully', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.equal(true);",
+                  "  pm.expect(body.data.refundReceiptNo).to.match(/^RF-\\d{4}-\\d{5}$/);",
+                  "  pm.expect(body.data.status).to.equal('completed');",
+                  "  pm.environment.set('refund_receipt_no', body.data.refundReceiptNo);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get Refunds by Student",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/refund/student/{{student_roll_no}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "refund",
+                "student",
+                "{{student_roll_no}}"
+              ]
+            },
+            "description": "Returns all refund records for a specific student, sorted newest first."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Refunds fetched for student', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.equal(true);",
+                  "  pm.expect(body.data).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get Refunds by Academic Year",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/refund/year/2025-2026",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "refund",
+                "year",
+                "2025-2026"
+              ],
+              "query": [
+                {
+                  "key": "feeHead",
+                  "value": "tuition",
+                  "description": "Filter by fee head",
+                  "disabled": true
+                },
+                {
+                  "key": "fromDate",
+                  "value": "2026-01-01",
+                  "description": "Start of date range (ISO format)",
+                  "disabled": true
+                },
+                {
+                  "key": "toDate",
+                  "value": "2026-12-31",
+                  "description": "End of date range (inclusive)",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Returns paginated refund records for an academic year. Optional filters: feeHead, fromDate, toDate."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Refunds for academic year fetched', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.equal(true);",
+                  "  pm.expect(body.data.refunds).to.be.an('array');",
+                  "  pm.expect(body.data.pagination).to.have.property('total');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get Refund Report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/refund/report",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "refund",
+                "report"
+              ],
+              "query": [
+                {
+                  "key": "feeHead",
+                  "value": "tuition",
+                  "description": "Filter by fee head",
+                  "disabled": true
+                },
+                {
+                  "key": "fromDate",
+                  "value": "2026-01-01",
+                  "description": "Start of date range (ISO format)",
+                  "disabled": true
+                },
+                {
+                  "key": "toDate",
+                  "value": "2026-12-31",
+                  "description": "End of date range (inclusive)",
+                  "disabled": true
+                },
+                {
+                  "key": "operator",
+                  "value": "PASTE_USER_OBJECT_ID_HERE",
+                  "description": "ObjectId of the admin/user who processed the refunds",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Admin refund report across all students. Filters: feeHead, fromDate, toDate, operator (userId)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Refund report fetched', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.equal(true);",
+                  "  pm.expect(body.data.refunds).to.be.an('array');",
+                  "  pm.expect(body.data.pagination).to.have.property('total');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Superadmin",
       "item": [
         {

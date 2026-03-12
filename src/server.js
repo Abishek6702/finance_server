@@ -5,8 +5,6 @@ dotenv.config();
 
 const { connectDB, disconnectDB, isTestRuntime } = require("./config/db");
 const seedUsers = require("./seed");
-const { seedTransport } = require("./api/fee-structure/transport/modelTransport");
-const { seedHostel } = require("./api/fee-structure/hostel/modelHostel");
 
 const authRoutes = require("./api/auth/routesAuth");
 const feeStructureRoutes = require("./api/fee-structure/acadamic/routesAcadamic");
@@ -17,6 +15,7 @@ const feeDetailsRoutes = require("./api/fee-payment/feedetails/routesFeedetails"
 const transportRoutes = require("./api/fee-structure/transport/routesTransport");
 const hostelRoutes = require("./api/fee-structure/hostel/routesHostel");
 const receiptRecallRoutes = require("./api/fee-payment/receipt-recall/routesReceiptRecall");
+const refundRoutes = require("./api/fee-payment/refund/routes.refund");
 const superadminRoutes = require("./api/superadmin/routesSuperadmin");
 const reportsRoutes = require("./api/fee-payment/reports/routesReports");
 const studentFacilityRoutes = require("./api/student/student-facility/routesStudentFacility");
@@ -39,6 +38,7 @@ app.use("/api/feedetails", feeDetailsRoutes);
 app.use("/api/transport", transportRoutes);
 app.use("/api/hostel", hostelRoutes);
 app.use("/api/receiptRecall", receiptRecallRoutes);
+app.use("/api/refund", refundRoutes);
 app.use("/api/superadmin", superadminRoutes);
 app.use("/api/reports", reportsRoutes);
 app.use("/api/studentFacility", studentFacilityRoutes);
@@ -59,12 +59,6 @@ console.log("DB connected");
 
 console.log("Seeding users...");
 await seedUsers();
-
-console.log("Seeding transport...");
-await seedTransport();
-
-console.log("Seeding hostel...");
-await seedHostel();
 
 console.log("Seeding finished");
 
