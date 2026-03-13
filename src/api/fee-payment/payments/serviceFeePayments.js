@@ -226,14 +226,15 @@ const createPayment = async (data) => {
     };
   });
 
-  transactionDoc.transactions.push({
-    receiptNo,
-    paymentType,
-    bankName,
-    bankLocation,
-    billingDate: parseBillingDate(billingDate),
-    breakdowns: mappedBreakdowns
-  });
+transactionDoc.transactions.push({
+  receiptNo,
+  paymentType,
+  bankName,
+  bankLocation,
+  billingDate: parseBillingDate(billingDate),
+  createdAt: new Date(), // mongo transaction time
+  breakdowns: mappedBreakdowns
+});
 
   await transactionDoc.save();
 
@@ -799,17 +800,34 @@ const getBillByReceiptNo = async (receiptNo) => {
     "academic.yearStudying": 1,
     "academic.currentSemesterNumber": 1,
     "academic.degreeProgram": 1,
+    "academic.academicType": 1
   }).lean();
-
+ 
   if (!student) throw new AppError("Associated student not found", 404);
 
   const breakdownsMap = {};
-  for (const bd of tx.breakdowns || []) {
-    for (const fh of bd.feeHeads || []) {
-      const label = FEE_HEAD_LABELS[fh.type] || fh.type;
-      breakdownsMap[label] = normalizeMoney((breakdownsMap[label] || 0) + fh.fee);
-    }
+const ACADEMIC_TYPE_LABEL = {
+  REG: "Regular",
+  PART_TIME: "Part time"
+};
+
+for (const bd of tx.breakdowns || []) {
+  for (const fh of bd.feeHeads || []) {
+
+    const label = FEE_HEAD_LABELS[fh.type] || fh.type;
+
+    const academicLabel =
+      ACADEMIC_TYPE_LABEL[student.academic.academicType] ||
+      student.academic.academicType;
+
+    const key = `${academicLabel} - ${label}`;
+
+    breakdownsMap[key] = normalizeMoney(
+      (breakdownsMap[key] || 0) + fh.fee
+    );
+
   }
+}
 
   let paidForSemNumber = null;
   let paidForAcadamicYear = null;

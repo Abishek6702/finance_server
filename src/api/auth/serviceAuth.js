@@ -1,7 +1,6 @@
 const bcrypt = require("bcrypt");
 const User = require("../auth/modelUser.js");
 const ActivityLog = require("../../models/activityLog.js");
-const sendMail = require("../../utils/sendMail");
 const generateToken = require("../../utils/generateToken.js");
 const AppError = require("../../utils/appError");
  

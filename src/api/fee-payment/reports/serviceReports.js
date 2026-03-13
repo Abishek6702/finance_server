@@ -280,7 +280,9 @@ exports.generateDatewiseReport = async (query) => {
   ──────────────────────────────────────────────── */
 
   const pipeline = [
-    { $unwind: "$transactions" }
+    {
+      $unwind: "$transactions"
+    }
   ];
 
   if (Object.keys(matchTransactions).length) {
@@ -324,7 +326,10 @@ exports.generateDatewiseReport = async (query) => {
         preserveNullAndEmptyArrays: true
       }
     },
-    { $sort: { "transactions.createdAt": -1 } },
+    /* SORT BY CREATED DATE */
+    {
+      $sort: { "transactions.createdAt": -1 }
+    },
     {
       $project: {
         _id: 0,

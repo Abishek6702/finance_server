@@ -128,7 +128,7 @@ const getFeeDetailsList = async (query = {}) => {
         photo: s.personal?.studentPhoto,
         department: s.academic?.departmentName,
         year: s.academic?.yearStudying,
-        currentAcademicYear: s.academic?.currentAcademicYear || null,
+        currentAcademicYear: s.academic?.currentAcademicYear,
       },
       fee: {
         academicYear: feeAcademicYears.length === 1 ? feeAcademicYears[0] : null,
