@@ -75,7 +75,7 @@ const getFeeDetailsList = async (query = {}) => {
   const students = await Student.find(studentFilter)
     .select(
       "personal.rollNo personal.studentName personal.studentPhoto " +
-      "academic.departmentName academic.yearStudying " +
+      "academic.departmentName academic.yearStudying academic.currentAcademicYear " +
       "transport.isApplicable hostel.isApplicable"
     )
     .lean();
@@ -123,6 +123,7 @@ const getFeeDetailsList = async (query = {}) => {
         photo: s.personal?.studentPhoto,
         department: s.academic?.departmentName,
         year: s.academic?.yearStudying,
+        currentAcademicYear: s.academic?.currentAcademicYear,
       },
       fee: {
         demand,

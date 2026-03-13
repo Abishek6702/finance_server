@@ -226,14 +226,15 @@ const createPayment = async (data) => {
     };
   });
 
-  transactionDoc.transactions.push({
-    receiptNo,
-    paymentType,
-    bankName,
-    bankLocation,
-    billingDate: parseBillingDate(billingDate),
-    breakdowns: mappedBreakdowns
-  });
+transactionDoc.transactions.push({
+  receiptNo,
+  paymentType,
+  bankName,
+  bankLocation,
+  billingDate: parseBillingDate(billingDate),
+  createdAt: new Date(), // mongo transaction time
+  breakdowns: mappedBreakdowns
+});
 
   await transactionDoc.save();
 
@@ -806,8 +807,8 @@ const getBillByReceiptNo = async (receiptNo) => {
 
   const breakdownsMap = {};
 const ACADEMIC_TYPE_LABEL = {
-  REG: "REGULAR",
-  PART_TIME: "PART TIME"
+  REG: "Regular",
+  PART_TIME: "Part time"
 };
 
 for (const bd of tx.breakdowns || []) {
