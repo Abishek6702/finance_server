@@ -6,6 +6,7 @@ The **Fee Structure** module allows superadmins to define the master fee templat
 
 **Dependencies / Coupling**
 - **Students module** — reads this structure when creating a student to populate the `StudentFeeTracking` ledger.
+- **Student Fee Tracking module** — when a fee structure is created (`POST`), students whose `currentAcademicYear` matches the new year get a **new appended** `academicYearWiseRecord` row (existing rows are not modified).
 - **Student Fee Tracking module** — when a fee structure is updated (`PUT`), existing tracking records for matching students are propagated automatically.
 
 **Database Collections**
@@ -27,7 +28,7 @@ The **Fee Structure** module allows superadmins to define the master fee templat
 
 **Auth required:** Yes — Superadmin
 
-**Description:** Creates a new fee structure for the given academic year. Auto-computes semester, department, and top-level totals via pre-validate hooks.
+**Description:** Creates a new fee structure for the given academic year. Auto-computes semester, department, and top-level totals via pre-validate hooks. Also appends a new tracking row in `StudentFeeTracking.academicYearWiseRecord` for students whose `academic.currentAcademicYear` equals the created year, without changing their existing rows.
 
 #### Request
 

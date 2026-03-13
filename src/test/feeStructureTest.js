@@ -3,7 +3,7 @@ const {
   buildFeeStructurePayload, buildStudentPayload,
   globalSetup, globalTeardown,
   superadminAuth, adminAuth,
-  FeeStructureMaster, StudentFeeTracking, Student,
+  FeeStructureMaster, StudentFeeTracking, Student, Transport, Hostel,
 } = require("./setup");
 
 describe("Fee Structure API", () => {
@@ -40,6 +40,191 @@ describe("Fee Structure API", () => {
       .set(superadminAuth())
       .send(buildFeeStructurePayload(testCtx.academicYearSecondary));
     expect(res.status).toBe(201);
+  });
+
+  it("creates tracking row using academicYear+department+educationType+degreeProgram key even if quota differs", async () => {
+    const rollNo = `55CS${testCtx.TS.slice(-3)}`;
+    const payload = buildStudentPayload(rollNo, {
+      academicYear: testCtx.academicYearPrimary,
+      enrollment: {
+        quota: "Management Quota",
+        firstGraduate: { isApplicable: false },
+        scheme7point5: { isApplicable: false },
+        pmssScheme: { isApplicable: false },
+        sakthiScheme: { isApplicable: false },
+        specialConcession: { isApplicable: false },
+      },
+    });
+
+    const createStudentRes = await request(app)
+      .post("/api/studentsManagement")
+      .set(superadminAuth())
+      .send(payload);
+    expect(createStudentRes.status).toBe(201);
+
+    const tracking = await StudentFeeTracking.findOne({ rollNo });
+    expect(tracking).toBeTruthy();
+
+    const row = tracking.academicYearWiseRecord.find(
+      (record) => record.academicYear === testCtx.academicYearPrimary
+    );
+    expect(row).toBeTruthy();
+    expect(row.academic.total.total).toBeGreaterThan(0);
+
+    const deleteStudentRes = await request(app)
+      .delete(`/api/studentsManagement/${rollNo}`)
+      .set(superadminAuth());
+    expect(deleteStudentRes.status).toBe(200);
+  });
+
+  it("appends a new tracking row when creating fee structure for students in same current academic year", async () => {
+    const appendStartYear = parseInt(testCtx.academicYearSecondary.split("-")[0], 10) + 5;
+    const appendAcademicYear = `${appendStartYear}-${appendStartYear + 1}`;
+
+    const [transportDoc, hostelDoc] = await Promise.all([
+      Transport.findOne({}),
+      Hostel.findOne({}),
+    ]);
+
+    expect(transportDoc).toBeTruthy();
+    expect(hostelDoc).toBeTruthy();
+
+    const createStudentRes = await request(app)
+      .post("/api/studentsManagement")
+      .set(superadminAuth())
+      .send(buildStudentPayload(testCtx.studentRollDual, {
+        academicYear: testCtx.academicYearPrimary,
+        transport: {
+          isApplicable: true,
+          route: transportDoc.route,
+          stopName: transportDoc.stop,
+        },
+        hostel: {
+          isApplicable: true,
+          block: hostelDoc.block,
+          sharing: hostelDoc.sharing,
+          isAttached: hostelDoc.isAttached,
+        },
+      }));
+
+    expect(createStudentRes.status).toBe(201);
+
+    const beforeTracking = await StudentFeeTracking.findOne({ rollNo: testCtx.studentRollDual });
+    expect(beforeTracking).toBeTruthy();
+    expect(beforeTracking.academicYearWiseRecord.length).toBe(1);
+
+    const beforePrimaryRow = beforeTracking.academicYearWiseRecord.find(
+      (row) => row.academicYear === testCtx.academicYearPrimary
+    );
+    expect(beforePrimaryRow).toBeTruthy();
+    const beforePrimaryOddTuition = beforePrimaryRow.academic.odd.tuition.total;
+
+    await Student.updateOne(
+      { "personal.rollNo": testCtx.studentRollDual },
+      {
+        $set: {
+          "academic.batch": appendAcademicYear,
+          "academic.currentAcademicYear": appendAcademicYear,
+        },
+      }
+    );
+
+    const createNewYearStructureRes = await request(app)
+      .post("/api/feeStructureMaster")
+      .set(superadminAuth())
+      .send(buildFeeStructurePayload(appendAcademicYear));
+
+    expect(createNewYearStructureRes.status).toBe(201);
+
+    const afterTracking = await StudentFeeTracking.findOne({ rollNo: testCtx.studentRollDual });
+    expect(afterTracking).toBeTruthy();
+    expect(afterTracking.academicYearWiseRecord.length).toBe(2);
+
+    const afterPrimaryRow = afterTracking.academicYearWiseRecord.find(
+      (row) => row.academicYear === testCtx.academicYearPrimary
+    );
+    expect(afterPrimaryRow).toBeTruthy();
+    expect(afterPrimaryRow.academic.odd.tuition.total).toBe(beforePrimaryOddTuition);
+
+    const appendedRow = afterTracking.academicYearWiseRecord.find(
+      (row) => row.academicYear === appendAcademicYear
+    );
+    expect(appendedRow).toBeTruthy();
+    expect(appendedRow.transport.fee).toBe(transportDoc.fee);
+    expect(String(appendedRow.transport.transport)).toBe(String(transportDoc._id));
+    expect(appendedRow.hostel.fee).toBe(hostelDoc.fee);
+    expect(String(appendedRow.hostel.hostel)).toBe(String(hostelDoc._id));
+
+    const deleteStudentRes = await request(app)
+      .delete(`/api/studentsManagement/${testCtx.studentRollDual}`)
+      .set(superadminAuth());
+    expect(deleteStudentRes.status).toBe(200);
+
+    const deleteFeeStructureRes = await request(app)
+      .delete(`/api/feeStructureMaster/${appendAcademicYear}`)
+      .set(superadminAuth());
+    expect(deleteFeeStructureRes.status).toBe(200);
+  });
+
+  it("appends tracking row when department is in another matching academicStructure block", async () => {
+    const primaryStart = parseInt(testCtx.academicYearPrimary.split("-")[0], 10);
+    const splitAcademicYear = `${primaryStart + 2}-${primaryStart + 3}`;
+
+    const createStudentRes = await request(app)
+      .post("/api/studentsManagement")
+      .set(superadminAuth())
+      .send(buildStudentPayload(testCtx.studentRollDual, {
+        academicYear: testCtx.academicYearPrimary,
+      }));
+    expect(createStudentRes.status).toBe(201);
+
+    const beforeTracking = await StudentFeeTracking.findOne({ rollNo: testCtx.studentRollDual });
+    expect(beforeTracking).toBeTruthy();
+    expect(beforeTracking.academicYearWiseRecord.some((r) => r.academicYear === testCtx.academicYearPrimary)).toBe(true);
+
+    const promoteRes = await request(app)
+      .put(`/api/studentsManagement/${testCtx.studentRollDual}`)
+      .set(superadminAuth())
+      .send({
+        academic: {
+          currentAcademicYear: splitAcademicYear,
+          currentSemesterNumber: 5,
+          departmentName: "IT",
+          yearStudying: 3,
+        },
+      });
+    expect(promoteRes.status).toBe(200);
+
+    const splitPayload = buildFeeStructurePayload(splitAcademicYear);
+    const itStruct = JSON.parse(JSON.stringify(splitPayload.academicStructures[0]));
+    itStruct.departments[0].departmentName = "IT";
+    splitPayload.academicStructures.push(itStruct);
+
+    const createSplitFeeRes = await request(app)
+      .post("/api/feeStructureMaster")
+      .set(superadminAuth())
+      .send(splitPayload);
+    expect(createSplitFeeRes.status).toBe(201);
+
+    const afterTracking = await StudentFeeTracking.findOne({ rollNo: testCtx.studentRollDual });
+    expect(afterTracking).toBeTruthy();
+
+    const appendedRow = afterTracking.academicYearWiseRecord.find(
+      (row) => row.academicYear === splitAcademicYear
+    );
+    expect(appendedRow).toBeTruthy();
+    expect(appendedRow.academic.odd.semesterNumber).toBe(5);
+    expect(appendedRow.academic.even.semesterNumber).toBe(6);
+
+    const deleteStudentRes = await request(app)
+      .delete(`/api/studentsManagement/${testCtx.studentRollDual}`)
+      .set(superadminAuth());
+    expect(deleteStudentRes.status).toBe(200);
+
+    const deleteFeeStructureRes = await request(app)
+      .delete(`/api/feeStructureMaster/${splitAcademicYear}`)
+      .set(superadminAuth());
+    expect(deleteFeeStructureRes.status).toBe(200);
   });
 
   it("rejects duplicate academicYear (400)", async () => {

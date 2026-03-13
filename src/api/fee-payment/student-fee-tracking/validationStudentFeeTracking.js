@@ -20,4 +20,19 @@ const validateGetQuery = (req, res, next) => {
   next();
 };
 
-module.exports = { validateGetQuery };
+const validateBackfillRequest = (req, res, next) => {
+  if (req.body && Object.keys(req.body).length > 0) {
+    return next(new AppError("Request body is not allowed for this endpoint", 400));
+  }
+
+  if (req.query && Object.keys(req.query).length > 0) {
+    return next(new AppError("Query params are not allowed for this endpoint", 400));
+  }
+
+  next();
+};
+
+module.exports = {
+  validateGetQuery,
+  validateBackfillRequest,
+};

@@ -34,6 +34,7 @@ const buildStudentProfile = (s) => ({
   department: s.academic?.departmentName,
   section: s.academic?.section,
   batch: s.academic?.batch,
+  currentAcademicYear: s.academic?.currentAcademicYear,
 });
 
 const buildContactBlock = (s) => ({
@@ -75,7 +76,7 @@ const getFeeDetailsList = async (query = {}) => {
   const students = await Student.find(studentFilter)
     .select(
       "personal.rollNo personal.studentName personal.studentPhoto " +
-      "academic.departmentName academic.yearStudying " +
+      "academic.departmentName academic.yearStudying academic.currentAcademicYear " +
       "transport.isApplicable hostel.isApplicable"
     )
     .lean();
@@ -101,6 +102,10 @@ const getFeeDetailsList = async (query = {}) => {
       ? yearRecords.filter((yr) => yr.academicYear === academicYear)
       : yearRecords;
 
+    const feeAcademicYears = records
+      .map((yr) => yr.academicYear)
+      .filter(Boolean);
+
     let demand = 0;
     let paid = 0;
     let concession = 0;
@@ -123,8 +128,11 @@ const getFeeDetailsList = async (query = {}) => {
         photo: s.personal?.studentPhoto,
         department: s.academic?.departmentName,
         year: s.academic?.yearStudying,
+        currentAcademicYear: s.academic?.currentAcademicYear || null,
       },
       fee: {
+        academicYear: feeAcademicYears.length === 1 ? feeAcademicYears[0] : null,
+        academicYears: feeAcademicYears,
         demand,
         concession,
         paid,
@@ -200,7 +208,12 @@ const getFeeDetailsByRollNo = async (rollNo, query = {}) => {
     total: normalizeMoney(overallRaw.total),
   };
 
-  const result = { feeSummary, overall };
+  const result = {
+    studentCurrentAcademicYear: student.academic?.currentAcademicYear || null,
+    feeAcademicYears: feeSummary.map((entry) => entry.academicYear),
+    feeSummary,
+    overall,
+  };
 
   if (includeProfile) {
     result.student = buildStudentProfile(student);
@@ -365,7 +378,12 @@ const getFeeDetailsBySemester = async (rollNo, academicYear, query = {}) => {
     );
   }
 
-  const result = { academicYear, semesters };
+  const result = {
+    studentCurrentAcademicYear: student.academic?.currentAcademicYear || null,
+    feeAcademicYear: academicYear,
+    academicYear,
+    semesters,
+  };
 
   if (includeProfile) {
     result.student = buildStudentProfile(student);

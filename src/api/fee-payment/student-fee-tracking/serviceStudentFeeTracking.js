@@ -1,6 +1,18 @@
 const StudentFeeTracking = require("./modelStudentFeeTracking");
 const Student = require("../../student/students-management/modelStudent");
+const FeeStructureMaster = require("../../fee-structure/acadamic/modelAcadamic");
+const { Transport } = require("../../fee-structure/transport/modelTransport");
+const { Hostel } = require("../../fee-structure/hostel/modelHostel");
+const mongoose = require("mongoose");
 const AppError = require("../../../utils/appError");
+
+const MAX_SEMESTER = 8;
+
+const normalizeMoney = (value) => {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0) return 0;
+  return Math.round(number * 100) / 100;
+};
 
 /* ────────────────────────────────────────────────
    Helper: Hide block data if isApplicable === false
@@ -14,6 +26,270 @@ const cleanApplicableBlock = (block) => {
   }
 
   return block;
+};
+
+const calculateComponentConcessions = (enrollment) => {
+  const schemes = [
+    "firstGraduate",
+    "scheme7point5",
+    "pmssScheme",
+    "sakthiScheme",
+    "specialConcession"
+  ];
+
+  const components = {
+    tuition: "yearlyTuitionConcessionAmount",
+    exam: "yearlyExamConcessionAmount",
+    erp: "yearlyErpConcessionAmount",
+    book: "yearlyBookConcessionAmount",
+    lab: "yearlyLabConcessionAmount",
+    transport: "yearlyTransportConcessionAmount",
+    hostel: "yearlyHostelConcessionAmount"
+  };
+
+  const result = {};
+
+  for (const [comp, field] of Object.entries(components)) {
+    result[comp] = 0;
+
+    for (const scheme of schemes) {
+      const schemeData = enrollment?.[scheme];
+      if (schemeData?.isApplicable) {
+        result[comp] = normalizeMoney(
+          result[comp] + normalizeMoney(schemeData[field] || 0)
+        );
+      }
+    }
+  }
+
+  result.totalConcession = normalizeMoney(
+    result.tuition +
+    result.exam +
+    result.erp +
+    result.book +
+    result.lab +
+    result.transport +
+    result.hostel
+  );
+
+  return result;
+};
+
+const findMatchingDepartment = (feeStructure, student) => {
+  const matchingStructures = (feeStructure?.academicStructures || []).filter((a) =>
+    a.educationType === student?.academic?.educationType &&
+    a.degreeProgram === student?.academic?.degreeProgram &&
+    a.isActive
+  );
+
+  for (const structure of matchingStructures) {
+    const dept = (structure.departments || []).find(
+      (d) => d.departmentName === student?.academic?.departmentName && d.isActive
+    );
+    if (dept) return dept;
+  }
+
+  return null;
+};
+
+const resolveTransportSnapshot = async (student) => {
+  if (!student?.transport?.isApplicable || !student?.transport?.transport) return null;
+
+  const transportId = student.transport.transport;
+  let transportDoc = null;
+
+  if (mongoose.isValidObjectId(transportId)) {
+    transportDoc = await Transport.findById(transportId).lean();
+  }
+
+  if (!transportDoc && student.transport.route && student.transport.busNo && student.transport.stop) {
+    transportDoc = await Transport.findOne({
+      route: student.transport.route,
+      busNo: student.transport.busNo,
+      stop: student.transport.stop,
+    }).lean();
+  }
+
+  const effective = transportDoc || student.transport;
+  const fee = normalizeMoney(effective.fee || 0);
+
+  return {
+    transport: String(transportDoc?._id || transportId),
+    route: effective.route,
+    busNo: effective.busNo,
+    stop: effective.stop,
+    fee,
+  };
+};
+
+const resolveHostelSnapshot = async (student) => {
+  if (!student?.hostel?.isApplicable || !student?.hostel?.hostel) return null;
+
+  const hostelId = student.hostel.hostel;
+  let hostelDoc = null;
+
+  if (mongoose.isValidObjectId(hostelId)) {
+    hostelDoc = await Hostel.findById(hostelId).lean();
+  }
+
+  if (!hostelDoc && student.hostel.block && student.hostel.sharing && student.hostel.isAttached !== undefined) {
+    hostelDoc = await Hostel.findOne({
+      block: student.hostel.block,
+      sharing: student.hostel.sharing,
+      isAttached: student.hostel.isAttached,
+    }).lean();
+  }
+
+  const effective = hostelDoc || student.hostel;
+  const fee = normalizeMoney(effective.fee || 0);
+
+  return {
+    hostel: String(hostelDoc?._id || hostelId),
+    block: effective.block,
+    sharing: effective.sharing,
+    isAttached: effective.isAttached,
+    fee,
+  };
+};
+
+const getYearsToBackfill = (student) => {
+  const batchStart = parseInt(student?.academic?.batch?.split("-")[0], 10);
+  const currentYearStart = parseInt(student?.academic?.currentAcademicYear?.split("-")[0], 10);
+
+  if (!Number.isFinite(batchStart) || !Number.isFinite(currentYearStart) || currentYearStart < batchStart) {
+    return [];
+  }
+
+  const years = [];
+
+  for (let yearStart = batchStart; yearStart <= currentYearStart; yearStart++) {
+    const studyYear = yearStart - batchStart + 1;
+    const oddSemNo = studyYear * 2 - 1;
+    const evenSemNo = studyYear * 2;
+    if (oddSemNo < 1 || evenSemNo > MAX_SEMESTER) break;
+    years.push(`${yearStart}-${yearStart + 1}`);
+  }
+
+  return years;
+};
+
+const buildAcademicYearTrackingRow = async (student, feeStructure, academicYear) => {
+  const batchStart = parseInt(student?.academic?.batch?.split("-")[0], 10);
+  const yearStart = parseInt(academicYear.split("-")[0], 10);
+
+  if (!Number.isFinite(batchStart) || !Number.isFinite(yearStart)) return null;
+
+  const studyYear = yearStart - batchStart + 1;
+  const oddSemNo = studyYear * 2 - 1;
+  const evenSemNo = studyYear * 2;
+  if (oddSemNo < 1 || evenSemNo > MAX_SEMESTER) return null;
+
+  const dept = findMatchingDepartment(feeStructure, student);
+  if (!dept) return null;
+
+  const oddSemester = dept.semesters?.find((s) => s.isActive && s.semesterNumber === oddSemNo);
+  const evenSemester = dept.semesters?.find((s) => s.isActive && s.semesterNumber === evenSemNo);
+  if (!oddSemester || !evenSemester) return null;
+
+  const concessions = calculateComponentConcessions(student.enrollment);
+
+  const buildSemester = (semester) => {
+    const tuition = normalizeMoney(semester.tuition?.fee || 0);
+    const exam = normalizeMoney(semester.exam?.fee || 0);
+    const erp = normalizeMoney(semester.erp?.fee || 0);
+    const book = normalizeMoney(semester.book?.fee || 0);
+    const lab = normalizeMoney(semester.lab?.fee || 0);
+    const subTotal = normalizeMoney(tuition + exam + erp + book + lab);
+
+    return {
+      semesterNumber: semester.semesterNumber,
+      tuition: { concession: 0, subTotal: tuition, total: tuition },
+      exam: { concession: 0, subTotal: exam, total: exam },
+      erp: { concession: 0, subTotal: erp, total: erp },
+      book: { concession: 0, subTotal: book, total: book },
+      lab: { concession: 0, subTotal: lab, total: lab },
+      subTotal,
+      total: { total: subTotal }
+    };
+  };
+
+  const oddLedger = buildSemester(oddSemester);
+  const evenLedger = buildSemester(evenSemester);
+
+  const oddGross = oddLedger.subTotal;
+  const evenGross = evenLedger.subTotal;
+  const grossSum = normalizeMoney(oddGross + evenGross);
+  const oddRatio = grossSum > 0 ? oddGross / grossSum : 0;
+  const ACADEMIC_FIELDS = ["tuition", "exam", "erp", "book", "lab"];
+
+  ACADEMIC_FIELDS.forEach((field) => {
+    const totalConcession = concessions[field];
+    if (totalConcession <= 0) return;
+
+    const oddShare = normalizeMoney(totalConcession * oddRatio);
+    const evenShare = normalizeMoney(Math.max(0, totalConcession - oddShare));
+
+    oddLedger[field].concession = oddShare;
+    oddLedger[field].total = normalizeMoney(Math.max(0, oddLedger[field].subTotal - oddShare));
+
+    evenLedger[field].concession = evenShare;
+    evenLedger[field].total = normalizeMoney(Math.max(0, evenLedger[field].subTotal - evenShare));
+  });
+
+  oddLedger.total.total = normalizeMoney(
+    ACADEMIC_FIELDS.reduce((sum, field) => sum + oddLedger[field].total, 0)
+  );
+  evenLedger.total.total = normalizeMoney(
+    ACADEMIC_FIELDS.reduce((sum, field) => sum + evenLedger[field].total, 0)
+  );
+
+  const academicSubTotal = normalizeMoney(oddLedger.subTotal + evenLedger.subTotal);
+  const academicTotal = normalizeMoney(oddLedger.total.total + evenLedger.total.total);
+
+  const transportSnapshot = await resolveTransportSnapshot(student);
+  const transportLedger = transportSnapshot
+    ? {
+      ...transportSnapshot,
+      subTotal: normalizeMoney(transportSnapshot.fee),
+      total: { total: normalizeMoney(Math.max(0, transportSnapshot.fee - concessions.transport)) },
+    }
+    : null;
+
+  const hostelSnapshot = await resolveHostelSnapshot(student);
+  const hostelLedger = hostelSnapshot
+    ? {
+      ...hostelSnapshot,
+      subTotal: normalizeMoney(hostelSnapshot.fee),
+      total: { total: normalizeMoney(Math.max(0, hostelSnapshot.fee - concessions.hostel)) },
+    }
+    : null;
+
+  const yearSubTotal = normalizeMoney(
+    academicSubTotal +
+    (transportLedger?.subTotal || 0) +
+    (hostelLedger?.subTotal || 0)
+  );
+
+  const yearTotal = normalizeMoney(
+    academicTotal +
+    (transportLedger?.total.total || 0) +
+    (hostelLedger?.total.total || 0)
+  );
+
+  return {
+    academicYear,
+    academic: {
+      odd: oddLedger,
+      even: evenLedger,
+      subTotal: academicSubTotal,
+      total: { total: academicTotal }
+    },
+    transport: transportLedger,
+    hostel: hostelLedger,
+    concessions,
+    subTotal: yearSubTotal,
+    total: { total: yearTotal }
+  };
 };
 
 /* ────────────────────────────────────────────────
@@ -114,4 +390,95 @@ const stripTracking = (t) => {
   }));
 };
 
-module.exports = { getStudentsFeeTrackingData };
+/* ────────────────────────────────────────────────
+   POST /backfill — append missing year rows for all students
+   (idempotent, append-only, does not alter existing rows)
+──────────────────────────────────────────────── */
+const backfillAllStudentFeeTracking = async () => {
+  const students = await Student.find({}).lean();
+
+  const summary = {
+    studentsScanned: students.length,
+    trackingDocsCreated: 0,
+    studentsUpdated: 0,
+    rowsAppended: 0,
+    rowsAlreadyPresent: 0,
+    skippedNoFeeStructure: 0,
+    skippedNoMatchingAcademicStructure: 0,
+  };
+
+  if (!students.length) return summary;
+
+  const studentYearsMap = new Map();
+  const allYears = new Set();
+
+  for (const student of students) {
+    const years = getYearsToBackfill(student);
+    studentYearsMap.set(String(student._id), years);
+    years.forEach((year) => allYears.add(year));
+  }
+
+  const feeStructures = await FeeStructureMaster.find({
+    academicYear: { $in: [...allYears] },
+    isActive: true
+  }).lean();
+  const feeStructureMap = new Map(feeStructures.map((fs) => [fs.academicYear, fs]));
+
+  const trackingDocs = await StudentFeeTracking.find({
+    student: { $in: students.map((student) => student._id) }
+  });
+  const trackingMap = new Map(trackingDocs.map((tracking) => [String(tracking.student), tracking]));
+
+  for (const student of students) {
+    let tracking = trackingMap.get(String(student._id));
+    if (!tracking) {
+      tracking = new StudentFeeTracking({
+        student: student._id,
+        rollNo: student.personal?.rollNo,
+        academicYearWiseRecord: []
+      });
+      trackingMap.set(String(student._id), tracking);
+      summary.trackingDocsCreated++;
+    }
+
+    const years = studentYearsMap.get(String(student._id)) || [];
+    let studentChanged = false;
+
+    for (const academicYear of years) {
+      const alreadyExists = tracking.academicYearWiseRecord.some((row) => row.academicYear === academicYear);
+      if (alreadyExists) {
+        summary.rowsAlreadyPresent++;
+        continue;
+      }
+
+      const feeStructure = feeStructureMap.get(academicYear);
+      if (!feeStructure) {
+        summary.skippedNoFeeStructure++;
+        continue;
+      }
+
+      const row = await buildAcademicYearTrackingRow(student, feeStructure, academicYear);
+      if (!row) {
+        summary.skippedNoMatchingAcademicStructure++;
+        continue;
+      }
+
+      tracking.academicYearWiseRecord.push(row);
+      studentChanged = true;
+      summary.rowsAppended++;
+    }
+
+    if (studentChanged) {
+      tracking.markModified("academicYearWiseRecord");
+      await tracking.save();
+      summary.studentsUpdated++;
+    }
+  }
+
+  return summary;
+};
+
+module.exports = {
+  getStudentsFeeTrackingData,
+  backfillAllStudentFeeTracking,
+};

@@ -96,8 +96,12 @@ describe("Fee Details API", () => {
     expect(record.student).toHaveProperty("name");
     expect(record.student).toHaveProperty("department");
     expect(record.student).toHaveProperty("year");
+    expect(record.student).toHaveProperty("currentAcademicYear", testCtx.academicYearPrimary);
 
     expect(record.fee).toHaveProperty("demand");
+    expect(record.fee).toHaveProperty("academicYear");
+    expect(record.fee).toHaveProperty("academicYears");
+    expect(Array.isArray(record.fee.academicYears)).toBe(true);
     expect(record.fee).toHaveProperty("concession");
     expect(record.fee).toHaveProperty("paid");
     expect(record.fee).toHaveProperty("overdue");
@@ -120,6 +124,9 @@ describe("Fee Details API", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+    const record = res.body.data[0];
+    expect(record.fee.academicYear).toBe(testCtx.academicYearPrimary);
+    expect(record.fee.academicYears).toEqual([testCtx.academicYearPrimary]);
   });
 
   it("returns empty data for academicYear with no match", async () => {
@@ -134,6 +141,8 @@ describe("Fee Details API", () => {
     expect(res.status).toBe(200);
     expect(res.body.data[0].fee.demand).toBe(0);
     expect(res.body.data[0].fee.paid).toBe(0);
+    expect(res.body.data[0].fee.academicYear).toBeNull();
+    expect(res.body.data[0].fee.academicYears).toEqual([]);
   });
 
   it("returns empty array for non-existent rollNo", async () => {
@@ -187,6 +196,9 @@ describe("Fee Details API", () => {
     expect(res.body.success).toBe(true);
 
     const { data } = res.body;
+    expect(data.studentCurrentAcademicYear).toBe(testCtx.academicYearPrimary);
+    expect(Array.isArray(data.feeAcademicYears)).toBe(true);
+    expect(data.feeAcademicYears).toContain(testCtx.academicYearPrimary);
     expect(data.student).toBeDefined();
     expect(data.student.rollNo).toBe(testCtx.studentRollFinance);
     expect(data.contact).toBeDefined();
@@ -211,6 +223,8 @@ describe("Fee Details API", () => {
     expect(res.status).toBe(200);
     expect(res.body.data.student).toBeUndefined();
     expect(res.body.data.contact).toBeUndefined();
+    expect(res.body.data.studentCurrentAcademicYear).toBe(testCtx.academicYearPrimary);
+    expect(Array.isArray(res.body.data.feeAcademicYears)).toBe(true);
     expect(Array.isArray(res.body.data.feeSummary)).toBe(true);
   });
 
@@ -266,6 +280,8 @@ describe("Fee Details API", () => {
     expect(res.body.success).toBe(true);
 
     const { data } = res.body;
+    expect(data.studentCurrentAcademicYear).toBe(testCtx.academicYearPrimary);
+    expect(data.feeAcademicYear).toBe(testCtx.academicYearPrimary);
     expect(data.academicYear).toBe(testCtx.academicYearPrimary);
     expect(Array.isArray(data.semesters)).toBe(true);
     expect(data.semesters).toHaveLength(2);
@@ -342,6 +358,8 @@ describe("Fee Details API", () => {
     expect(res.status).toBe(200);
     expect(res.body.data.student).toBeUndefined();
     expect(res.body.data.contact).toBeUndefined();
+    expect(res.body.data.studentCurrentAcademicYear).toBe(testCtx.academicYearPrimary);
+    expect(res.body.data.feeAcademicYear).toBe(testCtx.academicYearPrimary);
     expect(res.body.data.academicYear).toBe(testCtx.academicYearPrimary);
   });
 

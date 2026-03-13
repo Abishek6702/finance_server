@@ -9,4 +9,16 @@ const getStudentsFeeTrackingData = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, data, message: "Student fee tracking data fetched successfully" });
 });
 
-module.exports = { getStudentsFeeTrackingData };
+const backfillAllStudentFeeTracking = asyncHandler(async (req, res) => {
+  const data = await trackingService.backfillAllStudentFeeTracking();
+  res.status(200).json({
+    success: true,
+    data,
+    message: "Student fee tracking backfill completed successfully"
+  });
+});
+
+module.exports = {
+  getStudentsFeeTrackingData,
+  backfillAllStudentFeeTracking,
+};

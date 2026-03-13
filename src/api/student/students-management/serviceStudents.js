@@ -270,6 +270,9 @@ const updateStudent = async (rollNo, data) => {
   );
   
   if (!updated) throw new AppError("Student not found",404);
+
+  await generateLedger(updated);
+
   return updated;
 };
 

@@ -1,8 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const controller = require("./controllerStudentFeeTracking");
-const { validateGetQuery } = require("./validationStudentFeeTracking");
-const { protect, admin } = require("../../../middleware/authMiddleware");
+const { validateGetQuery, validateBackfillRequest } = require("./validationStudentFeeTracking");
+const { protect, admin, superadmin } = require("../../../middleware/authMiddleware");
+
+router.post("/backfill", protect, superadmin, validateBackfillRequest, controller.backfillAllStudentFeeTracking);
 
 router.use(protect, admin);
 

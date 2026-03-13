@@ -264,8 +264,21 @@ describe("Fee Payment / Transaction API", () => {
 
       expect(res.status).toBe(200);
       const keys = Object.keys(res.body.data.breakdowns);
-      const validLabels = ["Tuition Fee", "Exam Fee", "ERP Fee", "Book Fee", "Lab Fee", "Hostel Fee", "Transport Fee"];
-      keys.forEach((k) => expect(validLabels).toContain(k));
+      const validHeads = ["Tuition Fee", "Exam Fee", "ERP Fee", "Book Fee", "Lab Fee", "Hostel Fee", "Transport Fee"];
+      const validPrefixes = ["Regular", "Part time"];
+
+      keys.forEach((k) => {
+        if (validHeads.includes(k)) {
+          expect(validHeads).toContain(k);
+          return;
+        }
+
+        const [prefix, ...headParts] = k.split(" - ");
+        const head = headParts.join(" - ");
+
+        expect(validPrefixes).toContain(prefix);
+        expect(validHeads).toContain(head);
+      });
     });
 
     it("returns 404 for a non-existent receiptNo", async () => {

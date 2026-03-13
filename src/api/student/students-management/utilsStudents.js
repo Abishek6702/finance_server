@@ -78,6 +78,23 @@ function calculateComponentConcessions(enrollment) {
   return result;
 }
 
+function findMatchingDepartment(feeMaster, studentDoc) {
+  const matchingStructures = (feeMaster?.academicStructures || []).filter((a) =>
+    a.educationType === studentDoc.academic.educationType &&
+    a.degreeProgram === studentDoc.academic.degreeProgram &&
+    a.isActive
+  );
+
+  for (const structure of matchingStructures) {
+    const dept = (structure.departments || []).find(
+      (d) => d.departmentName === studentDoc.academic.departmentName && d.isActive
+    );
+    if (dept) return dept;
+  }
+
+  return null;
+}
+
 /* =======================================================
    GENERATE LEDGER
 ======================================================= */
@@ -85,19 +102,9 @@ function calculateComponentConcessions(enrollment) {
 async function generateLedger(studentDoc, options = {}) {
   const session = options.session;
 
-  const existing = await StudentFeeTracking
-    .findOne({ student: studentDoc._id })
-    .session(session || null);
-
-  if (existing) return;
-
-  const tracking = new StudentFeeTracking({
-    student: studentDoc._id,
-    rollNo: studentDoc.personal.rollNo,
-    academicYearWiseRecord: []
-  });
-
   const years = getYearsToGenerate(studentDoc);
+  if (!years.length) return null;
+
   const batchStart = parseInt(studentDoc.academic.batch.split("-")[0], 10);
 
   let transportDoc = null;
@@ -128,25 +135,14 @@ async function generateLedger(studentDoc, options = {}) {
   }).session(session || null); 
   const feeMasterMap = new Map(masters.map(m => [m.academicYear, m]));
 
-  for (const academicYear of years) {
+  const buildYearRecord = (academicYear) => {
 
     const feeMaster = feeMasterMap.get(academicYear);
-    if (!feeMaster) continue;
+    if (!feeMaster) return null;
 
-    const academicStruct = feeMaster.academicStructures.find(a =>
-      a.quota === studentDoc.enrollment.quota &&
-      a.educationType === studentDoc.academic.educationType &&
-      a.degreeProgram === studentDoc.academic.degreeProgram &&
-      a.isActive
-    );
+    const dept = findMatchingDepartment(feeMaster, studentDoc);
 
-    if (!academicStruct) continue;
-
-    const dept = academicStruct.departments.find(d =>
-      d.departmentName === studentDoc.academic.departmentName && d.isActive
-    );
-
-    if (!dept) continue;
+    if (!dept) return null;
 
     const yearStart = parseInt(academicYear.split("-")[0], 10);
     const studyYear = yearStart - batchStart + 1;
@@ -162,7 +158,7 @@ async function generateLedger(studentDoc, options = {}) {
       s.isActive && s.semesterNumber === evenSemNo
     );
 
-    if (!oddSemester || !evenSemester) continue;
+    if (!oddSemester || !evenSemester) return null;
 
     const concessions = calculateComponentConcessions(studentDoc.enrollment);
 
@@ -259,7 +255,7 @@ async function generateLedger(studentDoc, options = {}) {
       (hostelLedger?.subTotal || 0)
     );
 
-    tracking.academicYearWiseRecord.push({
+    return {
       academicYear,
       academic: {
         odd: oddLedger,
@@ -272,7 +268,45 @@ async function generateLedger(studentDoc, options = {}) {
       concessions,
       subTotal: yearSubTotal,
       total: { total: yearTotal }
-    });
+    };
+  };
+
+  const existing = await StudentFeeTracking
+    .findOne({ student: studentDoc._id })
+    .session(session || null);
+
+  if (existing) {
+    let appended = false;
+
+    for (const academicYear of years) {
+      const alreadyExists = existing.academicYearWiseRecord.some(r => r.academicYear === academicYear);
+      if (alreadyExists) continue;
+
+      const yearRecord = buildYearRecord(academicYear);
+      if (!yearRecord) continue;
+
+      existing.academicYearWiseRecord.push(yearRecord);
+      appended = true;
+    }
+
+    if (appended) {
+      existing.markModified("academicYearWiseRecord");
+      await existing.save({ session });
+    }
+
+    return existing;
+  }
+
+  const tracking = new StudentFeeTracking({
+    student: studentDoc._id,
+    rollNo: studentDoc.personal.rollNo,
+    academicYearWiseRecord: []
+  });
+
+  for (const academicYear of years) {
+    const yearRecord = buildYearRecord(academicYear);
+    if (!yearRecord) continue;
+    tracking.academicYearWiseRecord.push(yearRecord);
   }
 
   await tracking.save({ session });  

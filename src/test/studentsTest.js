@@ -559,6 +559,42 @@ describe("Students API", () => {
     expect(res.status).toBe(404);
   });
 
+  it("appends missing tracking row when student currentAcademicYear is updated", async () => {
+    const feeStructureRes = await request(app)
+      .post("/api/feeStructureMaster")
+      .set(superadminAuth())
+      .send(buildFeeStructurePayload(testCtx.academicYearSecondary));
+    expect([201, 409]).toContain(feeStructureRes.status);
+
+    const beforeTracking = await StudentFeeTracking.findOne({ rollNo: testCtx.studentRollCrud });
+    expect(beforeTracking).toBeTruthy();
+
+    const hadSecondaryBefore = beforeTracking.academicYearWiseRecord.some(
+      (row) => row.academicYear === testCtx.academicYearSecondary
+    );
+    expect(hadSecondaryBefore).toBe(false);
+
+    const updateRes = await request(app)
+      .put(`/api/studentsManagement/${testCtx.studentRollCrud}`)
+      .set(superadminAuth())
+      .send({
+        academic: {
+          currentAcademicYear: testCtx.academicYearSecondary,
+          currentSemesterNumber: 3,
+        },
+      });
+
+    expect(updateRes.status).toBe(200);
+
+    const afterTracking = await StudentFeeTracking.findOne({ rollNo: testCtx.studentRollCrud });
+    expect(afterTracking).toBeTruthy();
+
+    const hasSecondaryAfter = afterTracking.academicYearWiseRecord.some(
+      (row) => row.academicYear === testCtx.academicYearSecondary
+    );
+    expect(hasSecondaryAfter).toBe(true);
+  });
+
   /* ─── DELETE ───────────────────────────────────────── */
 
   it("returns 404 deleting unknown student", async () => {

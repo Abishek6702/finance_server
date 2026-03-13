@@ -59,9 +59,12 @@ Include `Authorization: Bearer <token>`.
         "name": "Arun Prakash",
         "photo": "https://example.com/student-photo.jpg",
         "department": "CSE",
-        "year": 1
+        "year": 1,
+        "currentAcademicYear": "2025-2026"
       },
       "fee": {
+        "academicYear": "2025-2026",
+        "academicYears": ["2025-2026"],
         "demand": 83000,
         "concession": 25000,
         "paid": 6000,
@@ -85,6 +88,9 @@ Include `Authorization: Bearer <token>`.
 
 | Field | Source |
 |---|---|
+| `student.currentAcademicYear` | `student.academic.currentAcademicYear` |
+| `fee.academicYear` | Single matched fee year when exactly one year contributes, otherwise `null` |
+| `fee.academicYears` | List of fee years contributing to this aggregated row |
 | `demand` | `yearRecord.total.total` (NET, after concession) |
 | `concession` | `yearRecord.concessions.totalConcession` |
 | `paid` | `yearRecord.total.paid` |
@@ -122,6 +128,8 @@ Include `Authorization: Bearer <token>`.
 {
   "success": true,
   "data": {
+    "studentCurrentAcademicYear": "2025-2026",
+    "feeAcademicYears": ["2025-2026"],
     "student": {
       "rollNo": "25CS150",
       "name": "Arun Prakash",
@@ -200,6 +208,8 @@ Include `Authorization: Bearer <token>`.
 {
   "success": true,
   "data": {
+    "studentCurrentAcademicYear": "2025-2026",
+    "feeAcademicYear": "2025-2026",
     "student": {
       "rollNo": "25CS150",
       "name": "Arun Prakash",

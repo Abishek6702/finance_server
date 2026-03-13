@@ -47,6 +47,62 @@ The **Student Fee Tracking** module provides a read-only view of per-student fee
 GET /api/studentFeeTracking?batch=2025-2029&department=CSE
 ```
 
+---
+
+### POST `/api/studentFeeTracking/backfill`
+
+**Auth required:** Yes — Superadmin
+
+**Description:** One-time administrative backfill that scans all students and appends missing `academicYearWiseRecord` rows up to each student's `currentAcademicYear` (bounded by valid semester mapping). Existing year rows are never replaced or duplicated.
+
+#### Request
+
+No request body or query params.
+
+#### Validation
+
+| Rule | Error |
+|---|---|
+| Request body is provided | 400 |
+| Query params are provided | 400 |
+
+#### Response
+
+**200 — Success**
+```json
+{
+  "success": true,
+  "data": {
+    "studentsScanned": 120,
+    "trackingDocsCreated": 3,
+    "studentsUpdated": 42,
+    "rowsAppended": 58,
+    "rowsAlreadyPresent": 180,
+    "skippedNoFeeStructure": 9,
+    "skippedNoMatchingAcademicStructure": 11
+  },
+  "message": "Student fee tracking backfill completed successfully"
+}
+```
+
+**400 — Bad request**
+```json
+{
+  "success": false,
+  "data": null,
+  "message": "Request body is not allowed for this endpoint"
+}
+```
+
+**401 — Unauthorized**
+```json
+{
+  "success": false,
+  "data": null,
+  "message": "Not authorized as a superadmin"
+}
+```
+
 #### Validation
 
 | Rule | Error |
@@ -194,7 +250,7 @@ GET /api/studentFeeTracking?batch=2025-2029&department=CSE
 - **`department` is case-insensitive** in the query parameter but is matched case-insensitively against the stored department name.
 - **`rollNo` filter** is an exact match; partial roll number queries are not supported via this endpoint.
 - **Status values** for each fee component: `Unpaid` (paid = 0), `Partial` (0 < paid < total), `Paid` (paid ≥ total). These are computed by the transaction service on payment.
-- **Read-only endpoint:** This module exposes no mutation endpoints. All writes to tracking records happen via the Transaction module.
+- **Backfill mutation endpoint:** `POST /api/studentFeeTracking/backfill` is intentionally provided for superadmin-only one-time correction. It is idempotent and append-only.
 
 ---
 

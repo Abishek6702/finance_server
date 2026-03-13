@@ -216,6 +216,113 @@ describe("Student Fee Tracking API", () => {
     expect(res.status).toBe(400);
   });
 
+  /* ─── BACKFILL ENDPOINT ───── */
+
+  describe("POST /api/studentFeeTracking/backfill", () => {
+    const backfillRoll = `66CS${testCtx.TS.slice(-3)}`;
+    const missingYearRoll = `67CS${testCtx.TS.slice(-3)}`;
+
+    afterAll(async () => {
+      await Promise.all([
+        StudentTransaction.deleteMany({ rollNo: { $in: [backfillRoll, missingYearRoll] } }),
+        StudentFeeTracking.deleteMany({ rollNo: { $in: [backfillRoll, missingYearRoll] } }),
+        Student.deleteMany({ "personal.rollNo": { $in: [backfillRoll, missingYearRoll] } }),
+        FeeStructureMaster.deleteMany({ academicYear: testCtx.academicYearSecondary }),
+      ]);
+    });
+
+    it("rejects backfill without token", async () => {
+      const res = await request(app).post("/api/studentFeeTracking/backfill");
+      expect(res.status).toBe(401);
+    });
+
+    it("rejects backfill for admin role", async () => {
+      const res = await request(app)
+        .post("/api/studentFeeTracking/backfill")
+        .set(adminAuth());
+      expect(res.status).toBe(401);
+    });
+
+    it("rejects unexpected payload for backfill endpoint", async () => {
+      const res = await request(app)
+        .post("/api/studentFeeTracking/backfill")
+        .set(superadminAuth())
+        .send({ force: true });
+      expect(res.status).toBe(400);
+    });
+
+    it("appends missing academic-year row for promoted student and remains idempotent", async () => {
+      const feeStructureRes = await createFeeStructure(testCtx.academicYearSecondary);
+      expect([201, 409]).toContain(feeStructureRes.status);
+
+      const studentRes = await createStudent(backfillRoll, { academicYear: testCtx.academicYearPrimary });
+      expect([201, 409]).toContain(studentRes.status);
+
+      await Student.updateOne(
+        { "personal.rollNo": backfillRoll },
+        {
+          $set: {
+            "academic.currentAcademicYear": testCtx.academicYearSecondary,
+            "academic.currentSemesterNumber": 3,
+            "academic.yearStudying": 2,
+          }
+        }
+      );
+
+      const trackingBefore = await StudentFeeTracking.findOne({ rollNo: backfillRoll });
+      expect(trackingBefore).toBeTruthy();
+      const hadSecondaryBefore = trackingBefore.academicYearWiseRecord.some(
+        (row) => row.academicYear === testCtx.academicYearSecondary
+      );
+      expect(hadSecondaryBefore).toBe(false);
+
+      const backfillRes = await request(app)
+        .post("/api/studentFeeTracking/backfill")
+        .set(superadminAuth());
+
+      expect(backfillRes.status).toBe(200);
+      expect(backfillRes.body.success).toBe(true);
+      expect(backfillRes.body.data.rowsAppended).toBeGreaterThan(0);
+
+      const trackingAfter = await StudentFeeTracking.findOne({ rollNo: backfillRoll });
+      expect(trackingAfter).toBeTruthy();
+      expect(trackingAfter.academicYearWiseRecord.some((row) => row.academicYear === testCtx.academicYearPrimary)).toBe(true);
+      expect(trackingAfter.academicYearWiseRecord.some((row) => row.academicYear === testCtx.academicYearSecondary)).toBe(true);
+
+      const secondBackfillRes = await request(app)
+        .post("/api/studentFeeTracking/backfill")
+        .set(superadminAuth());
+
+      expect(secondBackfillRes.status).toBe(200);
+
+      const trackingAfterSecondRun = await StudentFeeTracking.findOne({ rollNo: backfillRoll });
+      const secondaryRows = trackingAfterSecondRun.academicYearWiseRecord.filter(
+        (row) => row.academicYear === testCtx.academicYearSecondary
+      );
+      expect(secondaryRows).toHaveLength(1);
+    });
+
+    it("skips rows where fee structure does not exist and continues without failing", async () => {
+      const studentRes = await createStudent(missingYearRoll, { academicYear: testCtx.academicYearMissing });
+      expect([201, 409]).toContain(studentRes.status);
+
+      const backfillRes = await request(app)
+        .post("/api/studentFeeTracking/backfill")
+        .set(superadminAuth());
+
+      expect(backfillRes.status).toBe(200);
+      expect(backfillRes.body.success).toBe(true);
+      expect(backfillRes.body.data.skippedNoFeeStructure).toBeGreaterThan(0);
+
+      const tracking = await StudentFeeTracking.findOne({ rollNo: missingYearRoll });
+      expect(tracking).toBeTruthy();
+      const missingYearRows = tracking.academicYearWiseRecord.filter(
+        (row) => row.academicYear === testCtx.academicYearMissing
+      );
+      expect(missingYearRows).toHaveLength(0);
+    });
+  });
+
   /* ─── CONCESSION INTEGRATION ───── */
 
   describe("Concession Integration", () => {
