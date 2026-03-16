@@ -143,7 +143,10 @@ const enrollmentSchema=new mongoose.Schema({
     yearlyTransportConcessionAmount:{type:Number,default:0},
     yearlyHostelConcessionAmount:{type:Number,default:0},
     yearlyTuitionConcessionAmount:{type:Number,default:0}
-  }
+  },
+
+  excessAmount:{type:Number,default:0,min:0},
+  isExcessAmountTrue:{type:Boolean,default:false}
 
 },{_id:false});
 

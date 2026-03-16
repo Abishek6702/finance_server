@@ -569,7 +569,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"rollNo\": \"{{student_roll_no}}\",\n  \"paymentType\": \"Cash\",\n  \"bankName\": \"Indian Bank\",\n  \"bankLocation\": \"Kinathukadavu\",\n  \"billingDate\": \"03/03/2026\",\n  \"breakdowns\": [\n    {\n      \"academicYear\": \"{{academic_year}}\",\n      \"academic\": {\n        \"semesterNumber\": 1,\n        \"tuition\": 5000,\n        \"exam\": 500,\n        \"erp\": 100,\n        \"book\": 200,\n        \"lab\": 200\n      },\n      \"hostel\": 0,\n      \"transport\": 0\n    }\n  ]\n}",
+              "raw": "{\n  \"rollNo\": \"{{student_roll_no}}\",\n  \"paymentType\": \"Cash\",\n  \"bankName\": \"Indian Bank\",\n  \"bankLocation\": \"Kinathukadavu\",\n  \"billingDate\": \"03/03/2026\",\n  \"excess_amount\": 0,\n  \"breakdowns\": [\n    {\n      \"academicYear\": \"{{academic_year}}\",\n      \"academic\": {\n        \"semesterNumber\": 1,\n        \"tuition\": 5000,\n        \"exam\": 500,\n        \"erp\": 100,\n        \"book\": 200,\n        \"lab\": 200\n      },\n      \"hostel\": 0,\n      \"transport\": 0\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -615,7 +615,7 @@
                 {
                   "key": "paymentMode",
                   "value": "Cash",
-                  "description": "Filter by payment mode (Cash, Card, UPI, NetBanking, Cheque, DD)",
+                  "description": "Filter by payment mode (Cash, Card, UPI, NetBanking, Cheque, DD, excess_amount)",
                   "disabled": true
                 },
                 {
@@ -691,7 +691,7 @@
                 {
                   "key": "paymentMode",
                   "value": "Cash",
-                  "description": "Filter by payment mode (Cash, Card, UPI, NetBanking, Cheque, DD)",
+                  "description": "Filter by payment mode (Cash, Card, UPI, NetBanking, Cheque, DD, excess_amount)",
                   "disabled": true
                 },
                 {
@@ -1218,7 +1218,7 @@
                 {
                   "key": "paymentMode",
                   "value": "Cash",
-                  "description": "Filter by payment mode (Cash/UPI/etc)",
+                  "description": "Filter by payment mode (Cash, Card, UPI, NetBanking, Cheque, DD, excess_amount)",
                   "disabled": true
                 },
                 {

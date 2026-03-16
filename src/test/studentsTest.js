@@ -413,6 +413,8 @@ describe("Students API", () => {
     expect(first.currentYear).toBeDefined();
     expect(first.department).toBeDefined();
     expect(first.batch).toBeDefined();
+    expect(first).toHaveProperty("excess_amount");
+    expect(first).toHaveProperty("is_excess_amount_true");
   });
 
   it("returns empty array when search prefix matches no students (200)", async () => {

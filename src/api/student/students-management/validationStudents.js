@@ -154,6 +154,16 @@ const validateStudentPayload = (payload, { partial = false } = {}) => {
     validateConcession(errors, enrollment.pmssScheme, "enrollment.pmssScheme");
     validateConcession(errors, enrollment.sakthiScheme, "enrollment.sakthiScheme");
     validateConcession(errors, enrollment.specialConcession, "enrollment.specialConcession");
+
+    if (!isUndefined(enrollment.isExcessAmountTrue) && typeof enrollment.isExcessAmountTrue !== "boolean") {
+      errors.push("enrollment.isExcessAmountTrue must be a boolean");
+    }
+    if (!isUndefined(enrollment.excessAmount) && !isNonNegativeNumber(enrollment.excessAmount)) {
+      errors.push("enrollment.excessAmount must be a non-negative number");
+    }
+    if (enrollment.isExcessAmountTrue === true && (!isNonNegativeNumber(enrollment.excessAmount) || enrollment.excessAmount <= 0)) {
+      errors.push("enrollment.excessAmount must be greater than 0 when enrollment.isExcessAmountTrue is true");
+    }
   }
 
   if (transport && typeof transport === "object") {

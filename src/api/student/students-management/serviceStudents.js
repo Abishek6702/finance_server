@@ -200,7 +200,12 @@ const searchStudents = async (q) => {
   const students = await Student.find({
     "personal.rollNo": { $regex: `^${q}`, $options: "i" }
   })
-    .select("personal academic")
+    .select({
+      personal: 1,
+      academic: 1,
+      "enrollment.excessAmount": 1,
+      "enrollment.isExcessAmountTrue": 1
+    })
     .limit(20)
     .lean();
 
@@ -213,7 +218,9 @@ const searchStudents = async (q) => {
     section: student.academic?.section || "",
     department: student.academic?.departmentName || "",
     batch: student.academic?.batch || "",
-    currentSemester: student.academic?.currentSemesterNumber || ""
+    currentSemester: student.academic?.currentSemesterNumber || "",
+    excess_amount: student.enrollment?.excessAmount || 0,
+    is_excess_amount_true: Boolean(student.enrollment?.isExcessAmountTrue)
   }));
 };
 

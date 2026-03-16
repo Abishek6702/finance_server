@@ -45,10 +45,29 @@ const setStatus = (target) => {
 };
 
 const createPayment = async (data) => {
-  const { rollNo, paymentType, bankName, bankLocation, billingDate,    breakdowns } = data;
+  const { rollNo, paymentType, bankName, bankLocation, billingDate, breakdowns, excessAmount } = data;
   const { receiptNo } = await getNextReceiptNo();
   const tracking = await StudentFeeTracking.findOne({ rollNo });
   if (!tracking) throw new AppError("Fee tracking not found for this student", 404);
+
+  const isExcessPayment = paymentType === "excess_amount";
+  let studentDoc = null;
+  let availableExcess = 0;
+
+  if (isExcessPayment) {
+    studentDoc = await Student.findOne({ "personal.rollNo": rollNo });
+    if (!studentDoc) throw new AppError("Student not found", 404);
+
+    const isExcessEnabled = Boolean(studentDoc.enrollment?.isExcessAmountTrue);
+    availableExcess = normalizeMoney(studentDoc.enrollment?.excessAmount || 0);
+
+    if (!isExcessEnabled) {
+      throw new AppError("Excess amount is not enabled for this student", 400);
+    }
+    if (availableExcess <= 0) {
+      throw new AppError("Excess amount is not available for this student", 400);
+    }
+  }
 
   /* ===================================================================
      STEP 1: VALIDATE ALL PAYMENT AMOUNTS BEFORE PROCESSING
@@ -185,13 +204,26 @@ const createPayment = async (data) => {
     throw new AppError("Total payment amount must be greater than 0", 400);
   }
 
+  if (isExcessPayment) {
+    const requestedExcess = normalizeMoney(excessAmount || 0);
+    if (requestedExcess < grandTotal) {
+      throw new AppError("excess_amount must be greater than or equal to total payable amount", 400);
+    }
+    if (availableExcess < grandTotal) {
+      throw new AppError(
+        `Excess amount ₹${availableExcess} is insufficient to cover total payable ₹${grandTotal}`,
+        400
+      );
+    }
+  }
+
   /* ===================================================================
      STEP 2: ALL VALIDATIONS PASSED – Create transaction record
   =================================================================== */
 
   let transactionDoc = await StudentTransaction.findOne({ rollNo });
   if (!transactionDoc) {
-    const student = await Student.findOne({ "personal.rollNo": rollNo });
+    const student = studentDoc || await Student.findOne({ "personal.rollNo": rollNo });
     if (!student) throw new AppError("Student not found", 404);
     transactionDoc = new StudentTransaction({
       student: student._id,
@@ -285,6 +317,11 @@ transactionDoc.transactions.push({
 
   tracking.markModified("academicYearWiseRecord");
   await tracking.save();
+
+  if (isExcessPayment && studentDoc) {
+    studentDoc.enrollment.excessAmount = normalizeMoney(availableExcess - grandTotal);
+    await studentDoc.save();
+  }
 
   const docObj = transactionDoc.toObject();
   docObj.transactions = docObj.transactions.map(tx => ({

@@ -98,6 +98,8 @@ The **Students** module manages full student lifecycle: creation, retrieval, upd
 | `pmssScheme` | object | No | `isApplicable` + yearly concession amounts |
 | `sakthiScheme` | object | No | `isApplicable` + yearly concession amounts |
 | `specialConcession` | object | No | `isApplicable` + yearly concession amounts |
+| `excessAmount` | number | No | Non-negative excess balance that can be used for `excess_amount` payments |
+| `isExcessAmountTrue` | boolean | No | Enables usage of `excessAmount` as a payment method |
 
 **Concession sub-object fields** (all `number`, non-negative):
 `yearlyLabConcessionAmount`, `yearlyBookConcessionAmount`, `yearlyErpConcessionAmount`, `yearlyExamConcessionAmount`, `yearlyTransportConcessionAmount`, `yearlyHostelConcessionAmount`, `yearlyTuitionConcessionAmount`
@@ -335,7 +337,9 @@ Same as `POST /bulk` — `multipart/form-data` with a `file` field.
       "section": "A",
       "department": "CSE",
       "batch": "2023-2027",
-      "currentSemester": 3
+      "currentSemester": 3,
+      "excess_amount": 1500,
+      "is_excess_amount_true": true
     }
   ],
   "message": "Students searched successfully"

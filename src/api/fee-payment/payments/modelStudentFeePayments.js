@@ -28,7 +28,7 @@ const paymentRecordSchema=new mongoose.Schema({
   },
   paymentType:{
     type:String,
-    enum:["Cash","Card","UPI","NetBanking","Cheque","DD"],
+    enum:["Cash","Card","UPI","NetBanking","Cheque","DD","excess_amount"],
     required:true
   },
   bankName:{type:String,trim:true,default:null},
