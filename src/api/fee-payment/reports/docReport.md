@@ -81,7 +81,7 @@ Retrieves a paginated, system-wide list of every individual fee transaction acro
 | `fromDate`     | Date    | No       | Start boundary for transactions (Format: `YYYY-MM-DD`).                                  | Today's Date |
 | `toDate`       | Date    | No       | End boundary for transactions (Format: `YYYY-MM-DD`).                                    | Today's Date |
 | `academicYear` | String  | No       | Filter records strictly to a specific batch/academic year context (e.g., `2025-2026`).   | -            |
-| `paymentMode`  | String  | No       | Filter by payment instrument type. Example values: `Cash`, `Card`, `UPI`, `NetBanking`, `Cheque`, `DD`, `excess_amount`.  | -            |
+| `paymentMode`  | String  | No       | Filter by payment instrument type. Example values: `Cash`, `Card`, `UPI`, `NetBanking`, `Cheque`, `DD`, `excessAmount`.  | -            |
 | `feeHead`      | String  | No       | Filter by base exact core slug. Options: `tuition`, `exam`, `erp`, `hostel`, `transport` | -            |
 | `page`         | Integer | No       | The pagination page number to retrieve.                                                  | 1            |
 | `limit`        | Integer | No       | The pagination threshold sizing per page.                                                | 20           |

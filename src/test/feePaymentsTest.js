@@ -135,7 +135,7 @@ describe("Fee Payment / Transaction API", () => {
     ]);
   });
 
-  it("accepts excess_amount payment when student has sufficient excess", async () => {
+  it("accepts excessAmount payment when student has sufficient excess", async () => {
     const rollNo = `30CS${testCtx.TS.slice(-3)}`;
 
     const stuRes = await createStudent(rollNo, {
@@ -158,8 +158,8 @@ describe("Fee Payment / Transaction API", () => {
       .set(adminAuth())
       .send({
         rollNo,
-        paymentType: "excess_amount",
-        excess_amount: 10000,
+        paymentType: "excessAmount",
+        excessAmount: 10000,
         breakdowns: [{
           academicYear: testCtx.academicYearPrimary,
           academic: { semesterNumber: 1, tuition: 1000 },
@@ -178,7 +178,7 @@ describe("Fee Payment / Transaction API", () => {
     ]);
   });
 
-  it("rejects excess_amount payment when scheme is not enabled", async () => {
+  it("rejects excessAmount payment when scheme is not enabled", async () => {
     const rollNo = `31CS${testCtx.TS.slice(-3)}`;
 
     const stuRes = await createStudent(rollNo, {
@@ -201,8 +201,8 @@ describe("Fee Payment / Transaction API", () => {
       .set(adminAuth())
       .send({
         rollNo,
-        paymentType: "excess_amount",
-        excess_amount: 5000,
+        paymentType: "excessAmount",
+        excessAmount: 5000,
         breakdowns: [{
           academicYear: testCtx.academicYearPrimary,
           academic: { semesterNumber: 1, tuition: 1000 },

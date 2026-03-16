@@ -50,7 +50,7 @@ const createPayment = async (data) => {
   const tracking = await StudentFeeTracking.findOne({ rollNo });
   if (!tracking) throw new AppError("Fee tracking not found for this student", 404);
 
-  const isExcessPayment = paymentType === "excess_amount";
+  const isExcessPayment = paymentType === "excessAmount";
   let studentDoc = null;
   let availableExcess = 0;
 
@@ -207,7 +207,7 @@ const createPayment = async (data) => {
   if (isExcessPayment) {
     const requestedExcess = normalizeMoney(excessAmount || 0);
     if (requestedExcess < grandTotal) {
-      throw new AppError("excess_amount must be greater than or equal to total payable amount", 400);
+      throw new AppError("excessAmount must be greater than or equal to total payable amount", 400);
     }
     if (availableExcess < grandTotal) {
       throw new AppError(

@@ -219,8 +219,8 @@ const searchStudents = async (q) => {
     department: student.academic?.departmentName || "",
     batch: student.academic?.batch || "",
     currentSemester: student.academic?.currentSemesterNumber || "",
-    excess_amount: student.enrollment?.excessAmount || 0,
-    is_excess_amount_true: Boolean(student.enrollment?.isExcessAmountTrue)
+    excessAmount: student.enrollment?.excessAmount || 0,
+    is_excessAmount_true: Boolean(student.enrollment?.isExcessAmountTrue)
   }));
 };
 

@@ -14,11 +14,11 @@ const toMoney = (value) => Math.round(value * 100) / 100;
 
 const validatePayment = (req, res, next) => {
   const { rollNo, receiptNo, paymentType, breakdowns } = req.body;
-  const excessAmount = req.body.excess_amount;
+  const excessAmount = req.body.excessAmount;
 
   if (!rollNo) return next(new AppError("rollNo is required", 400)); 
 
-  const validPaymentTypes = ["Cash", "Card", "UPI", "NetBanking", "Cheque", "DD", "excess_amount"];
+  const validPaymentTypes = ["Cash", "Card", "UPI", "NetBanking", "Cheque", "DD", "excessAmount"];
   if (!paymentType || !validPaymentTypes.includes(paymentType)) {
     return next(new AppError("Valid paymentType is required", 400));
   }
@@ -86,13 +86,13 @@ const validatePayment = (req, res, next) => {
 
   if (excessAmount !== undefined) {
     if (!isValidMoney(excessAmount)) {
-      return next(new AppError("excess_amount must be a non-negative number with up to 2 decimals", 400));
+      return next(new AppError("excessAmount must be a non-negative number with up to 2 decimals", 400));
     }
     sanitizedExcessAmount = toMoney(excessAmount);
   }
 
-  if (paymentType === "excess_amount" && sanitizedExcessAmount === undefined) {
-    return next(new AppError("excess_amount is required when paymentType is excess_amount", 400));
+  if (paymentType === "excessAmount" && sanitizedExcessAmount === undefined) {
+    return next(new AppError("excessAmount is required when paymentType is excessAmount", 400));
   }
 
   req.body = {
@@ -117,7 +117,7 @@ const validateAllTransactionsQuery = (req, res, next) => {
     return next(new AppError(`department must be one of: ${validDepartments.join(", ")}`, 400));
   }
 
-  const validPaymentModes = ["Cash", "Card", "UPI", "NetBanking", "Cheque", "DD", "excess_amount"];
+  const validPaymentModes = ["Cash", "Card", "UPI", "NetBanking", "Cheque", "DD", "excessAmount"];
   if (paymentMode && !validPaymentModes.includes(paymentMode)) {
     return next(new AppError(`paymentMode must be one of: ${validPaymentModes.join(", ")}`, 400));
   }
@@ -168,7 +168,7 @@ const validateStudentTransactionsQuery = (req, res, next) => {
 
 const VALID_FEE_HEADS = ["tuition", "exam", "erp", "book", "lab", "hostel", "transport"];
 const VALID_DEPARTMENTS = ["CSE", "IT", "AIML", "AIDS", "ECE", "EEE", "MECH", "CIVIL"];
-const VALID_PAYMENT_MODES = ["Cash", "Card", "UPI", "NetBanking", "Cheque", "DD", "excess_amount"];
+const VALID_PAYMENT_MODES = ["Cash", "Card", "UPI", "NetBanking", "Cheque", "DD", "excessAmount"];
 
 const validateBillReceiptParam = (req, res, next) => {
   const { receiptNo } = req.params;
