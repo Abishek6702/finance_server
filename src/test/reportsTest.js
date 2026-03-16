@@ -211,4 +211,59 @@ describe("Reports API", () => {
       }
     });
   });
+
+  describe("GET /api/reports/classwise", () => {
+    it("fails on invalid status", async () => {
+      const res = await request(app)
+        .get("/api/reports/classwise")
+        .set(adminAuth())
+        .query({ status: "invalid_status" });
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/status must be 'paid', 'unpaid', or 'partial'/i);
+    });
+
+    it("fetches classwise report successfully", async () => {
+      const res = await request(app)
+        .get("/api/reports/classwise")
+        .set(adminAuth())
+        .query({ academicYear: testCtx.academicYearPrimary });
+      
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(Array.isArray(res.body.data.rows)).toBe(true);
+      
+      if (res.body.data.rows.length > 0) {
+        const row = res.body.data.rows[0];
+        expect(row).toHaveProperty("studentName");
+        expect(row).toHaveProperty("rollNo");
+        expect(row).toHaveProperty("section");
+        expect(row).toHaveProperty("department");
+        expect(row).toHaveProperty("year");
+        expect(row).toHaveProperty("academicYear");
+        expect(row).toHaveProperty("semNo");
+        expect(row).toHaveProperty("feeHead");
+        expect(row).toHaveProperty("subHead");
+        expect(row).toHaveProperty("status");
+        expect(row).toHaveProperty("total");
+        expect(row).toHaveProperty("paid");
+        expect(row).toHaveProperty("concession");
+        expect(row).toHaveProperty("unpaid");
+      }
+    });
+
+    it("filters properly by status (paid)", async () => {
+      const res = await request(app)
+        .get("/api/reports/classwise")
+        .set(adminAuth())
+        .query({ status: "paid" });
+
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body.data.rows)).toBe(true);
+      if (res.body.data.rows.length > 0) {
+        res.body.data.rows.forEach(r => {
+          expect(r.status.toLowerCase()).toBe("paid");
+        });
+      }
+    });
+  });
 });

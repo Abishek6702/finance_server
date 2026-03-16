@@ -1133,8 +1133,53 @@
       ]
     },
     {
-      "name": "Reports",
+      "name": "Reports", 
       "item": [
+                {
+          "name": "Classwise Report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reports/classwise?academicYear={{academic_year}}",
+              "host": ["{{base_url}}"],
+              "path": ["reports", "classwise"],
+              "query": [
+                {
+                  "key": "academicYear",
+                  "value": "{{academic_year}}"
+                },
+                {
+                  "key": "status",
+                  "value": "unpaid",
+                  "disabled": true
+                },
+                {
+                  "key": "department",
+                  "value": "CSE",
+                  "disabled": true
+                },
+                {
+                  "key": "studeingyear",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "semNo",
+                  "value": "1",
+                  "disabled": true
+                }
+                ,
+                {
+                  "key": "section",
+                  "value": "A",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
         {
           "name": "Individual Fee Report",
           "request": {

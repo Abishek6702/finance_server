@@ -20,3 +20,13 @@ exports.getDatewiseReport = asyncHandler(async (req, res, next) => {
     message: "Date wise fee report fetched successfully",
   });
 });
+
+exports.getClasswiseReport = asyncHandler(async (req, res, next) => {
+  const result = await reportService.generateClasswiseReport(req.query);
+
+  res.status(200).json({
+    success: true,
+    data: result,
+    message: "Class wise fee report fetched successfully",
+  });
+});

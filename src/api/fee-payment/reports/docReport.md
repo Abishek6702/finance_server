@@ -137,3 +137,69 @@ Retrieves a paginated, system-wide list of every individual fee transaction acro
   }
 }
 ```
+
+---
+
+## 3. Classwise Fee Report
+
+Retrieves a detailed, row-by-row fee status report suitable for class-level or department-level tracking. Each row represents a specific fee head for a student and its current payment status.
+
+**Endpoint:** `GET /classwise`  
+**Authentication & Testing Header:** `Authorization: Bearer <token>` (Admin/Superadmin only)
+
+### Query Parameters
+
+| Parameter      | Type    | Required | Description                                                                              | Default      |
+| :------------- | :------ | :------- | :--------------------------------------------------------------------------------------- | :----------- |
+| `academicYear` | String  | No       | Filter records to a specific academic year (e.g., `2025-2026`).                          | -            |
+| `department`   | String  | No       | Filter by department abbreviation (e.g., `CSE`, `IT`).                                   | -            |
+| `studeingyear` | Integer | No       | Filter by the student's currently studying year (e.g., `1`, `2`, `3`, `4`).              | -            |
+| `semNo`        | Integer | No       | Filter by exactly this numerical semester (e.g., `3`). Applies to academic fees only.    | -            |
+| `section`      | String  | No       | Filter by section (e.g., `A`, `B`).                                                      | -            |
+| `status`       | String  | No       | Filter explicitly by fee standing. Allowed values: `paid`, `partial`, `unpaid`.          | -            |
+
+### Example Response Body
+
+```json
+{
+  "success": true,
+  "data": {
+    "rows": [
+      {
+        "studentName": "Arun Prakash",
+        "rollNo": "25CS101",
+        "section": "A",
+        "department": "CSE",
+        "year": 1,
+        "academicYear": "2025-2026",
+        "semNo": 1,
+        "feeHead": "Academic Fees",
+        "subHead": "Tuition Fees",
+        "status": "partial",
+        "total": 40000,
+        "paid": 20000,
+        "concession": 0,
+        "unpaid": 20000
+      },
+      {
+        "studentName": "Arun Prakash",
+        "rollNo": "25CS101",
+        "section": "A",
+        "department": "CSE",
+        "year": 1,
+        "academicYear": "2025-2026",
+        "semNo": "-",
+        "feeHead": "Hostel Fees",
+        "subHead": "-",
+        "status": "unpaid",
+        "total": 50000,
+        "paid": 0,
+        "concession": 0,
+        "unpaid": 50000
+      }
+    ]
+  },
+  "message": "Class wise fee report fetched successfully"
+}
+```
+

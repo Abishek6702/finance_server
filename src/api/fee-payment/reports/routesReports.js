@@ -4,6 +4,7 @@ const controller = require("./controllerReports");
 const {
   validateIndividualReportQuery,
   validateDatewiseReportQuery,
+  validateClasswiseReportQuery,
 } = require("./validationReports");
 const { protect, admin } = require("../../../middleware/authMiddleware");
 
@@ -12,5 +13,6 @@ router.use(protect, admin);
 
 router.get("/individual", validateIndividualReportQuery, controller.getIndividualReport);
 router.get("/datewise", validateDatewiseReportQuery, controller.getDatewiseReport);
+router.get("/classwise", validateClasswiseReportQuery, controller.getClasswiseReport);
 
 module.exports = router;

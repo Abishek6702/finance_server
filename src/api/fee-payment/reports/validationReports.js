@@ -70,3 +70,27 @@ exports.validateDatewiseReportQuery = (req, res, next) => {
 
   next();
 };
+
+exports.validateClasswiseReportQuery = (req, res, next) => {
+  const { studeingyear, semNo, status } = req.query;
+
+  if (studeingyear) {
+    const yearNum = parseInt(studeingyear, 10);
+    if (isNaN(yearNum) || yearNum < 1) {
+      return next(new AppError("studeingyear must be a positive integer", 400));
+    }
+  }
+
+  if (semNo) {
+    const semNum = parseInt(semNo, 10);
+    if (isNaN(semNum) || semNum < 1) {
+      return next(new AppError("semNo must be a positive integer", 400));
+    }
+  }
+
+  if (status && !["paid", "unpaid", "partial"].includes(status.toLowerCase())) {
+    return next(new AppError("status must be 'paid', 'unpaid', or 'partial'", 400));
+  }
+
+  next();
+};
