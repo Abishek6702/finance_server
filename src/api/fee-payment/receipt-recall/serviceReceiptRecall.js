@@ -209,6 +209,12 @@ const createRecall = async (data, userId) => {
 
   // 12. Create the recall record
   const totalRecalled = normalizeMoney(targetFeeHeads.reduce((sum, { feeHead }) => sum + feeHead.fee, 0));
+  if (receiptMeta.paymentType === "excessAmount") {
+    await Student.updateOne(
+      { "personal.rollNo": rollNo },
+      { $inc: { "enrollment.excessAmount": totalRecalled } }
+    );
+  }
   const recallRecord = await ReceiptRecallRequest.create({
     receiptId: receiptIdCapture || transactionDoc._id,
     receiptNo,

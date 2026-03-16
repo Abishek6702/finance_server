@@ -339,7 +339,7 @@ Same as `POST /bulk` — `multipart/form-data` with a `file` field.
       "batch": "2023-2027",
       "currentSemester": 3,
       "excessAmount": 1500,
-      "is_excessAmount_true": true
+      "isExcessAmountTrue": true
     }
   ],
   "message": "Students searched successfully"

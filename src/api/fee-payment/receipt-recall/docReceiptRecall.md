@@ -88,6 +88,7 @@ Allows admins to **instantly reverse specific fee heads** from a payment receipt
 3. If a breakdown has no remaining fee heads → removes that breakdown.
 4. If no breakdowns remain in the receipt → removes the entire receipt.
 5. Otherwise recalculates `totalAmount` for remaining breakdowns and receipt.
+6. If the original receipt used `paymentType=excessAmount`, the student's `enrollment.excessAmount` is increased by the recalled total.
 
 ---
 

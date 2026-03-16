@@ -352,6 +352,70 @@ describe("Receipt Recall API", () => {
     expect(receiptAfter.breakdowns[0].semesterNumber).toBe(2);
   });
 
+  it("restores enrollment.excessAmount when recalling excessAmount payment", async () => {
+    const rollNo = `32CS${testCtx.TS.slice(-3)}`;
+    const startingExcess = 2000;
+
+    const stuRes = await createStudent(rollNo, {
+      academicYear: testCtx.academicYearPrimary,
+      enrollment: {
+        quota: "Government Quota",
+        firstGraduate: { isApplicable: false },
+        scheme7point5: { isApplicable: false },
+        pmssScheme: { isApplicable: false },
+        sakthiScheme: { isApplicable: false },
+        specialConcession: { isApplicable: false },
+        excessAmount: startingExcess,
+        isExcessAmountTrue: true,
+      },
+    });
+    expect([200, 201]).toContain(stuRes.status);
+
+    const payRes = await request(app)
+      .post("/api/feePayment/pay")
+      .set(adminAuth())
+      .send({
+        rollNo,
+        paymentType: "excessAmount",
+        excessAmount: startingExcess,
+        breakdowns: [
+          {
+            academicYear: testCtx.academicYearPrimary,
+            academic: { semesterNumber: 1, tuition: 1000 },
+          },
+        ],
+      });
+    expect(payRes.status).toBe(201);
+    const receiptNo = payRes.body.data;
+
+    const txnRes = await request(app)
+      .get(`/api/feePayment/${rollNo}`)
+      .set(adminAuth());
+    const receipt = txnRes.body.data.transactions.find(t => t.receiptNo === receiptNo);
+    const feeHeadId = Object.values(receipt.breakdowns[0].feeHeads)[0]._id;
+
+    const recallRes = await request(app)
+      .post("/api/receiptRecall")
+      .set(adminAuth())
+      .send({
+        receiptNo,
+        rollNo,
+        reason: "Restore excess after recall",
+        feeHeadIds: [feeHeadId],
+      });
+    expect(recallRes.status).toBe(201);
+
+    const updatedStudent = await Student.findOne({ "personal.rollNo": rollNo }).lean();
+    expect(updatedStudent.enrollment.excessAmount).toBeCloseTo(startingExcess, 2);
+
+    await Promise.all([
+      ReceiptRecallRequest.deleteMany({ rollNo }),
+      StudentTransaction.deleteMany({ rollNo }),
+      StudentFeeTracking.deleteMany({ rollNo }),
+      Student.deleteMany({ "personal.rollNo": rollNo }),
+    ]);
+  });
+
   /* â”€â”€â”€ LIST RECALLS â”€â”€â”€â”€â”€ */
 
   it("lists recall records", async () => {

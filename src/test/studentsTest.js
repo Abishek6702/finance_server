@@ -414,7 +414,7 @@ describe("Students API", () => {
     expect(first.department).toBeDefined();
     expect(first.batch).toBeDefined();
     expect(first).toHaveProperty("excessAmount");
-    expect(first).toHaveProperty("is_excessAmount_true");
+    expect(first).toHaveProperty("isExcessAmountTrue");
   });
 
   it("returns empty array when search prefix matches no students (200)", async () => {

@@ -220,7 +220,7 @@ const searchStudents = async (q) => {
     batch: student.academic?.batch || "",
     currentSemester: student.academic?.currentSemesterNumber || "",
     excessAmount: student.enrollment?.excessAmount || 0,
-    is_excessAmount_true: Boolean(student.enrollment?.isExcessAmountTrue)
+    isExcessAmountTrue: Boolean(student.enrollment?.isExcessAmountTrue)
   }));
 };
 
