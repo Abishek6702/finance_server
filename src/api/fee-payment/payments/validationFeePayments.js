@@ -91,10 +91,6 @@ const validatePayment = (req, res, next) => {
     sanitizedExcessAmount = toMoney(excessAmount);
   }
 
-  if (paymentType === "excessAmount" && sanitizedExcessAmount === undefined) {
-    return next(new AppError("excessAmount is required when paymentType is excessAmount", 400));
-  }
-
   req.body = {
     rollNo,
     receiptNo,

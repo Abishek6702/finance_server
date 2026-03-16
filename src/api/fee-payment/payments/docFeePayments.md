@@ -40,7 +40,7 @@ Records a fee payment for a student across one or more academic years and fee ca
   "bankName":    "string (optional)",
   "bankLocation":"string (optional)",
   "billingDate": "string (optional) — dd/mm/yyyy or ISO 8601; defaults to today",
-  "excessAmount": "number (required when paymentType is excessAmount)",
+  "excessAmount": "number (optional) — adds to student's excess balance",
   "breakdowns": [
     {
       "academicYear": "string — format YYYY-YYYY",
@@ -68,7 +68,7 @@ Records a fee payment for a student across one or more academic years and fee ca
 | `bankName` | Optional string |
 | `bankLocation` | Optional string |
 | `billingDate` | Optional. Accepted formats: `dd/mm/yyyy` or ISO 8601. Defaults to current date |
-| `excessAmount` | Required when `paymentType` is `excessAmount`. Must be a non-negative number, max 2 decimal places |
+| `excessAmount` | Optional. Non-negative number, max 2 decimal places. When provided and > 0, it is added to the student's excess balance |
 | `breakdowns` | Required. Non-empty array of breakdown objects |
 | `breakdowns[].academicYear` | Required. Format: `YYYY-YYYY` (e.g., `2023-2024`) |
 | `breakdowns[].academic.semesterNumber` | Required when any academic fee amount > 0. Integer 1–8 |
@@ -83,7 +83,8 @@ Records a fee payment for a student across one or more academic years and fee ca
 
 - Each fee component amount is validated against the **remaining due** in `StudentFeeTracking`; overpayment is rejected.
 - The aggregate academic payment per year is also cross-checked against the **net academic total** (post-concession) to prevent overpayment across semesters.
-- For `paymentType=excessAmount`, the student must have `enrollment.isExcessAmountTrue=true` and `enrollment.excessAmount` must be **greater than or equal to** the total payable. On success, the student's `enrollment.excessAmount` is reduced by the paid total.
+- If `excessAmount` is provided and > 0, it is added to `enrollment.excessAmount` and `enrollment.isExcessAmountTrue` is set to `true`.
+- For `paymentType=excessAmount`, the student's available excess balance (current balance + any `excessAmount` provided in the request) must be **greater than or equal to** the total payable. On success, the student's `enrollment.excessAmount` is reduced by the paid total and `enrollment.isExcessAmountTrue` is updated based on whether the remaining balance is > 0.
 - Receipt number is auto-generated in format `REC-YYYYMMDD-NNN` (e.g., `REC-20260304-001`).
 - `studentTransactionDoc` is created lazily on first payment.
 

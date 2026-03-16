@@ -148,49 +148,6 @@ describe("Fee Payment / Transaction API", () => {
         sakthiScheme: { isApplicable: false },
         specialConcession: { isApplicable: false },
         excessAmount: 10000,
-        isExcessAmountTrue: true,
-      },
-    });
-    expect([200, 201]).toContain(stuRes.status);
-
-    const payRes = await request(app)
-      .post("/api/feePayment/pay")
-      .set(adminAuth())
-      .send({
-        rollNo,
-        paymentType: "excessAmount",
-        excessAmount: 10000,
-        breakdowns: [{
-          academicYear: testCtx.academicYearPrimary,
-          academic: { semesterNumber: 1, tuition: 1000 },
-        }],
-      });
-
-    expect(payRes.status).toBe(201);
-
-    const updatedStudent = await Student.findOne({ "personal.rollNo": rollNo }).lean();
-    expect(updatedStudent.enrollment.excessAmount).toBeCloseTo(9000, 2);
-
-    await Promise.all([
-      StudentTransaction.deleteMany({ rollNo }),
-      StudentFeeTracking.deleteMany({ rollNo }),
-      Student.deleteMany({ "personal.rollNo": rollNo }),
-    ]);
-  });
-
-  it("rejects excessAmount payment when scheme is not enabled", async () => {
-    const rollNo = `31CS${testCtx.TS.slice(-3)}`;
-
-    const stuRes = await createStudent(rollNo, {
-      academicYear: testCtx.academicYearPrimary,
-      enrollment: {
-        quota: "Government Quota",
-        firstGraduate: { isApplicable: false },
-        scheme7point5: { isApplicable: false },
-        pmssScheme: { isApplicable: false },
-        sakthiScheme: { isApplicable: false },
-        specialConcession: { isApplicable: false },
-        excessAmount: 5000,
         isExcessAmountTrue: false,
       },
     });
@@ -202,6 +159,50 @@ describe("Fee Payment / Transaction API", () => {
       .send({
         rollNo,
         paymentType: "excessAmount",
+        excessAmount: 0,
+        breakdowns: [{
+          academicYear: testCtx.academicYearPrimary,
+          academic: { semesterNumber: 1, tuition: 1000 },
+        }],
+      });
+
+    expect(payRes.status).toBe(201);
+
+    const updatedStudent = await Student.findOne({ "personal.rollNo": rollNo }).lean();
+    expect(updatedStudent.enrollment.excessAmount).toBeCloseTo(9000, 2);
+    expect(updatedStudent.enrollment.isExcessAmountTrue).toBe(true);
+
+    await Promise.all([
+      StudentTransaction.deleteMany({ rollNo }),
+      StudentFeeTracking.deleteMany({ rollNo }),
+      Student.deleteMany({ "personal.rollNo": rollNo }),
+    ]);
+  });
+
+  it("adds excessAmount balance on non-excess payment", async () => {
+    const rollNo = `31CS${testCtx.TS.slice(-3)}`;
+
+    const stuRes = await createStudent(rollNo, {
+      academicYear: testCtx.academicYearPrimary,
+      enrollment: {
+        quota: "Government Quota",
+        firstGraduate: { isApplicable: false },
+        scheme7point5: { isApplicable: false },
+        pmssScheme: { isApplicable: false },
+        sakthiScheme: { isApplicable: false },
+        specialConcession: { isApplicable: false },
+        excessAmount: 0,
+        isExcessAmountTrue: false,
+      },
+    });
+    expect([200, 201]).toContain(stuRes.status);
+
+    const payRes = await request(app)
+      .post("/api/feePayment/pay")
+      .set(adminAuth())
+      .send({
+        rollNo,
+        paymentType: "Cash",
         excessAmount: 5000,
         breakdowns: [{
           academicYear: testCtx.academicYearPrimary,
@@ -209,8 +210,52 @@ describe("Fee Payment / Transaction API", () => {
         }],
       });
 
+    expect(payRes.status).toBe(201);
+
+    const updatedStudent = await Student.findOne({ "personal.rollNo": rollNo }).lean();
+    expect(updatedStudent.enrollment.excessAmount).toBeCloseTo(5000, 2);
+    expect(updatedStudent.enrollment.isExcessAmountTrue).toBe(true);
+
+    await Promise.all([
+      StudentTransaction.deleteMany({ rollNo }),
+      StudentFeeTracking.deleteMany({ rollNo }),
+      Student.deleteMany({ "personal.rollNo": rollNo }),
+    ]);
+  });
+
+  it("rejects excessAmount payment when balance is zero", async () => {
+    const rollNo = `32CS${testCtx.TS.slice(-3)}`;
+
+    const stuRes = await createStudent(rollNo, {
+      academicYear: testCtx.academicYearPrimary,
+      enrollment: {
+        quota: "Government Quota",
+        firstGraduate: { isApplicable: false },
+        scheme7point5: { isApplicable: false },
+        pmssScheme: { isApplicable: false },
+        sakthiScheme: { isApplicable: false },
+        specialConcession: { isApplicable: false },
+        excessAmount: 0,
+        isExcessAmountTrue: false,
+      },
+    });
+    expect([200, 201]).toContain(stuRes.status);
+
+    const payRes = await request(app)
+      .post("/api/feePayment/pay")
+      .set(adminAuth())
+      .send({
+        rollNo,
+        paymentType: "excessAmount",
+        excessAmount: 0,
+        breakdowns: [{
+          academicYear: testCtx.academicYearPrimary,
+          academic: { semesterNumber: 1, tuition: 1000 },
+        }],
+      });
+
     expect(payRes.status).toBe(400);
-    expect(payRes.body.message).toMatch(/excess amount is not enabled/i);
+    expect(payRes.body.message).toMatch(/excess amount is not available/i);
 
     await Promise.all([
       StudentTransaction.deleteMany({ rollNo }),

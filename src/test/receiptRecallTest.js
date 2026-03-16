@@ -377,7 +377,7 @@ describe("Receipt Recall API", () => {
       .send({
         rollNo,
         paymentType: "excessAmount",
-        excessAmount: startingExcess,
+        excessAmount: 0,
         breakdowns: [
           {
             academicYear: testCtx.academicYearPrimary,

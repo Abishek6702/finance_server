@@ -51,20 +51,18 @@ const createPayment = async (data) => {
   if (!tracking) throw new AppError("Fee tracking not found for this student", 404);
 
   const isExcessPayment = paymentType === "excessAmount";
+  const topUpAmount = normalizeMoney(excessAmount || 0);
   let studentDoc = null;
   let availableExcess = 0;
 
-  if (isExcessPayment) {
+  if (isExcessPayment || topUpAmount > 0) {
     studentDoc = await Student.findOne({ "personal.rollNo": rollNo });
     if (!studentDoc) throw new AppError("Student not found", 404);
 
-    const isExcessEnabled = Boolean(studentDoc.enrollment?.isExcessAmountTrue);
-    availableExcess = normalizeMoney(studentDoc.enrollment?.excessAmount || 0);
+    const currentExcess = normalizeMoney(studentDoc.enrollment?.excessAmount || 0);
+    availableExcess = normalizeMoney(currentExcess + topUpAmount);
 
-    if (!isExcessEnabled) {
-      throw new AppError("Excess amount is not enabled for this student", 400);
-    }
-    if (availableExcess <= 0) {
+    if (isExcessPayment && availableExcess <= 0) {
       throw new AppError("Excess amount is not available for this student", 400);
     }
   }
@@ -204,17 +202,11 @@ const createPayment = async (data) => {
     throw new AppError("Total payment amount must be greater than 0", 400);
   }
 
-  if (isExcessPayment) {
-    const requestedExcess = normalizeMoney(excessAmount || 0);
-    if (requestedExcess < grandTotal) {
-      throw new AppError("excessAmount must be greater than or equal to total payable amount", 400);
-    }
-    if (availableExcess < grandTotal) {
-      throw new AppError(
-        `Excess amount ₹${availableExcess} is insufficient to cover total payable ₹${grandTotal}`,
-        400
-      );
-    }
+  if (isExcessPayment && availableExcess < grandTotal) {
+    throw new AppError(
+      `Excess amount ₹${availableExcess} is insufficient to cover total payable ₹${grandTotal}`,
+      400
+    );
   }
 
   /* ===================================================================
@@ -318,8 +310,12 @@ transactionDoc.transactions.push({
   tracking.markModified("academicYearWiseRecord");
   await tracking.save();
 
-  if (isExcessPayment && studentDoc) {
-    studentDoc.enrollment.excessAmount = normalizeMoney(availableExcess - grandTotal);
+  if (studentDoc) {
+    const newExcess = isExcessPayment
+      ? normalizeMoney(availableExcess - grandTotal)
+      : normalizeMoney(availableExcess);
+    studentDoc.enrollment.excessAmount = newExcess;
+    studentDoc.enrollment.isExcessAmountTrue = newExcess > 0;
     await studentDoc.save();
   }
 
