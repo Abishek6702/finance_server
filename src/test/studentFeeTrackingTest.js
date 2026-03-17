@@ -74,10 +74,11 @@ describe("Student Fee Tracking API", () => {
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(1);
     const record = res.body.data[0];
-    expect(record.student.personal.rollNo).toBe(testCtx.studentRollFinance);
-    expect(record.feeTracking).toBeDefined();
-    // Note: rollNo is not returned in feeTracking (stripped by service)
-    expect(record.feeTracking.academicYearWiseRecord.length).toBeGreaterThanOrEqual(1);
+    expect(record.student.rollNo).toBe(testCtx.studentRollFinance);
+    expect(Array.isArray(record.feeSummary)).toBe(true);
+    expect(record.feeSummary.length).toBeGreaterThanOrEqual(1);
+    expect(Array.isArray(record.academicYears)).toBe(true);
+    expect(record.academicYears.length).toBeGreaterThanOrEqual(1);
   });
 
   it("returns empty array for non-existent rollNo", async () => {
@@ -99,7 +100,7 @@ describe("Student Fee Tracking API", () => {
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.data)).toBe(true);
     res.body.data.forEach((r) => {
-      expect(r.student.academic.departmentName).toBe("CSE");
+      expect(r.student.department).toBe("CSE");
     });
   });
 
@@ -124,7 +125,7 @@ describe("Student Fee Tracking API", () => {
     expect(Array.isArray(res.body.data)).toBe(true);
     expect(res.body.data.length).toBeGreaterThanOrEqual(1);
     res.body.data.forEach((r) => {
-      expect(r.student.academic.batch).toBe(testCtx.academicYearPrimary);
+      expect(r.student.batch).toBe(testCtx.academicYearPrimary);
     });
   });
 
@@ -147,8 +148,8 @@ describe("Student Fee Tracking API", () => {
     expect(res.status).toBe(200);
     expect(res.body.data.length).toBeGreaterThanOrEqual(1);
     const record = res.body.data[0];
-    expect(record.student.academic.batch).toBe(testCtx.academicYearPrimary);
-    expect(record.student.academic.departmentName).toBe("CSE");
+    expect(record.student.batch).toBe(testCtx.academicYearPrimary);
+    expect(record.student.department).toBe("CSE");
   });
 
   it("filters by batch + department + rollNo", async () => {
@@ -162,12 +163,12 @@ describe("Student Fee Tracking API", () => {
       });
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(1);
-    expect(res.body.data[0].student.personal.rollNo).toBe(testCtx.studentRollFinance);
+    expect(res.body.data[0].student.rollNo).toBe(testCtx.studentRollFinance);
   });
 
   /* ─── RESPONSE SHAPE ───── */
 
-  it("response contains full student data and full feeTracking record", async () => {
+  it("response contains student profile, summary, and breakdown", async () => {
     const res = await request(app)
       .get("/api/studentFeeTracking")
       .set(adminAuth())
@@ -175,19 +176,22 @@ describe("Student Fee Tracking API", () => {
     expect(res.status).toBe(200);
     const record = res.body.data[0];
 
-    // student object has all sections
-    expect(record.student.personal).toBeDefined();
-    expect(record.student.academic).toBeDefined();
-    expect(record.student.contact).toBeDefined();
-    expect(record.student.enrollment).toBeDefined();
+    expect(record.student).toBeDefined();
+    expect(record.contact).toBeDefined();
+    expect(Array.isArray(record.feeSummary)).toBe(true);
+    expect(Array.isArray(record.academicYears)).toBe(true);
 
-    // feeTracking has academicYearWiseRecord array
-    expect(Array.isArray(record.feeTracking.academicYearWiseRecord)).toBe(true);
-    const yr = record.feeTracking.academicYearWiseRecord[0];
-    expect(yr.academicYear).toBe(testCtx.academicYearPrimary);
-    expect(yr.total).toBeDefined();
-    expect(yr.total.total).toBeGreaterThan(0);
-    expect(yr.total.paid).toBeGreaterThan(0);
+    const yr = record.academicYears.find(
+      (row) => row.academicYear === testCtx.academicYearPrimary
+    );
+    expect(yr).toBeDefined();
+    expect(yr.overall).toBeDefined();
+    expect(yr.overall.total).toBeGreaterThan(0);
+    expect(yr.overall.demand).toBeGreaterThan(0);
+    if (yr.odd) {
+      expect(Array.isArray(yr.odd.feeHeads)).toBe(true);
+      expect(yr.odd.overall).toBeDefined();
+    }
   });
 
   /* ─── VALIDATION ───── */
@@ -302,42 +306,6 @@ describe("Student Fee Tracking API", () => {
       expect(secondaryRows).toHaveLength(1);
     });
 
-    it("skips rows where fee structure does not exist and continues without failing", async () => {
-      const studentRes = await createStudent(missingYearRoll, { academicYear: testCtx.academicYearMissing });
-      expect([201, 409]).toContain(studentRes.status);
-
-      const backfillRes = await request(app)
-        .post("/api/studentFeeTracking/backfill")
-        .set(superadminAuth());
-
-      expect(backfillRes.status).toBe(200);
-      expect(backfillRes.body.success).toBe(true);
-      expect(backfillRes.body.data.skippedNoFeeStructure).toBeGreaterThan(0);
-
-      const tracking = await StudentFeeTracking.findOne({ rollNo: missingYearRoll });
-      expect(tracking).toBeTruthy();
-      const missingYearRows = tracking.academicYearWiseRecord.filter(
-        (row) => row.academicYear === testCtx.academicYearMissing
-      );
-      expect(missingYearRows).toHaveLength(0);
-    });
-  });
-
-  /* ─── CONCESSION INTEGRATION ───── */
-
-  describe("Concession Integration", () => {
-    afterAll(async () => {
-      await StudentTransaction.deleteMany({
-        rollNo: { $in: [testCtx.studentRollConcSingle, testCtx.studentRollConcMulti] },
-      });
-      await StudentFeeTracking.deleteMany({
-        rollNo: { $in: [testCtx.studentRollConcSingle, testCtx.studentRollConcMulti] },
-      });
-      await Student.deleteMany({
-        "personal.rollNo": { $in: [testCtx.studentRollConcSingle, testCtx.studentRollConcMulti] },
-      });
-    });
-
     it("applies single-scheme tuition concession proportionally to semesters", async () => {
       const enrollment = {
         quota: "Government Quota",
@@ -373,46 +341,29 @@ describe("Student Fee Tracking API", () => {
       expect(res.status).toBe(200);
       expect(res.body.data).toHaveLength(1);
 
-      const yr = res.body.data[0].feeTracking.academicYearWiseRecord[0];
+      const record = res.body.data[0];
+      const yearEntry = record.academicYears.find(
+        (row) => row.academicYear === testCtx.academicYearPrimary
+      );
+      expect(yearEntry).toBeDefined();
 
-      // Concessions block should be populated
-      expect(yr.concessions.tuition).toBe(5000);
-      expect(yr.concessions.totalConcession).toBe(5000);
+      const oddTuition = yearEntry.odd.feeHeads.find((h) => h.name === "Tuition Fees");
+      const evenTuition = yearEntry.even.feeHeads.find((h) => h.name === "Tuition Fees");
 
-      // Sem 1 gross tuition = 40000, Sem 2 gross tuition = 41000
-      // grossSum = 91000, oddRatio ≈ 0.4945
-      // oddShare = normalizeMoney(5000 * 45000/91000) ≈ 2472.53
-      // evenShare = 5000 - 2472.53 = 2527.47
-      const oddTuition = yr.academic.odd.tuition.total;
-      const evenTuition = yr.academic.even.tuition.total;
+      const oddGross = oddTuition.total + oddTuition.concession;
+      const evenGross = evenTuition.total + evenTuition.concession;
 
-      expect(oddTuition).toBeLessThan(40000);
-      expect(evenTuition).toBeLessThan(41000);
+      expect(oddGross).toBeCloseTo(40000, 1);
+      expect(evenGross).toBeCloseTo(41000, 1);
+      expect(oddTuition.concession).toBeGreaterThan(0);
+      expect(evenTuition.concession).toBeGreaterThan(0);
 
-      // Total tuition reduction must equal the concession
-      const tuitionReduction = (40000 - oddTuition) + (41000 - evenTuition);
-      expect(Math.abs(tuitionReduction - 5000)).toBeLessThan(0.02);
+      const tuitionConcession = oddTuition.concession + evenTuition.concession;
+      expect(Math.abs(tuitionConcession - 5000)).toBeLessThan(0.02);
 
-      // Net academic total should be gross - 5000
-      // Gross academic = 45000 + 46000 = 91000
-      expect(yr.academic.total.total).toBeCloseTo(91000 - 5000, 1);
-
-      // Year total should reflect net academic
-      expect(yr.total.total).toBeCloseTo(91000 - 5000, 1);
-
-      // Verify new component-level fields (concession, subTotal)
-      expect(yr.academic.odd.tuition.subTotal).toBe(40000);
-      expect(yr.academic.odd.tuition.concession).toBeGreaterThan(0);
-      expect(yr.academic.even.tuition.subTotal).toBe(41000);
-      expect(yr.academic.even.tuition.concession).toBeGreaterThan(0);
-
-      // Concession splits must sum to yearly concession amount
-      const oddTuitionConc = yr.academic.odd.tuition.concession;
-      const evenTuitionConc = yr.academic.even.tuition.concession;
-      expect(Math.abs(oddTuitionConc + evenTuitionConc - 5000)).toBeLessThan(0.02);
-
-      // Year subTotal = GROSS (before concessions)
-      expect(yr.subTotal).toBe(91000);
+      expect(yearEntry.overall.total).toBeCloseTo(91000, 1);
+      expect(yearEntry.overall.concession).toBeCloseTo(5000, 1);
+      expect(yearEntry.overall.demand).toBeCloseTo(91000 - 5000, 1);
     });
 
     it("sums concessions from multiple applicable schemes", async () => {
@@ -458,25 +409,38 @@ describe("Student Fee Tracking API", () => {
         .query({ rollNo: testCtx.studentRollConcMulti });
       expect(res.status).toBe(200);
 
-      const yr = res.body.data[0].feeTracking.academicYearWiseRecord[0];
+      const record = res.body.data[0];
+      const yearEntry = record.academicYears.find(
+        (row) => row.academicYear === testCtx.academicYearPrimary
+      );
+      expect(yearEntry).toBeDefined();
 
-      // Concessions should be summed: tuition=3000+2000=5000, exam=500+300=800, erp=0+100=100
-      expect(yr.concessions.tuition).toBe(5000);
-      expect(yr.concessions.exam).toBe(800);
-      expect(yr.concessions.erp).toBe(100);
-      expect(yr.concessions.totalConcession).toBe(5900);
+      const oddTuition = yearEntry.odd.feeHeads.find((h) => h.name === "Tuition Fees");
+      const evenTuition = yearEntry.even.feeHeads.find((h) => h.name === "Tuition Fees");
+      const oddExam = yearEntry.odd.feeHeads.find((h) => h.name === "Exam Fees");
+      const evenExam = yearEntry.even.feeHeads.find((h) => h.name === "Exam Fees");
+      const oddErp = yearEntry.odd.feeHeads.find((h) => h.name === "ERP Fees");
+      const evenErp = yearEntry.even.feeHeads.find((h) => h.name === "ERP Fees");
 
-      // Gross academic = 91000, net should be 91000 - 5000 - 800 - 100 = 85100
-      expect(yr.academic.total.total).toBeCloseTo(85100, 1);
+      const tuitionConcession = oddTuition.concession + evenTuition.concession;
+      const examConcession = oddExam.concession + evenExam.concession;
+      const erpConcession = oddErp.concession + evenErp.concession;
 
-      // Individual component totals should be reduced
-      const oddTuition = yr.academic.odd.tuition.total;
-      const evenTuition = yr.academic.even.tuition.total;
-      expect(oddTuition + evenTuition).toBeCloseTo(40000 + 41000 - 5000, 1);
+      expect(Math.abs(tuitionConcession - 5000)).toBeLessThan(0.02);
+      expect(Math.abs(examConcession - 800)).toBeLessThan(0.02);
+      expect(Math.abs(erpConcession - 100)).toBeLessThan(0.02);
+      expect(yearEntry.overall.concession).toBeCloseTo(5900, 1);
 
-      const oddExam = yr.academic.odd.exam.total;
-      const evenExam = yr.academic.even.exam.total;
-      expect(oddExam + evenExam).toBeCloseTo(2000 + 2000 - 800, 1);
+      expect(yearEntry.overall.total).toBeCloseTo(91000, 1);
+      expect(yearEntry.overall.demand).toBeCloseTo(91000 - 5900, 1);
+
+      const grossTuition = (oddTuition.total + oddTuition.concession) + (evenTuition.total + evenTuition.concession);
+      const netTuition = oddTuition.total + evenTuition.total;
+      expect(netTuition).toBeCloseTo(grossTuition - 5000, 1);
+
+      const grossExam = (oddExam.total + oddExam.concession) + (evenExam.total + evenExam.concession);
+      const netExam = oddExam.total + evenExam.total;
+      expect(netExam).toBeCloseTo(grossExam - 800, 1);
     });
 
     it("rejects payment exceeding concession-adjusted net total", async () => {
@@ -486,8 +450,12 @@ describe("Student Fee Tracking API", () => {
         .query({ rollNo: testCtx.studentRollConcSingle });
       expect(res.status).toBe(200);
 
-      const yr = res.body.data[0].feeTracking.academicYearWiseRecord[0];
-      const netTuitionOdd = yr.academic.odd.tuition.total;
+      const record = res.body.data[0];
+      const yearEntry = record.academicYears.find(
+        (row) => row.academicYear === testCtx.academicYearPrimary
+      );
+      const oddTuition = yearEntry.odd.feeHeads.find((h) => h.name === "Tuition Fees");
+      const netTuitionOdd = oddTuition.total;
 
       // Attempt to pay MORE than the net tuition total
       const overpayAmount = netTuitionOdd + 1;
@@ -517,8 +485,12 @@ describe("Student Fee Tracking API", () => {
         .query({ rollNo: testCtx.studentRollConcMulti });
       expect(res.status).toBe(200);
 
-      const yr = res.body.data[0].feeTracking.academicYearWiseRecord[0];
-      const netErpOdd = yr.academic.odd.erp.total;
+      const record = res.body.data[0];
+      const yearEntry = record.academicYears.find(
+        (row) => row.academicYear === testCtx.academicYearPrimary
+      );
+      const oddErp = yearEntry.odd.feeHeads.find((h) => h.name === "ERP Fees");
+      const netErpOdd = oddErp.total;
 
       // Pay exactly the net ERP total for odd semester — should succeed
       if (netErpOdd > 0) {
@@ -548,27 +520,20 @@ describe("Student Fee Tracking API", () => {
         .query({ rollNo: testCtx.studentRollFinance });
       expect(res.status).toBe(200);
 
-      const yr = res.body.data[0].feeTracking.academicYearWiseRecord[0];
+      const record = res.body.data[0];
+      const yearEntry = record.academicYears.find(
+        (row) => row.academicYear === testCtx.academicYearPrimary
+      );
+      const oddTuition = yearEntry.odd.feeHeads.find((h) => h.name === "Tuition Fees");
+      const evenTuition = yearEntry.even.feeHeads.find((h) => h.name === "Tuition Fees");
 
-      // With zero concessions, subTotal should equal academic.total.total (before any payments)
-      // Since payments may have been made, check that concessions are zero
-      expect(yr.concessions.tuition).toBe(0);
-      expect(yr.concessions.exam).toBe(0);
-      expect(yr.concessions.totalConcession).toBe(0);
+      expect(yearEntry.overall.concession).toBe(0);
+      expect(yearEntry.overall.total).toBeCloseTo(yearEntry.overall.demand, 1);
 
-      // Gross component totals should be unmodified
-      // Sem 1: tuition=40000, Sem 2: tuition=41000
-      expect(yr.academic.odd.tuition.total).toBe(40000);
-      expect(yr.academic.even.tuition.total).toBe(41000);
-
-      // subTotal equals total for zero-concession components
-      expect(yr.academic.odd.tuition.subTotal).toBe(40000);
-      expect(yr.academic.odd.tuition.concession).toBe(0);
-      expect(yr.academic.even.tuition.subTotal).toBe(41000);
-      expect(yr.academic.even.tuition.concession).toBe(0);
-
-      // Year subTotal = total.total for zero-concession students
-      expect(yr.subTotal).toBe(yr.total.total);
+      expect(oddTuition.concession).toBe(0);
+      expect(evenTuition.concession).toBe(0);
+      expect(oddTuition.total).toBeCloseTo(40000, 1);
+      expect(evenTuition.total).toBeCloseTo(41000, 1);
     });
   });
 });

@@ -334,60 +334,198 @@ const getStudentsFeeTrackingData = async (query = {}) => {
     return acc;
   }, {});
 
-  /* ────────────────────────────────────────────────
-     Remove redundant internal fields from tracking
-  ──────────────────────────────────────────────── */
-const stripTracking = (t) => {
-  if (!t) return null;
+  const computeStatus = (demand, paid) => {
+    if (demand === 0) return "Paid";
+    if (paid >= demand) return "Paid";
+    if (paid > 0) return "Partial";
+    return "Unpaid";
+  };
 
-  const { _id, student, __v, rollNo, ...rest } = t;
-  return rest;
-};
+  const ACADEMIC_HEADS = ["tuition", "exam", "erp", "book", "lab"];
+
+  const HEAD_LABELS = {
+    tuition: "Tuition Fees",
+    exam: "Exam Fees",
+    erp: "ERP Fees",
+    book: "Book Fees",
+    lab: "Lab Fees",
+  };
+
+  const buildStudentProfile = (s) => ({
+    rollNo: s.personal?.rollNo,
+    name: s.personal?.studentName,
+    photo: s.personal?.studentPhoto,
+    department: s.academic?.departmentName,
+    section: s.academic?.section,
+    batch: s.academic?.batch,
+    currentAcademicYear: s.academic?.currentAcademicYear,
+  });
+
+  const buildContactPerson = (person) => {
+    const name = person?.name || null;
+    const phoneNumber = person?.mobile || null;
+    if (!name && !phoneNumber) return {};
+    return { name, phoneNumber };
+  };
+
+  const buildContactBlock = (s) => ({
+    student: {
+      mobile: s.contact?.selfMobileNo || null,
+      email: s.contact?.selfEmail || null,
+    },
+    father: buildContactPerson(s.family?.father),
+    mother: buildContactPerson(s.family?.mother),
+    guardian: buildContactPerson(s.family?.guardian),
+  });
+
+  const buildOverall = ({ demand, concession, paid, total, status, studentType }) => {
+    const overdue = normalizeMoney(Math.max(0, demand - paid));
+    const overall = {
+      demand: normalizeMoney(demand),
+      concession: normalizeMoney(concession),
+      paid: normalizeMoney(paid),
+      overdue,
+      status,
+      total: normalizeMoney(total),
+    };
+
+    if (studentType) {
+      overall.studentType = studentType;
+    }
+
+    return overall;
+  };
+
+  const parseAcademicYearStart = (year) => {
+    const start = parseInt(String(year || "").split("-")[0], 10);
+    return Number.isFinite(start) ? start : 0;
+  };
+
   /* ────────────────────────────────────────────────
      Shape Final Response
   ──────────────────────────────────────────────── */
-  return students.map((s) => ({
-    student: {
-      personal: {
-        rollNo: s.personal?.rollNo,
-        studentName: s.personal?.studentName,
-        gender: s.personal?.gender,
-        studentPhoto: s.personal?.studentPhoto,
+  return students.map((s) => {
+    const tracking = trackingMap[s.personal?.rollNo];
+    const yearRecords = [...(tracking?.academicYearWiseRecord || [])].sort(
+      (a, b) => parseAcademicYearStart(a.academicYear) - parseAcademicYearStart(b.academicYear)
+    );
+
+    const studentType = {
+      transport: s.transport?.isApplicable === true,
+      hostel: s.hostel?.isApplicable === true,
+    };
+
+    const feeSummary = yearRecords.map((yr) => {
+      const demand = normalizeMoney(yr.total?.total || 0);
+      const paid = normalizeMoney(yr.total?.paid || 0);
+      const concession = normalizeMoney(
+        (yr.concessions?.totalConcession || 0) + (yr.hostel?.hostelSpecialConcession || 0)
+      );
+      const total = normalizeMoney(yr.subTotal || 0);
+
+      return {
+        academicYear: yr.academicYear,
+        community: s.personal?.community,
+        demand,
+        concession,
+        paid,
+        overdue: normalizeMoney(Math.max(0, demand - paid)),
+        status: computeStatus(demand, paid),
+        total,
+        studentType,
+      };
+    });
+
+    const overallRaw = feeSummary.reduce(
+      (acc, yr) => {
+        acc.demand += yr.demand;
+        acc.concession += yr.concession;
+        acc.paid += yr.paid;
+        acc.total += yr.total;
+        return acc;
       },
+      { demand: 0, concession: 0, paid: 0, total: 0 }
+    );
 
-      academic: s.academic,
-      contact: s.contact,
+    const overall = buildOverall({
+      demand: overallRaw.demand,
+      concession: overallRaw.concession,
+      paid: overallRaw.paid,
+      total: overallRaw.total,
+      status: computeStatus(
+        normalizeMoney(overallRaw.demand),
+        normalizeMoney(overallRaw.paid)
+      ),
+    });
 
-      enrollment: s.enrollment
-        ? {
-            quota: s.enrollment?.quota,
+    const buildSemesterDetail = (sem) => {
+      if (!sem) return null;
 
-            firstGraduate: cleanApplicableBlock(
-              s.enrollment?.firstGraduate
-            ),
-            scheme7point5: cleanApplicableBlock(
-              s.enrollment?.scheme7point5
-            ),
-            pmssScheme: cleanApplicableBlock(
-              s.enrollment?.pmssScheme
-            ),
-            sakthiScheme: cleanApplicableBlock(
-              s.enrollment?.sakthiScheme
-            ),
-            specialConcession: cleanApplicableBlock(
-              s.enrollment?.specialConcession
-            ),
-          }
-        : null,
+      const feeHeads = ACADEMIC_HEADS.map((head) => {
+        const comp = sem[head] || {};
+        const total = normalizeMoney(comp.total || 0);
+        const paid = normalizeMoney(comp.paid || 0);
+        const concession = normalizeMoney(comp.concession || 0);
+        return {
+          name: HEAD_LABELS[head],
+          total,
+          concession,
+          paid,
+          overdue: normalizeMoney(Math.max(0, total - paid)),
+          status: comp.status || computeStatus(total, paid),
+        };
+      });
 
-      transport: cleanApplicableBlock(s.transport),
-      hostel: cleanApplicableBlock(s.hostel),
-    },
+      const demand = normalizeMoney(sem.total?.total || 0);
+      const paid = normalizeMoney(sem.total?.paid || 0);
+      const total = normalizeMoney(sem.subTotal || 0);
+      const concession = normalizeMoney(Math.max(0, total - demand));
 
-    feeTracking: stripTracking(
-      trackingMap[s.personal?.rollNo] || null
-    ),
-  }));
+      return {
+        semesterNumber: sem.semesterNumber,
+        feeHeads,
+        overall: buildOverall({
+          demand,
+          concession,
+          paid,
+          total,
+          status: sem.total?.status || computeStatus(demand, paid),
+          studentType,
+        }),
+      };
+    };
+
+    const academicYears = yearRecords.map((yr) => {
+      const demand = normalizeMoney(yr.total?.total || 0);
+      const paid = normalizeMoney(yr.total?.paid || 0);
+      const total = normalizeMoney(yr.subTotal || 0);
+      const concession = normalizeMoney(Math.max(0, total - demand));
+
+      return {
+        academicYear: yr.academicYear,
+        odd: buildSemesterDetail(yr.academic?.odd),
+        even: buildSemesterDetail(yr.academic?.even),
+        overall: buildOverall({
+          demand,
+          concession,
+          paid,
+          total,
+          status: yr.total?.status || computeStatus(demand, paid),
+          studentType,
+        }),
+      };
+    });
+
+    return {
+      studentCurrentAcademicYear: s.academic?.currentAcademicYear || null,
+      feeAcademicYears: feeSummary.map((entry) => entry.academicYear),
+      feeSummary,
+      overall,
+      student: buildStudentProfile(s),
+      contact: buildContactBlock(s),
+      academicYears,
+    };
+  });
 };
 
 /* ────────────────────────────────────────────────

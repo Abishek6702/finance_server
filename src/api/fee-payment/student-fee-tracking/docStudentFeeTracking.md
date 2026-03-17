@@ -29,7 +29,7 @@ The **Student Fee Tracking** module provides a read-only view of per-student fee
 
 **Auth required:** Yes — Admin (`admin` or `superadmin`)
 
-**Description:** Returns a list of students with their associated fee tracking records. Supports filtering by `batch`, `department`, and `rollNo`.
+**Description:** Returns a list of students with their fee summary and academic-year/semester breakdown. Supports filtering by `batch`, `department`, and `rollNo`.
 
 #### Request
 
@@ -119,68 +119,74 @@ No request body or query params.
   "success": true,
   "data": [
     {
-      "student": {
-        "_id": "665f1a2b3c4d5e6f7a8b9c20",
-        "personal": {
-          "rollNo": "25CS101",
-          "studentName": "Arun Kumar",
-          "gender": "Male"
-        },
-        "academic": {
-          "departmentName": "CSE",
-          "degreeProgram": "BE",
-          "batch": "2025-2029",
-          "currentAcademicYear": "2025-2026",
-          "currentSemesterNumber": 1
-        },
-        "contact": {
-          "selfMobileNo": "9876543210",
-          "officialEmail": "arun.25cs101@sece.ac.in"
+      "studentCurrentAcademicYear": "2026-2027",
+      "feeAcademicYears": ["2025-2026", "2026-2027"],
+      "feeSummary": [
+        {
+          "academicYear": "2025-2026",
+          "community": "BC",
+          "demand": 90000,
+          "concession": 0,
+          "paid": 0,
+          "overdue": 90000,
+          "status": "Unpaid",
+          "total": 90000,
+          "studentType": { "transport": false, "hostel": false }
         }
+      ],
+      "overall": {
+        "demand": 184000,
+        "concession": 0,
+        "paid": 10000,
+        "overdue": 174000,
+        "status": "Partial",
+        "total": 184000
       },
-      "feeTracking": {
-        "_id": "665f1a2b3c4d5e6f7a8b9c30",
-        "rollNo": "25CS101",
-        "academicYearWiseRecord": [
-          {
-            "academicYear": "2025-2026",
-            "academic": {
-              "odd": {
-                "tuition": { "total": 75000, "paid": 30000, "status": "Partial" },
-                "exam":    { "total": 1500,  "paid": 1500,  "status": "Paid" },
-                "erp":     { "total": 500,   "paid": 0,     "status": "Unpaid" },
-                "book":    { "total": 1000,  "paid": 0,     "status": "Unpaid" },
-                "lab":     { "total": 2000,  "paid": 0,     "status": "Unpaid" },
-                "total":   { "total": 80000, "paid": 31500, "status": "Partial" }
-              },
-              "even": { "..." : "..." },
-              "total": { "total": 160000, "paid": 31500, "status": "Partial" }
-            },
-            "hostel": {
-              "block": "A",
-              "sharing": 2,
-              "isAttached": true,
-              "fee": 70000,
-              "total": { "total": 70000, "paid": 0, "status": "Unpaid" }
-            },
-            "transport": {
-              "route": "Route 1",
-              "busNo": "TN-01-AB-1234",
-              "stop": "Erode",
-              "fee": 12000,
-              "total": { "total": 12000, "paid": 0, "status": "Unpaid" }
-            },
-            "concessions": {
-              "firstGraduate": 5000,
-              "scheme7point5": 0,
-              "pmss": 0,
-              "sakthi": 0,
-              "totalConcession": 5000
-            },
-            "total": { "total": 242000, "paid": 31500, "status": "Partial" }
+      "student": {
+        "rollNo": "25ME144",
+        "name": "Student 44",
+        "photo": "https://res.cloudinary.com/dmini3yl9/image/upload/v1773126200/women_nxpvy7.png",
+        "department": "MECH",
+        "section": "A",
+        "batch": "2025-2029",
+        "currentAcademicYear": "2026-2027"
+      },
+      "contact": {
+        "student": { "mobile": "9876541044", "email": "student44@gmail.com" },
+        "father": { "name": "Father 44", "phoneNumber": "9876551044" },
+        "mother": { "name": "Mother 44", "phoneNumber": "9876561044" },
+        "guardian": {}
+      },
+      "academicYears": [
+        {
+          "academicYear": "2026-2027",
+          "odd": {
+            "semesterNumber": 3,
+            "feeHeads": [
+              { "name": "Tuition Fees", "total": 42000, "concession": 0, "paid": 0, "overdue": 42000, "status": "Unpaid" }
+            ],
+            "overall": {
+              "demand": 47000,
+              "concession": 0,
+              "paid": 0,
+              "overdue": 47000,
+              "status": "Unpaid",
+              "total": 47000,
+              "studentType": { "transport": false, "hostel": false }
+            }
+          },
+          "even": { "...": "..." },
+          "overall": {
+            "demand": 94000,
+            "concession": 0,
+            "paid": 10000,
+            "overdue": 84000,
+            "status": "Partial",
+            "total": 94000,
+            "studentType": { "transport": false, "hostel": false }
           }
-        ]
-      }
+        }
+      ]
     }
   ],
   "message": "Student fee tracking data fetched successfully"
@@ -245,7 +251,7 @@ No request body or query params.
 
 ## 3. Edge Cases
 
-- **Combined data response:** Each result item contains the full `student` document paired with its `feeTracking` document. If a tracking record does not exist for a student, `feeTracking` is `null`.
+- **Combined response:** Each result item contains `feeSummary` and `academicYears`. If a tracking record does not exist for a student, `feeSummary` and `academicYears` will be empty.
 - **Filter behaviour:** All filters are ANDed together. Providing no filters returns every student with their tracking record.
 - **`department` is case-insensitive** in the query parameter but is matched case-insensitively against the stored department name.
 - **`rollNo` filter** is an exact match; partial roll number queries are not supported via this endpoint.

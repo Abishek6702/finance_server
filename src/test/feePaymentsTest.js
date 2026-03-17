@@ -100,9 +100,13 @@ describe("Fee Payment / Transaction API", () => {
       .query({ rollNo });
     expect(trackRes.status).toBe(200);
 
-    const yr = trackRes.body.data[0].feeTracking.academicYearWiseRecord[0];
-    const grossTuition = yr.academic.odd.tuition.subTotal;
-    const netTuition = yr.academic.odd.tuition.total;
+    const record = trackRes.body.data[0];
+    const yearEntry = record.academicYears.find(
+      (row) => row.academicYear === testCtx.academicYearPrimary
+    );
+    const oddTuition = yearEntry.odd.feeHeads.find((h) => h.name === "Tuition Fees");
+    const grossTuition = oddTuition.total + oddTuition.concession;
+    const netTuition = oddTuition.total;
 
     // Confirm concession is applied: net < gross
     expect(netTuition).toBeLessThan(grossTuition);
