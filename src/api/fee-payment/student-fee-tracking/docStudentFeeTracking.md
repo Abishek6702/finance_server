@@ -49,6 +49,33 @@ GET /api/studentFeeTracking?batch=2025-2029&department=CSE
 
 ---
 
+
+
+### GET `/api/studentFeeTracking/v2/`
+
+**Auth required:** Yes — Admin (`admin` or `superadmin`)
+
+**Description:** Returns a list of students with their fee summary and academic-year/semester breakdown. Supports filtering by `batch`, `department`, and `rollNo`.
+
+#### Request
+
+##### Query Parameters
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `batch` | string | No | Format `YYYY-YYYY` (e.g. `2025-2029`) |
+| `department` | string | No | One of: `CSE`, `IT`, `AIML`, `AIDS`, `ECE`, `EEE`, `MECH`, `CIVIL` (case-insensitive) |
+| `rollNo` | string | No | Exact roll number (e.g. `25CS101`) |
+
+##### Example Request
+
+```
+GET /api/studentFeeTracking/v2/?batch=2025-2029&department=CSE
+```
+
+---
+
+
 ### POST `/api/studentFeeTracking/backfill`
 
 **Auth required:** Yes — Superadmin

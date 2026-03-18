@@ -910,6 +910,63 @@
           "response": []
         },
         {
+          "name": "Get Students with Fee Tracking V2",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/studentFeeTracking/v2/?batch={{academic_year}}&department=CSE&rollNo={{student_roll_no}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "studentFeeTracking"
+              ],
+              "query": [
+                {
+                  "key": "batch",
+                  "value": "{{academic_year}}",
+                  "description": "Filter by batch (YYYY-YYYY format)",
+                  "disabled": true
+                },
+                {
+                  "key": "department",
+                  "value": "CSE",
+                  "description": "Filter by department (CSE, IT, AIML, AIDS, ECE, EEE, MECH, CIVIL)",
+                  "disabled": true
+                },
+                {
+                  "key": "rollNo",
+                  "value": "{{student_roll_no}}",
+                  "description": "Filter by exact roll number"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Students with fee tracking fetched', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.equal(true);",
+                  "  pm.expect(body.data).to.be.an('array');",
+                  "  if (body.data.length > 0) {",
+                  "    pm.expect(body.data[0].student).to.be.an('object');",
+                  "    pm.expect(body.data[0].student.personal).to.be.an('object');",
+                  "    pm.expect(body.data[0].student.academic).to.be.an('object');",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
           "name": "Backfill Student Fee Tracking (Superadmin)",
           "request": {
             "method": "POST",
