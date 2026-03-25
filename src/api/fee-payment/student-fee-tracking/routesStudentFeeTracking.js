@@ -8,9 +8,9 @@ router.post("/backfill", protect, superadmin, validateBackfillRequest, controlle
 
 router.use(protect, admin);
 
-router.get("/v2/", validateGetQuery, controller.getStudentsFeeTrackingData);
+router.get("/", validateGetQuery, controller.getStudentsFeeTrackingData);
 
-router.get("/", validateGetQuery, controller.getStudentsFeeTrackingData2);
+router.get("/v2/", validateGetQuery, controller.getStudentsFeeTrackingData2);
 
 module.exports = router;
 

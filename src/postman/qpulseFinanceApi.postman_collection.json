@@ -1190,6 +1190,178 @@
       ]
     },
     {
+      "name": "Fee Demand",
+      "item": [
+        {
+          "name": "Get Fee Demand List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/feedemands?rollNo={{student_roll_no}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feedemands"
+              ],
+              "query": [
+                {
+                  "key": "rollNo",
+                  "value": "{{student_roll_no}}",
+                  "description": "Exact roll number lookup"
+                },
+                {
+                  "key": "batch",
+                  "value": "{{batch_year}}",
+                  "description": "Filter by batch (YYYY-YYYY)",
+                  "disabled": true
+                },
+                {
+                  "key": "department",
+                  "value": "CSE",
+                  "description": "Filter by department",
+                  "disabled": true
+                },
+                {
+                  "key": "academicYear",
+                  "value": "{{academic_year}}",
+                  "description": "Limit fee aggregation to one academic year",
+                  "disabled": true
+                },
+                {
+                  "key": "studyingYear",
+                  "value": "1",
+                  "description": "Filter by currently studying year (1-4)",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Fee demand list fetched', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.equal(true);",
+                  "  pm.expect(body.data).to.be.an('array');",
+                  "  pm.expect(body.pagination).to.be.an('object');",
+                  "  pm.expect(body.pagination.totalRecords).to.be.a('number');",
+                  "  if (body.data.length > 0) {",
+                  "    pm.expect(body.data[0].student.currentAcademicYear).to.be.a('string');",
+                  "    pm.expect(body.data[0].fee.academicYears).to.be.an('array');",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get Fee Demand By Roll No",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/feedemands/{{student_roll_no}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feedemands",
+                "{{student_roll_no}}"
+              ],
+              "query": [
+                {
+                  "key": "includeProfile",
+                  "value": "true",
+                  "description": "Include student profile and contact (default true)",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Year-wise fee demand fetched', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.equal(true);",
+                  "  pm.expect(body.data.studentCurrentAcademicYear).to.be.a('string');",
+                  "  pm.expect(body.data.feeAcademicYears).to.be.an('array');",
+                  "  pm.expect(body.data.feeSummary).to.be.an('array');",
+                  "  pm.expect(body.data.overall).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get Fee Demand By Roll No & Academic Year",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/feedemands/{{student_roll_no}}/{{academic_year}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feedemands",
+                "{{student_roll_no}}",
+                "{{academic_year}}"
+              ],
+              "query": [
+                {
+                  "key": "semester",
+                  "value": "odd",
+                  "description": "Filter to odd or even semester only",
+                  "disabled": true
+                },
+                {
+                  "key": "includeProfile",
+                  "value": "true",
+                  "description": "Include student profile and contact (default true)",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Semester fee demand fetched', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.equal(true);",
+                  "  pm.expect(body.data.studentCurrentAcademicYear).to.be.a('string');",
+                  "  pm.expect(body.data.feeAcademicYear).to.be.a('string');",
+                  "  pm.expect(body.data.semesters).to.be.an('array');",
+                  "  pm.expect(body.data.academicYear).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Reports", 
       "item": [
                 {
@@ -1581,434 +1753,7 @@
       ]
     },
    
-      {
-      "name": "Hostel",
-      "item": [
-        {
-          "name": "Get Full Mapping",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/hostel",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "hostel"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Blocks",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/hostel/blocks",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "hostel",
-                "blocks"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"sharing\": 3,\n  \"isAttached\": true\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Room Types",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/hostel/roomTypes",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "hostel",
-                "roomTypes"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"block\": \"A-BLOCK\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Fees",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/hostel/fees",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "hostel",
-                "fees"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"block\": \"A-BLOCK\",\n  \"sharing\": 3,\n  \"isAttached\": true\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Add Hostel",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/hostel/add",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "hostel",
-                "add"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"block\": \"B-BLOCK\",\n  \"sharing\": 2,\n  \"isAttached\": false,\n  \"fee\": 45000\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Bulk Add Hostel",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/hostel/bulk",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "hostel",
-                "bulk"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"records\": [\n    {\n      \"block\": \"C-BLOCK\",\n      \"sharing\": 4,\n      \"isAttached\": false,\n      \"fee\": 35000\n    },\n    {\n      \"block\": \"C-BLOCK\",\n      \"sharing\": 3,\n      \"isAttached\": true,\n      \"fee\": 42000\n    }\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Update Hostel",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/hostel/{{hostel_id}}",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "hostel",
-                "{{hostel_id}}"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"fee\": 48000,\n  \"sharing\": 2,\n  \"isAttached\": true\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "Transport",
-      "item": [
-        {
-          "name": "Get Full Mapping",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/transport",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "transport"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Stops",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/transport/stops",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "transport",
-                "stops"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"route\": \"Bharathiyar University\",\n  \"busNo\": \"1\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Buses",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/transport/buses",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "transport",
-                "buses"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"stop\": \"Vadavalli\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Fees",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/transport/fees",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "transport",
-                "fees"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"busNo\": \"1\",\n  \"stop\": \"Vadavalli\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Add Transport",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/transport/add",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "transport",
-                "add"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"route\": \"Gandhipuram\",\n  \"busNo\": \"10\",\n  \"stop\": \"Peelamedu\",\n  \"fee\": 15000\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Bulk Add Transport",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/transport/bulk",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "transport",
-                "bulk"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"records\": [\n    {\n      \"route\": \"Gandhipuram\",\n      \"busNo\": \"10\",\n      \"stop\": \"Singanallur\",\n      \"fee\": 12000\n    },\n    {\n      \"route\": \"Gandhipuram\",\n      \"busNo\": \"10\",\n      \"stop\": \"Ukkadam\",\n      \"fee\": 14000\n    }\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Update Transport",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/transport/{{transport_id}}",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "transport",
-                "{{transport_id}}"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"fee\": 16000,\n  \"stop\": \"Peelamedu Junction\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        }
-      ]
-    },
+     
     {
       "name": "Refund",
       "item": [
@@ -2020,6 +1765,11 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "x-idempotency-key",
+                "value": "refund-{{$timestamp}}",
+                "type": "text"
               }
             ],
             "url": {
@@ -2056,6 +1806,60 @@
                   "  pm.expect(body.data.refundReceiptNo).to.match(/^RF-\\d{4}-\\d{5}$/);",
                   "  pm.expect(body.data.status).to.equal('completed');",
                   "  pm.environment.set('refund_receipt_no', body.data.refundReceiptNo);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Process Refund - Excess Amount (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-idempotency-key",
+                "value": "refund-excess-{{$timestamp}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/refund/{{student_roll_no}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "refund",
+                "{{student_roll_no}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"academicYear\": \"2025-2026\",\n  \"feeHead\": \"excessAmount\",\n  \"refundAmount\": 500,\n  \"reason\": \"Refunding excess balance\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Process a refund for excessAmount. semNumber is omitted."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Refund processed successfully', function () {",
+                  "  if (pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.success).to.equal(true);",
+                  "  }",
                   "});"
                 ]
               }
@@ -2270,180 +2074,7 @@
         }
       ]
     }
-    ,
-    {
-      "name": "Student Facility Management",
-      "description": "Manage student transport and hostel facility assignments. Requires admin auth.\n\nEndpoint: PUT /api/studentFacility/:rollNo\n\n- Updates transport and/or hostel for a student from `applyFromAcademicYear` onwards (up to batch end).\n- Blocked if the facility fee for `applyFromAcademicYear` is already Paid or Partial.",
-      "item": [
-        {
-          "name": "Update Transport Only",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/studentFacility/{{student_roll_no}}",
-              "host": ["{{base_url}}"],
-              "path": ["studentFacility", "{{student_roll_no}}"]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"applyFromAcademicYear\": \"{{academic_year}}\",\n  \"transport\": {\n    \"isApplicable\": true,\n    \"route\": \"Bharathiyar University\",\n    \"stopName\": \"Vadavalli\"\n  }\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "description": "Assign or change a student's transport from the given academic year onwards. Provide `transport.isApplicable: false` to remove transport."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Update transport success', function () {",
-                  "  pm.response.to.have.status(200);",
-                  "  const body = pm.response.json();",
-                  "  pm.expect(body.success).to.be.true;",
-                  "  pm.expect(body.data.student).to.be.an('object');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "response": []
-        },
-        {
-          "name": "Remove Transport",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/studentFacility/{{student_roll_no}}",
-              "host": ["{{base_url}}"],
-              "path": ["studentFacility", "{{student_roll_no}}"]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"applyFromAcademicYear\": \"{{academic_year}}\",\n  \"transport\": {\n    \"isApplicable\": false\n  }\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "description": "Remove transport facility from the given academic year onwards."
-          },
-          "response": []
-        },
-        {
-          "name": "Update Hostel Only",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/studentFacility/{{student_roll_no}}",
-              "host": ["{{base_url}}"],
-              "path": ["studentFacility", "{{student_roll_no}}"]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"applyFromAcademicYear\": \"{{academic_year}}\",\n  \"hostel\": {\n    \"isApplicable\": true,\n    \"block\": \"A\",\n    \"sharing\": 2,\n    \"isAttached\": true\n  }\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "description": "Assign or change a student's hostel from the given academic year onwards. Fields required when `isApplicable: true`: `block` (string), `sharing` (number of occupants), `isAttached` (boolean, attached bathroom)."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Update hostel success', function () {",
-                  "  pm.response.to.have.status(200);",
-                  "  const body = pm.response.json();",
-                  "  pm.expect(body.success).to.be.true;",
-                  "  pm.expect(body.data.student).to.be.an('object');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "response": []
-        },
-        {
-          "name": "Remove Hostel",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/studentFacility/{{student_roll_no}}",
-              "host": ["{{base_url}}"],
-              "path": ["studentFacility", "{{student_roll_no}}"]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"applyFromAcademicYear\": \"{{academic_year}}\",\n  \"hostel\": {\n    \"isApplicable\": false\n  }\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "description": "Remove hostel facility from the given academic year onwards."
-          },
-          "response": []
-        },
-        {
-          "name": "Update Transport + Hostel",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/studentFacility/{{student_roll_no}}",
-              "host": ["{{base_url}}"],
-              "path": ["studentFacility", "{{student_roll_no}}"]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"applyFromAcademicYear\": \"{{academic_year}}\",\n  \"transport\": {\n    \"isApplicable\": true,\n    \"route\": \"Bharathiyar University\",\n    \"stopName\": \"Vadavalli\"\n  },\n  \"hostel\": {\n    \"isApplicable\": true,\n    \"block\": \"A\",\n    \"sharing\": 2,\n    \"isAttached\": true\n  }\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "description": "Update both transport and hostel for a student in a single request."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Update transport + hostel success', function () {",
-                  "  pm.response.to.have.status(200);",
-                  "  const body = pm.response.json();",
-                  "  pm.expect(body.success).to.be.true;",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "response": []
-        }
-      ]
-    }
+  
   ],
   "auth": {
     "type": "bearer",

@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const FeeRefund = require("./model.refund");
 const RefundCounter = require("./modelRefundCounter");
 const StudentFeeTracking = require("../student-fee-tracking/modelStudentFeeTracking");
@@ -36,126 +37,175 @@ const getNextRefundReceiptNo = async () => {
    all parent totals, then creates an immutable FeeRefund record.
 =================================================================== */
 const createRefund = async (data, userId) => {
-  const { rollNo, academicYear, semNumber, feeHead, refundAmount, reason } = data;
+  const { rollNo, academicYear, semNumber, feeHead, refundAmount, reason, idempotencyKey } = data;
 
   const amount = normalizeMoney(refundAmount);
   if (amount <= 0) throw new AppError("refundAmount must be greater than 0", 400);
 
-  const tracking = await StudentFeeTracking.findOne({ rollNo });
-  if (!tracking) throw new AppError("Fee tracking not found for this student", 404);
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  const yearRecord = tracking.academicYearWiseRecord.find(
-    (r) => r.academicYear === academicYear
-  );
-  if (!yearRecord) {
-    throw new AppError(`Academic year ${academicYear} not found in fee tracking for this student`, 404);
-  }
-
-  // ── Locate the target component ──────────────────────────────────────────
-  let component;
-
-  if (ACADEMIC_HEADS.has(feeHead)) {
-    const semKey = semNumber % 2 === 1 ? "odd" : "even";
-    const sem = yearRecord.academic?.[semKey];
-    if (!sem) {
-      throw new AppError(
-        `Semester ${semNumber} (${semKey}) not found in tracking for ${academicYear}`,
-        404
-      );
+  try {
+    if (idempotencyKey) {
+      const existingRefund = await FeeRefund.findOne({ idempotencyKey }).session(session);
+      if (existingRefund) {
+        await session.abortTransaction();
+        session.endSession();
+        return existingRefund; // or throw a 409 Conflict if preferred
+      }
     }
-    if (sem.semesterNumber !== semNumber) {
+
+    const tracking = await StudentFeeTracking.findOne({ rollNo }).session(session);
+    if (!tracking) throw new AppError("Fee tracking not found for this student", 404);
+
+    if (feeHead === "excessAmount") {
+      if ((tracking.excessAmount || 0) < amount) {
+        throw new AppError(`Refund amount ₹${amount} exceeds available excess amount ₹${tracking.excessAmount || 0}`, 400);
+      }
+      tracking.excessAmount = normalizeMoney((tracking.excessAmount || 0) - amount);
+      tracking.markModified("excessAmount");
+      await tracking.save({ session });
+
+      const refundReceiptNo = await getNextRefundReceiptNo();
+      const [refundRecord] = await FeeRefund.create([{
+        rollNo,
+        academicYear,
+        semesterNumber: null,
+        feeHead,
+        refundAmount: amount,
+        reason,
+        refundReceiptNo,
+        refundedBy: userId,
+        idempotencyKey
+      }], { session });
+
+      await session.commitTransaction();
+      session.endSession();
+      return refundRecord;
+    }
+
+    const yearRecord = tracking.academicYearWiseRecord.find(
+      (r) => r.academicYear === academicYear
+    );
+    if (!yearRecord) {
+      throw new AppError(`Academic year ${academicYear} not found in fee tracking for this student`, 404);
+    }
+
+    // ── Locate the target component ──────────────────────────────────────────
+    let component;
+
+    if (ACADEMIC_HEADS.has(feeHead)) {
+      const semKey = semNumber % 2 === 1 ? "odd" : "even";
+      const sem = yearRecord.academic?.[semKey];
+      if (!sem) {
+        throw new AppError(
+          `Semester ${semNumber} (${semKey}) not found in tracking for ${academicYear}`,
+          404
+        );
+      }
+      if (sem.semesterNumber !== semNumber) {
+        throw new AppError(
+          `Semester ${semNumber} does not belong to academic year ${academicYear}. ` +
+            `This year has semester ${sem.semesterNumber} in the ${semKey} slot.`,
+          400
+        );
+      }
+      component = sem[feeHead];
+      if (!component) {
+        throw new AppError(`Fee head '${feeHead}' not found in semester ${semNumber}`, 404);
+      }
+    } else if (feeHead === "transport") {
+      if (!yearRecord.transport?.total) {
+        throw new AppError(`No transport fee record found for ${academicYear}`, 404);
+      }
+      component = yearRecord.transport.total;
+    } else {
+      // hostel
+      if (!yearRecord.hostel?.total) {
+        throw new AppError(`No hostel fee record found for ${academicYear}`, 404);
+      }
+      component = yearRecord.hostel.total;
+    }
+
+    // ── Guard: nothing paid ──────────────────────────────────────────────────
+    if ((component.paid || 0) === 0) {
+      throw new AppError("No paid amount to refund for this fee head", 400);
+    }
+
+    // ── Guard: cannot exceed paid ────────────────────────────────────────────
+    if (amount > normalizeMoney(component.paid)) {
       throw new AppError(
-        `Semester ${semNumber} does not belong to academic year ${academicYear}. ` +
-          `This year has semester ${sem.semesterNumber} in the ${semKey} slot.`,
+        `Refund amount ₹${amount} exceeds paid amount ₹${normalizeMoney(component.paid)}`,
         400
       );
     }
-    component = sem[feeHead];
-    if (!component) {
-      throw new AppError(`Fee head '${feeHead}' not found in semester ${semNumber}`, 404);
+
+    // ── Deduct paid ──────────────────────────────────────────────────────────
+    component.paid = Math.max(0, normalizeMoney(component.paid - amount));
+    setStatus(component);
+
+    // ── Recalculate parent totals ────────────────────────────────────────────
+    if (ACADEMIC_HEADS.has(feeHead)) {
+      const semKey = semNumber % 2 === 1 ? "odd" : "even";
+      const sem = yearRecord.academic[semKey];
+
+      const semPaid = normalizeMoney(
+        (sem.tuition?.paid || 0) +
+          (sem.exam?.paid || 0) +
+          (sem.erp?.paid || 0) +
+          (sem.book?.paid || 0) +
+          (sem.lab?.paid || 0)
+      );
+      sem.total.paid = Math.min(semPaid, normalizeMoney(sem.total.total || 0));
+      setStatus(sem.total);
+
+      const termTotalPaid = normalizeMoney(
+        (yearRecord.academic.odd?.total?.paid || 0) +
+          (yearRecord.academic.even?.total?.paid || 0)
+      );
+      yearRecord.academic.total.paid = Math.min(
+        termTotalPaid,
+        normalizeMoney(yearRecord.academic.total.total || 0)
+      );
+      setStatus(yearRecord.academic.total);
     }
-  } else if (feeHead === "transport") {
-    if (!yearRecord.transport?.total) {
-      throw new AppError(`No transport fee record found for ${academicYear}`, 404);
-    }
-    component = yearRecord.transport.total;
-  } else {
-    // hostel
-    if (!yearRecord.hostel?.total) {
-      throw new AppError(`No hostel fee record found for ${academicYear}`, 404);
-    }
-    component = yearRecord.hostel.total;
-  }
 
-  // ── Guard: nothing paid ──────────────────────────────────────────────────
-  if ((component.paid || 0) === 0) {
-    throw new AppError("No paid amount to refund for this fee head", 400);
-  }
-
-  // ── Guard: cannot exceed paid ────────────────────────────────────────────
-  if (amount > normalizeMoney(component.paid)) {
-    throw new AppError(
-      `Refund amount ₹${amount} exceeds paid amount ₹${normalizeMoney(component.paid)}`,
-      400
+    const yearPaid = normalizeMoney(
+      (yearRecord.academic.total?.paid || 0) +
+        (yearRecord.hostel?.total?.paid || 0) +
+        (yearRecord.transport?.total?.paid || 0)
     );
+    yearRecord.total.paid = Math.min(yearPaid, normalizeMoney(yearRecord.total.total || 0));
+    setStatus(yearRecord.total);
+
+    tracking.markModified("academicYearWiseRecord");
+    await tracking.save({ session });
+
+    // ── Create refund record ─────────────────────────────────────────────────
+    const refundReceiptNo = await getNextRefundReceiptNo();
+
+    const [refundRecord] = await FeeRefund.create([{
+      rollNo,
+      academicYear,
+      semesterNumber: ACADEMIC_HEADS.has(feeHead) ? semNumber : null,
+      feeHead,
+      refundAmount: amount,
+      reason,
+      refundReceiptNo,
+      refundedBy: userId,
+      idempotencyKey
+    }], { session });
+
+    await session.commitTransaction();
+    session.endSession();
+    return refundRecord;
+
+  } catch (error) {
+    console.error("REFUND ERROR:", error);
+    await session.abortTransaction();
+    session.endSession();
+    throw error;
   }
-
-  // ── Deduct paid ──────────────────────────────────────────────────────────
-  component.paid = Math.max(0, normalizeMoney(component.paid - amount));
-  setStatus(component);
-
-  // ── Recalculate parent totals ────────────────────────────────────────────
-  if (ACADEMIC_HEADS.has(feeHead)) {
-    const semKey = semNumber % 2 === 1 ? "odd" : "even";
-    const sem = yearRecord.academic[semKey];
-
-    const semPaid = normalizeMoney(
-      (sem.tuition?.paid || 0) +
-        (sem.exam?.paid || 0) +
-        (sem.erp?.paid || 0) +
-        (sem.book?.paid || 0) +
-        (sem.lab?.paid || 0)
-    );
-    sem.total.paid = Math.min(semPaid, normalizeMoney(sem.total.total || 0));
-    setStatus(sem.total);
-
-    const termTotalPaid = normalizeMoney(
-      (yearRecord.academic.odd?.total?.paid || 0) +
-        (yearRecord.academic.even?.total?.paid || 0)
-    );
-    yearRecord.academic.total.paid = Math.min(
-      termTotalPaid,
-      normalizeMoney(yearRecord.academic.total.total || 0)
-    );
-    setStatus(yearRecord.academic.total);
-  }
-
-  const yearPaid = normalizeMoney(
-    (yearRecord.academic.total?.paid || 0) +
-      (yearRecord.hostel?.total?.paid || 0) +
-      (yearRecord.transport?.total?.paid || 0)
-  );
-  yearRecord.total.paid = Math.min(yearPaid, normalizeMoney(yearRecord.total.total || 0));
-  setStatus(yearRecord.total);
-
-  tracking.markModified("academicYearWiseRecord");
-  await tracking.save();
-
-  // ── Create refund record ─────────────────────────────────────────────────
-  const refundReceiptNo = await getNextRefundReceiptNo();
-
-  const refundRecord = await FeeRefund.create({
-    rollNo,
-    academicYear,
-    semesterNumber: ACADEMIC_HEADS.has(feeHead) ? semNumber : null,
-    feeHead,
-    refundAmount: amount,
-    reason,
-    refundReceiptNo,
-    refundedBy: userId,
-  });
-
-  return refundRecord;
 };
 
 /* ===================================================================

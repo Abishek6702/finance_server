@@ -9,6 +9,11 @@ Auth: All endpoints require `Authorization: Bearer <token>`. Role: `admin` or `s
 
 Deducts the specified amount from the student's paid balance for a given fee head and academic year. Creates an immutable refund record with a unique `RF-YYYY-NNNNN` receipt number.
 
+### Headers
+| Header | Type | Required | Notes |
+|--------|------|----------|-------|
+| `x-idempotency-key` | String | Yes | Unique string (e.g., UUID or timestamp) to strictly prevent duplicate identical requests. |
+
 ### Path Parameter
 | Param | Type | Description |
 |-------|------|-------------|
@@ -28,8 +33,8 @@ Deducts the specified amount from the student's paid balance for a given fee hea
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
 | `academicYear` | String | Yes | Format: `YYYY-YYYY` |
-| `feeHead` | String | Yes | One of: `tuition`, `exam`, `erp`, `book`, `lab`, `hostel`, `transport` |
-| `semNumber` | Number | Conditional | Required for academic heads (`tuition`/`exam`/`erp`/`book`/`lab`); omit for `hostel`/`transport` |
+| `feeHead` | String | Yes | One of: `tuition`, `exam`, `erp`, `book`, `lab`, `hostel`, `transport`, `excessAmount` |
+| `semNumber` | Number | Conditional | Required for academic heads (`tuition`/`exam`/`erp`/`book`/`lab`); omit for `hostel`/`transport`/`excessAmount` |
 | `refundAmount` | Number | Yes | Must be > 0 and ≤ current paid amount for that fee head |
 | `reason` | String | Yes | Reason for refund (audit trail) |
 
@@ -59,6 +64,7 @@ Deducts the specified amount from the student's paid balance for a given fee hea
 | Status | Condition |
 |--------|-----------|
 | `400` | Missing/invalid fields |
+| `400` | Missing `x-idempotency-key` header |
 | `400` | `refundAmount` ≤ 0 |
 | `400` | `refundAmount` > paid amount |
 | `400` | `paid` is 0 (nothing paid to refund) |
@@ -76,6 +82,7 @@ Deducts the specified amount from the student's paid balance for a given fee hea
 | `tuition`, `exam`, `erp`, `book`, `lab` | **Required** | `academic[odd/even][feeHead].paid` |
 | `hostel` | Not used | `hostel.total.paid` |
 | `transport` | Not used | `transport.total.paid` |
+| `excessAmount` | Not used | `excessAmount` |
 
 **Semester → ledger key mapping:**
 Odd semesters (1, 3, 5, 7) → `academic.odd`
@@ -175,7 +182,8 @@ Same structure as Get Refunds by Academic Year.
 
 ## Concurrency Note
 
-This module does not use MongoDB session transactions (matching the current codebase pattern). In the rare case of two admins submitting a refund for the same fee head simultaneously, the last write wins. If strong concurrency safety is required in the future, upgrade to `session.startTransaction()` with Atlas replica sets.
+This module actively utilizes full ACID-compliant **MongoDB Transactions** (`session.startTransaction()`). Any operations deducting paid balances and tracking refunds are fully atomic. 
+If concurrent refund requests are submitted for the same fee head, the idempotency-key check alongside the session-based lock and validations ensure your ledger bounds ($ paid >= refund $) will never be violated or drop below zero.
 
 ---
 

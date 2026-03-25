@@ -22,7 +22,7 @@ const feeRefundSchema = new mongoose.Schema(
     },
     feeHead: {
       type: String,
-      enum: ["tuition", "exam", "erp", "book", "lab", "hostel", "transport"],
+      enum: ["tuition", "exam", "erp", "book", "lab", "hostel", "transport", "excessAmount"],
       required: true,
     },
     refundAmount: {
@@ -50,6 +50,12 @@ const feeRefundSchema = new mongoose.Schema(
       type: String,
       enum: ["completed"],
       default: "completed",
+    },
+    idempotencyKey: {
+      type: String,
+      sparse: true,
+      unique: true,
+      trim: true,
     },
   },
   { timestamps: true }

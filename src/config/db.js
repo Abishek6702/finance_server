@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const { MongoMemoryServer } = require("mongodb-memory-server");
+const { MongoMemoryServer, MongoMemoryReplSet } = require("mongodb-memory-server");
 
 let isConnected = false;
 let memoryServer = null;
@@ -11,7 +11,7 @@ const connectDB = async () => {
 
   if (isTestRuntime()) {
     if (!memoryServer) {
-      memoryServer = await MongoMemoryServer.create();
+      memoryServer = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
     }
 
     await mongoose.connect(memoryServer.getUri(), {

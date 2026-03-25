@@ -1,11 +1,12 @@
 const AppError = require("../../../utils/appError");
 
 const ACADEMIC_HEADS = new Set(["tuition", "exam", "erp", "book", "lab"]);
-const ALL_FEE_HEADS = ["tuition", "exam", "erp", "book", "lab", "hostel", "transport"];
+const ALL_FEE_HEADS = ["tuition", "exam", "erp", "book", "lab", "hostel", "transport", "excessAmount"];
 
 const validateCreateRefund = (req, res, next) => {
   const { rollNo } = req.params;
   const { academicYear, semNumber, feeHead, refundAmount, reason } = req.body;
+  const idempotencyKey = req.headers['x-idempotency-key'];
 
   if (!rollNo || typeof rollNo !== "string" || !rollNo.trim()) {
     return next(new AppError("rollNo is required", 400));
