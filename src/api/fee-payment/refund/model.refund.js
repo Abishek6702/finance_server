@@ -51,6 +51,10 @@ const feeRefundSchema = new mongoose.Schema(
       enum: ["completed"],
       default: "completed",
     },
+    ledgerIsActive: {
+      type: Boolean,
+      default: true,
+    },
     idempotencyKey: {
       type: String,
       sparse: true,

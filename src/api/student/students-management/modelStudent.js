@@ -157,6 +157,8 @@ const enrollmentSchema=new mongoose.Schema({
 
 const transportSchema=new mongoose.Schema({
   isApplicable:{type:Boolean,default:false},
+  effectiveDate:{type:Date,default:Date.now},
+  endDate:{type:Date,default:null},
   transport:{
     type:String
   },
@@ -172,6 +174,8 @@ const transportSchema=new mongoose.Schema({
 
 const hostelSchema=new mongoose.Schema({
   isApplicable:{type:Boolean,default:false},
+  effectiveDate:{type:Date,default:Date.now},
+  endDate:{type:Date,default:null},
   hostel:{
     type:String
   },

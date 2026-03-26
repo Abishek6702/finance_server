@@ -37,6 +37,10 @@ Creates a student with roll `{{student_roll_no}}` linked to the fee structure ab
 `Student Fee Tracking` → **Get Students with Fee Tracking** → Send  
 Enable the `rollNo` query param and set to `{{student_roll_no}}`. Shows the full fee ledger with all amounts unpaid.
 
+### Step 4.1 — Add Facility (Optional)
+`Student Facility` → **Update Facility (Add/Change)** → Send  
+Use `effectiveDate` when setting `hostel.isApplicable` or `transport.isApplicable` to `true`.
+
 ### Step 5 — Make a Payment
 `Fee Payment` → **Create Payment** → Send  
 Pays towards specific breakdowns (academic/hostel/transport). Note the `receiptNo` and breakdown `_id`s in the response — you'll need them for recall.
@@ -61,3 +65,7 @@ Send → the breakdown is instantly reversed.
 - Re-run **Get Student Transactions** — the recalled breakdown is removed from the receipt.
 - Re-run **Get Students with Fee Tracking** — paid amounts are back to pre-payment values.
 - `Receipt Recall` → **Get Recall History** → confirms the recall record with snapshot.
+
+### Step 9 — Refund / Facility Settlement
+- `Refund` → **Process Refund (Admin)** supports `isActive` in body; set `isActive: false` to deactivate that ledger breakdown.
+- `Student Facility` → **Remove Facility (Settlement + Refund)** computes consumed amount vs refunded amount and uses refund service flow.

@@ -26,7 +26,8 @@ Deducts the specified amount from the student's paid balance for a given fee hea
   "semNumber": 3,
   "feeHead": "tuition",
   "refundAmount": 2000,
-  "reason": "Duplicate payment"
+  "reason": "Duplicate payment",
+  "isActive": true
 }
 ```
 
@@ -37,6 +38,7 @@ Deducts the specified amount from the student's paid balance for a given fee hea
 | `semNumber` | Number | Conditional | Required for academic heads (`tuition`/`exam`/`erp`/`book`/`lab`); omit for `hostel`/`transport`/`excessAmount` |
 | `refundAmount` | Number | Yes | Must be > 0 and ≤ current paid amount for that fee head |
 | `reason` | String | Yes | Reason for refund (audit trail) |
+| `isActive` | Boolean | No | Default: `true`. If `false`, the target ledger breakdown is marked inactive and refund amount is also reduced from its total/net demand |
 
 ### Success Response `201`
 ```json
@@ -53,6 +55,7 @@ Deducts the specified amount from the student's paid balance for a given fee hea
     "reason": "Duplicate payment",
     "refundReceiptNo": "RF-2026-00001",
     "refundedBy": "...",
+    "ledgerIsActive": true,
     "status": "completed",
     "createdAt": "2026-03-11T10:00:00.000Z",
     "updatedAt": "2026-03-11T10:00:00.000Z"
@@ -67,6 +70,7 @@ Deducts the specified amount from the student's paid balance for a given fee hea
 | `400` | Missing `x-idempotency-key` header |
 | `400` | `refundAmount` ≤ 0 |
 | `400` | `refundAmount` > paid amount |
+| `400` | `isActive=false` used for `excessAmount` |
 | `400` | `paid` is 0 (nothing paid to refund) |
 | `400` | `semNumber` missing for academic fee head |
 | `400` | Semester does not belong to this academic year |
@@ -87,6 +91,12 @@ Deducts the specified amount from the student's paid balance for a given fee hea
 **Semester → ledger key mapping:**
 Odd semesters (1, 3, 5, 7) → `academic.odd`
 Even semesters (2, 4, 6, 8) → `academic.even`
+
+### Inactivation behavior (`isActive=false`)
+
+- Academic fee heads: component is marked inactive and refund amount is additionally applied as concession (so net total decreases).
+- Transport/Hostel: ledger is marked inactive (`isActive=false`), `endDate` is set, and `conceptionOnPartialCancellation` is applied so net total decreases.
+- `excessAmount`: does not support `isActive=false`.
 
 ---
 

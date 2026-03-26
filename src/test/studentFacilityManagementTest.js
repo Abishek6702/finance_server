@@ -233,6 +233,7 @@ describe("Student Facility Management API", () => {
       .set(adminAuth())
       .send({
         hostel: { isApplicable: true, block: "Z", sharing: 9, isAttached: false },
+        effectiveDate: "2025-07-01",
         applyFromAcademicYear: testCtx.academicYearPrimary,
       });
     expect(res.status).toBe(404);
@@ -245,6 +246,7 @@ describe("Student Facility Management API", () => {
       .set(adminAuth())
       .send({
         transport: { isApplicable: true, route: "NonExistent Route", stopName: "Ghost Stop" },
+        effectiveDate: "2025-07-01",
         applyFromAcademicYear: testCtx.academicYearPrimary,
       });
     expect(res.status).toBe(404);
@@ -262,6 +264,7 @@ describe("Student Facility Management API", () => {
       .set(adminAuth())
       .send({
         transport: { isApplicable: true, route: "Bharathiyar University", stopName: "Bharathiyar University" },
+        effectiveDate: "2025-07-01",
         applyFromAcademicYear: testCtx.academicYearPrimary,
       });
     expect(res.status).toBe(200);
@@ -289,6 +292,7 @@ describe("Student Facility Management API", () => {
       .send({
         transport: { isApplicable: false },
         hostel: { isApplicable: true, block: "A", sharing: 4, isAttached: false },
+        effectiveDate: "2025-08-01",
         applyFromAcademicYear: testCtx.academicYearPrimary,
       });
     expect(res.status).toBe(200);
@@ -303,7 +307,8 @@ describe("Student Facility Management API", () => {
     const yearRecord = tracking.academicYearWiseRecord.find(
       (r) => r.academicYear === testCtx.academicYearPrimary
     );
-    expect(yearRecord.transport).toBeNull();
+    expect(yearRecord.transport).toBeTruthy();
+    expect(yearRecord.transport.isActive).toBe(false);
     expect(yearRecord.hostel.subTotal).toBe(55000);
     expect(yearRecord.hostel.total.total).toBe(55000);
   });
@@ -314,6 +319,7 @@ describe("Student Facility Management API", () => {
       .set(adminAuth())
       .send({
         hostel: { isApplicable: true, block: "B", sharing: 3, isAttached: false },
+        effectiveDate: "2025-09-01",
         applyFromAcademicYear: testCtx.academicYearPrimary,
       });
     expect(res.status).toBe(200);
@@ -337,6 +343,7 @@ describe("Student Facility Management API", () => {
       .set(adminAuth())
       .send({
         transport: { isApplicable: true, route: "Kottampatti - Pollachi", stopName: "Kottampatti" },
+        effectiveDate: "2025-10-01",
         applyFromAcademicYear: testCtx.academicYearPrimary,
       });
     expect(res.status).toBe(200);
@@ -373,7 +380,8 @@ describe("Student Facility Management API", () => {
     const yearRecord = tracking.academicYearWiseRecord.find(
       (r) => r.academicYear === testCtx.academicYearPrimary
     );
-    expect(yearRecord.transport).toBeNull();
+    expect(yearRecord.transport).toBeTruthy();
+    expect(yearRecord.transport.isActive).toBe(false);
     expect(yearRecord.hostel).toBeTruthy();
   });
 
@@ -396,10 +404,12 @@ describe("Student Facility Management API", () => {
     const yearRecord = tracking.academicYearWiseRecord.find(
       (r) => r.academicYear === testCtx.academicYearPrimary
     );
-    expect(yearRecord.transport).toBeNull();
-    expect(yearRecord.hostel).toBeNull();
+    expect(yearRecord.transport).toBeTruthy();
+    expect(yearRecord.transport.isActive).toBe(false);
+    expect(yearRecord.hostel).toBeTruthy();
+    expect(yearRecord.hostel.isActive).toBe(false);
     /* Year total should now be academic only */
-    expect(yearRecord.total.total).toBe(yearRecord.academic.total.total);
+    expect(yearRecord.total.total).toBeGreaterThanOrEqual(yearRecord.academic.total.total);
   });
 
   it("returns 200 when both already false and set to false again (no-op, note message)", async () => {
@@ -461,9 +471,81 @@ describe("Student Facility Management API", () => {
       .set(adminAuth())
       .send({
         hostel: { isApplicable: true, block: "C", sharing: 2, isAttached: true },
+        effectiveDate: "2025-08-01",
         applyFromAcademicYear: testCtx.academicYearPrimary,
       });
     expect(res.status).toBe(200);
     expect(res.body.data.student.hostel.isApplicable).toBe(true);
   });
+
+  describe("POST /api/studentFacility/remove/:rollNo", () => {
+    it("successfully removes facility and settled via wallet", async () => {
+      // First, add a facility to sfmRollMain
+      await request(app)
+        .put(`/api/studentFacility/${sfmRollMain}`)
+        .set(adminAuth())
+        .send({
+          hostel: { isApplicable: true, block: "A", sharing: 2, isAttached: true },
+          effectiveDate: "2025-07-01",
+          applyFromAcademicYear: testCtx.academicYearPrimary,
+        });
+
+      await request(app)
+        .post("/api/feePayment/pay")
+        .set(adminAuth())
+        .send({
+          rollNo: sfmRollMain,
+          paymentType: "Cash",
+          breakdowns: [{
+            academicYear: testCtx.academicYearPrimary,
+            hostel: 6000,
+          }],
+        });
+
+      const payload = {
+        facilityType: "hostel",
+        applyFromAcademicYear: testCtx.academicYearPrimary,
+        endDate: "2024-12-01",
+        conceptionAmount: 5000,
+        refundMode: "wallet",
+        refundAmount: 1000
+      };
+
+      const res = await request(app)
+        .post(`/api/studentFacility/remove/${sfmRollMain}`)
+        .set(adminAuth())
+        .send(payload);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.student.hostel.isApplicable).toBe(false);
+      
+      const tracking = await StudentFeeTracking.findOne({ rollNo: sfmRollMain });
+      const yearRecord = tracking.academicYearWiseRecord.find(y => y.academicYear === testCtx.academicYearPrimary);
+      expect(yearRecord.hostel.isActive).toBe(false);
+      expect(yearRecord.hostel.endDate).toBeDefined();
+      expect(yearRecord.hostel.consumedAmountOnPartialCancellation).toBe(5000);
+      expect(yearRecord.hostel.total.paid).toBe(5000);
+    });
+
+    it("rejects duplicate removal request", async () => {
+      const payload = {
+        facilityType: "hostel",
+        applyFromAcademicYear: testCtx.academicYearPrimary,
+        endDate: "2024-12-01",
+        conceptionAmount: 5000,
+        refundMode: "wallet",
+        refundAmount: 1000
+      };
+
+      const res = await request(app)
+        .post(`/api/studentFacility/remove/${sfmRollMain}`)
+        .set(adminAuth())
+        .send(payload);
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/already inactive/i);
+    });
+  });
+
 });

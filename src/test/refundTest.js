@@ -221,6 +221,34 @@ describe("Refund API", () => {
     expect(yr.transport.total.paid).toBe(1500); // 2000 - 500
   });
 
+  it("processes transport refund with isActive=false and deactivates ledger", async () => {
+    const before = await StudentFeeTracking.findOne({ rollNo }).lean();
+    const beforeYear = before.academicYearWiseRecord.find((r) => r.academicYear === year);
+    const beforeTransportTotal = beforeYear.transport.total.total;
+
+    const res = await request(app)
+      .post(`/api/refund/${rollNo}`)
+      .set(adminAuth())
+      .send({
+        academicYear: year,
+        feeHead: "transport",
+        refundAmount: 200,
+        reason: "Transport cancelled",
+        isActive: false,
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.ledgerIsActive).toBe(false);
+
+    const tracking = await StudentFeeTracking.findOne({ rollNo }).lean();
+    const yr = tracking.academicYearWiseRecord.find((r) => r.academicYear === year);
+
+    expect(yr.transport.isActive).toBe(false);
+    expect(yr.transport.endDate).toBeTruthy();
+    expect(yr.transport.total.paid).toBe(1300); // 1500 - 200
+    expect(yr.transport.total.total).toBe(beforeTransportTotal - 200);
+  });
+
   it("refund receipt numbers are sequential (RF-YYYY-NNNNN)", async () => {
     const res = await request(app)
       .post(`/api/refund/${rollNo}`)

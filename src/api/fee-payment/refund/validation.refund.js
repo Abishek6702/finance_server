@@ -5,7 +5,7 @@ const ALL_FEE_HEADS = ["tuition", "exam", "erp", "book", "lab", "hostel", "trans
 
 const validateCreateRefund = (req, res, next) => {
   const { rollNo } = req.params;
-  const { academicYear, semNumber, feeHead, refundAmount, reason } = req.body;
+  const { academicYear, semNumber, feeHead, refundAmount, reason, isActive } = req.body;
   const idempotencyKey = req.headers['x-idempotency-key'];
 
   if (!rollNo || typeof rollNo !== "string" || !rollNo.trim()) {
@@ -39,11 +39,20 @@ const validateCreateRefund = (req, res, next) => {
     return next(new AppError("reason is required", 400));
   }
 
+  if (isActive !== undefined && typeof isActive !== "boolean") {
+    return next(new AppError("isActive must be a boolean when provided", 400));
+  }
+
+  if (feeHead === "excessAmount" && isActive === false) {
+    return next(new AppError("isActive=false is not supported for excessAmount refunds", 400));
+  }
+
   req.params.rollNo = rollNo.trim().toUpperCase();
   req.body.academicYear = academicYear.trim();
   req.body.feeHead = feeHead;
   req.body.refundAmount = amount;
   req.body.reason = reason.trim();
+  req.body.isActive = isActive === false ? false : true;
   if (ACADEMIC_HEADS.has(feeHead)) {
     req.body.semNumber = Number(semNumber);
   }

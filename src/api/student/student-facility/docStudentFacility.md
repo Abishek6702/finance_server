@@ -22,6 +22,8 @@ Assigns, transfers, or removes hostel and/or transport facility for a student.
 
 ```json
 {
+  "facilityType": "transport",
+  "effectiveDate": "2025-07-01",
   "transport": {
     "isApplicable": true,
     "route": "Bharathiyar University",
@@ -40,6 +42,8 @@ Assigns, transfers, or removes hostel and/or transport facility for a student.
 | Field | Type | Required | Rules |
 |---|---|---|---|
 | `applyFromAcademicYear` | String | Yes | `YYYY-YYYY` format; must be ≥ student's `currentAcademicYear`; must fall within the student's batch range |
+| `facilityType` | String | No | `hostel` or `transport`; if provided, corresponding payload block must be present |
+| `effectiveDate` | Date String | Required when adding a facility | Start date of service within the academic year |
 | `transport` | Object | At least one of transport/hostel | — |
 | `transport.isApplicable` | Boolean | Yes (if transport present) | — |
 | `transport.route` | String | Yes (if `isApplicable: true`) | Must match a route in Transport master |
@@ -55,7 +59,7 @@ Assigns, transfers, or removes hostel and/or transport facility for a student.
 - **applyFromAcademicYear** determines the starting year for fee tracking updates. All `academicYearWiseRecord` entries from this year through the student's batch end year are updated. If any of those future years don't yet exist in the tracking record, they are silently skipped.
 - **Student document** is always updated when the operation succeeds.
 - **Fee recalculation** — the `StudentFeeTracking` pre-save hook automatically recalculates NET totals (`total.total = subTotal − concession`) and year-level aggregates after each update. Existing `paid` amounts are preserved.
-- **Setting `isApplicable: false`** clears the facility from both the student document and all target year records in fee tracking.
+- **Setting `isApplicable: false`** marks the facility as inactive and sets `endDate`; records are retained for audit (not deleted).
 - **Omitting a facility key** (e.g., omitting `hostel`) means that facility is not touched.
 
 ### Edge Case — Paid/Partial Guard
@@ -108,3 +112,31 @@ If no fee tracking year records were found for the target range:
 | Hostel | Different Hostel | Only hostel key; provide new block/sharing/isAttached |
 | Transport/Hostel | None | Set `isApplicable: false` |
 | None | Transport or Hostel | Set `isApplicable: true` with lookup fields | 
+
+---
+
+## POST /api/studentFacility/remove/:rollNo
+
+Cancels one facility for a specific academic year and settles paid amounts using the refund service (`refundService.createRefund`) without duplicating refund logic.
+
+### Request Body
+
+```json
+{
+  "facilityType": "hostel",
+  "applyFromAcademicYear": "2025-2026",
+  "endDate": "2025-09-30",
+  "conceptionAmount": 5000,
+  "refundMode": "wallet",
+  "refundAmount": 1000
+}
+```
+
+### Settlement Logic
+
+- `paidAmount` is taken from the facility ledger (`hostel.total.paid` / `transport.total.paid`).
+- `consumedAmount` = `conceptionAmount` (stored separately as `consumedAmountOnPartialCancellation`).
+- `refundedAmount` = `paidAmount - consumedAmount`.
+- The API validates that consumed amount cannot exceed paid amount.
+- For wallet mode, refunded amount is credited to `student.enrollment.excessAmount`.
+- The underlying refund entry is created through refund module service and facility ledger is marked `isActive: false` with `endDate`.

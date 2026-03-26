@@ -23,6 +23,7 @@ function normalizeAmountSchema(amount) {
 
 function normalizeComponentSchema(comp) {
   const target = comp || {};
+  if (typeof target.isActive !== "boolean") target.isActive = true;
   target.concession = normalizeMoney(target.concession);
   target.subTotal = normalizeMoney(target.subTotal);
   target.total = normalizeMoney(Math.max(0, target.subTotal - target.concession));
@@ -48,6 +49,7 @@ const amountSchema = new mongoose.Schema({
 }, { _id: false });
 
 const academicComponentSchema = new mongoose.Schema({
+  isActive: { type: Boolean, default: true },
   concession: { type: Number, default: 0, min: 0 },
   subTotal: { type: Number, default: 0, min: 0 },
   total: { type: Number, default: 0, min: 0 },
@@ -78,6 +80,16 @@ const transportLedgerSchema = new mongoose.Schema({
   fee: { type: Number, min: 0 },
   subTotal: { type: Number, default: 0 },
   total: { type: amountSchema, default: () => ({}) },
+
+  
+  isActive: { type: Boolean, default: true },
+  //Conception Amount
+  conceptionOnPartialCancellation: { type: Number, default: 0 },
+  consumedAmountOnPartialCancellation: { type: Number, default: 0 },
+  //Effective Date
+  effectiveDate: { type: Date,default: Date.now },
+  //End Date
+  endDate: { type: Date ,default: null },
 }, { _id: false });
 
 const hostelLedgerSchema = new mongoose.Schema({
@@ -89,6 +101,15 @@ const hostelLedgerSchema = new mongoose.Schema({
   subTotal: { type: Number, default: 0 },
   hostelSpecialConcession: { type: Number, default: 0 },
   total: { type: amountSchema, default: () => ({}) },
+   
+  isActive: { type: Boolean, default: true },
+  //Conception Amount
+  conceptionOnPartialCancellation: { type: Number, default: 0 },
+  consumedAmountOnPartialCancellation: { type: Number, default: 0 },
+  //Effective Date
+  effectiveDate: { type: Date,default: Date.now },
+  //End Date
+  endDate: { type: Date ,default: null },
 }, { _id: false });
 
 const concessionSchema = new mongoose.Schema({
@@ -246,6 +267,12 @@ studentFeeTrackingSchema.pre("save", function () {
     ────────────────────────────────────────────── */
     if (yearRecord.transport) {
       yearRecord.transport.subTotal = normalizeMoney(yearRecord.transport.subTotal || 0);
+      yearRecord.transport.conceptionOnPartialCancellation = normalizeMoney(
+        yearRecord.transport.conceptionOnPartialCancellation || 0
+      );
+      yearRecord.transport.consumedAmountOnPartialCancellation = normalizeMoney(
+        yearRecord.transport.consumedAmountOnPartialCancellation || 0
+      );
       yearRecord.transport.total = normalizeAmountSchema(yearRecord.transport.total || {});
 
       const transportEnrollConc = normalizeMoney((yearRecord.concessions?.transport) || 0);
@@ -253,6 +280,7 @@ studentFeeTrackingSchema.pre("save", function () {
         Math.max(0,
           yearRecord.transport.subTotal
           - transportEnrollConc
+          - yearRecord.transport.conceptionOnPartialCancellation
         )
       );
 
@@ -272,6 +300,12 @@ studentFeeTrackingSchema.pre("save", function () {
       yearRecord.hostel.hostelSpecialConcession = normalizeMoney(
         yearRecord.hostel.hostelSpecialConcession || 0
       );
+      yearRecord.hostel.conceptionOnPartialCancellation = normalizeMoney(
+        yearRecord.hostel.conceptionOnPartialCancellation || 0
+      );
+      yearRecord.hostel.consumedAmountOnPartialCancellation = normalizeMoney(
+        yearRecord.hostel.consumedAmountOnPartialCancellation || 0
+      );
 
       yearRecord.hostel.total = normalizeAmountSchema(yearRecord.hostel.total || {});
 
@@ -281,6 +315,7 @@ studentFeeTrackingSchema.pre("save", function () {
           yearRecord.hostel.subTotal
           - hostelEnrollConc
           - yearRecord.hostel.hostelSpecialConcession
+          - yearRecord.hostel.conceptionOnPartialCancellation
         )
       );
 

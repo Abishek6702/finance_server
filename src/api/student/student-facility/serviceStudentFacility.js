@@ -2,6 +2,7 @@ const Student = require("../students-management/modelStudent");
 const { Transport } = require("../../fee-structure/transport/modelTransport");
 const { Hostel } = require("../../fee-structure/hostel/modelHostel");
 const StudentFeeTracking = require("../../fee-payment/student-fee-tracking/modelStudentFeeTracking");
+const refundService = require("../../fee-payment/refund/service.refund");
 const AppError = require("../../../utils/appError");
 
 function normalizeMoney(value) {
@@ -19,7 +20,7 @@ function buildTargetYears(applyFromAcademicYear, batchEndYear) {
   return years;
 }
 
-const updateFacility = async (rollNo, { transport, hostel, applyFromAcademicYear }) => {
+const updateFacility = async (rollNo, { transport, hostel, applyFromAcademicYear, effectiveDate }) => {
   /* ─── Phase 1: Fetch student ─── */
   const student = await Student.findOne({ "personal.rollNo": rollNo.toUpperCase() });
   if (!student) throw new AppError("Student not found", 404);
@@ -44,6 +45,8 @@ const updateFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
   }
 
   /* ─── Phase 3: Resolve transport & hostel master docs ─── */
+  const resolvedEffectiveDate = effectiveDate ? new Date(effectiveDate) : new Date();
+
   let resolvedTransport = null;
   if (transport !== undefined && transport.isApplicable) {
     const transportDoc = await Transport.findOne({
@@ -63,6 +66,8 @@ const updateFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
       busNo: transportDoc.busNo,
       stop: transportDoc.stop,
       fee: transportDoc.fee,
+      effectiveDate: resolvedEffectiveDate,
+      endDate: null,
     };
   }
 
@@ -86,6 +91,8 @@ const updateFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
       sharing: hostelDoc.sharing,
       isAttached: hostelDoc.isAttached,
       fee: hostelDoc.fee,
+      effectiveDate: resolvedEffectiveDate,
+      endDate: null,
     };
   }
 
@@ -135,7 +142,10 @@ const updateFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
 
       if (transport !== undefined) {
         if (!transport.isApplicable) {
-          yearRecord.transport = null;
+          if (yearRecord.transport) {
+            yearRecord.transport.isActive = false;
+            yearRecord.transport.endDate = yearRecord.transport.endDate || new Date();
+          }
         } else {
           yearRecord.transport = {
             transport: resolvedTransport.transport,
@@ -144,6 +154,11 @@ const updateFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
             stop: resolvedTransport.stop,
             fee: resolvedTransport.fee,
             subTotal: normalizeMoney(resolvedTransport.fee),
+            consumedAmountOnPartialCancellation: 0,
+            conceptionOnPartialCancellation: 0,
+            isActive: true,
+            effectiveDate: resolvedTransport.effectiveDate,
+            endDate: null,
             total: { total: 0 },
           };
         }
@@ -152,7 +167,10 @@ const updateFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
 
       if (hostel !== undefined) {
         if (!hostel.isApplicable) {
-          yearRecord.hostel = null;
+          if (yearRecord.hostel) {
+            yearRecord.hostel.isActive = false;
+            yearRecord.hostel.endDate = yearRecord.hostel.endDate || new Date();
+          }
         } else {
           yearRecord.hostel = {
             hostel: resolvedHostel.hostel,
@@ -162,6 +180,11 @@ const updateFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
             fee: resolvedHostel.fee,
             subTotal: normalizeMoney(resolvedHostel.fee),
             hostelSpecialConcession: 0,
+            consumedAmountOnPartialCancellation: 0,
+            conceptionOnPartialCancellation: 0,
+            isActive: true,
+            effectiveDate: resolvedHostel.effectiveDate,
+            endDate: null,
             total: { total: 0 },
           };
         }
@@ -179,13 +202,21 @@ const updateFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
   if (transport !== undefined) {
     student.transport = transport.isApplicable
       ? resolvedTransport
-      : { isApplicable: false };
+      : {
+          ...(student.transport?.toObject ? student.transport.toObject() : student.transport),
+          isApplicable: false,
+          endDate: new Date(),
+        };
   }
 
   if (hostel !== undefined) {
     student.hostel = hostel.isApplicable
       ? resolvedHostel
-      : { isApplicable: false };
+      : {
+          ...(student.hostel?.toObject ? student.hostel.toObject() : student.hostel),
+          isApplicable: false,
+          endDate: new Date(),
+        };
   }
 
   await student.save();
@@ -197,4 +228,139 @@ const updateFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
   return { student, message };
 };
 
-module.exports = { updateFacility };
+exports.removeFacility = async (rollNo, payload, userId) => {
+  const { facilityType, applyFromAcademicYear, endDate, conceptionAmount, refundMode, refundAmount, idempotencyKey } = payload;
+
+  const normalizedRollNo = rollNo.toUpperCase();
+
+  const student = await Student.findOne({ "personal.rollNo": normalizedRollNo });
+  if (!student) throw new AppError("Student not found", 404);
+
+  const tracking = await StudentFeeTracking.findOne({ rollNo: normalizedRollNo });
+  if (!tracking) throw new AppError("Fee tracking record not found", 404);
+
+  const yearRecord = tracking.academicYearWiseRecord.find(
+    (record) => record.academicYear === applyFromAcademicYear
+  );
+
+  if (!yearRecord) {
+    throw new AppError(`Academic year ${applyFromAcademicYear} not found in tracking`, 404);
+  }
+
+  const ledger = facilityType === 'transport' ? yearRecord.transport : yearRecord.hostel;
+
+  if (!ledger) {
+    throw new AppError(`${facilityType} ledger not found for the academic year`, 404);
+  }
+
+  if (ledger.isActive === false || ledger.endDate) {
+    throw new AppError("Facility is already inactive or endDate is already set", 400);
+  }
+
+  const normalizedConsumedAmount = normalizeMoney(conceptionAmount || 0);
+  const currentPaid = normalizeMoney(ledger.total?.paid || 0);
+  const currentNetTotal = normalizeMoney(ledger.total?.total || 0);
+
+  if (currentPaid <= 0) {
+    throw new AppError(`No paid amount available to settle ${facilityType} cancellation`, 400);
+  }
+
+  if (normalizedConsumedAmount > currentPaid) {
+    throw new AppError(
+      `consumed amount ₹${normalizedConsumedAmount} cannot exceed paid amount ₹${currentPaid}`,
+      400
+    );
+  }
+
+  const computedRefundAmount = normalizeMoney(Math.max(0, currentPaid - normalizedConsumedAmount));
+
+  if (
+    refundAmount !== undefined &&
+    Math.abs(normalizeMoney(refundAmount) - computedRefundAmount) > 0.01
+  ) {
+    throw new AppError(
+      `refundAmount mismatch. Expected ₹${computedRefundAmount} based on paid minus consumed amount`,
+      400
+    );
+  }
+
+  let refundRecord = null;
+
+  if (computedRefundAmount > 0) {
+    refundRecord = await refundService.createRefund(
+      {
+        rollNo: normalizedRollNo,
+        academicYear: applyFromAcademicYear,
+        feeHead: facilityType,
+        refundAmount: computedRefundAmount,
+        reason: `Facility removed via ${refundMode}`,
+        isActive: false,
+        idempotencyKey,
+      },
+      userId
+    );
+  }
+
+  const refreshedTracking = await StudentFeeTracking.findOne({ rollNo: normalizedRollNo });
+  if (!refreshedTracking) throw new AppError("Fee tracking record not found after refund processing", 404);
+
+  const refreshedYear = refreshedTracking.academicYearWiseRecord.find(
+    (record) => record.academicYear === applyFromAcademicYear
+  );
+  if (!refreshedYear) throw new AppError(`Academic year ${applyFromAcademicYear} not found in tracking`, 404);
+
+  const refreshedLedger = facilityType === 'transport' ? refreshedYear.transport : refreshedYear.hostel;
+  if (!refreshedLedger) throw new AppError(`${facilityType} ledger not found for the academic year`, 404);
+
+  const cancellationConcession = normalizeMoney(Math.max(0, currentNetTotal - normalizedConsumedAmount));
+
+  refreshedLedger.consumedAmountOnPartialCancellation = normalizedConsumedAmount;
+  refreshedLedger.conceptionOnPartialCancellation = cancellationConcession;
+  refreshedLedger.total.paid = normalizedConsumedAmount;
+  refreshedLedger.isActive = false;
+  refreshedLedger.endDate = new Date(endDate);
+
+  refreshedTracking.markModified("academicYearWiseRecord");
+  await refreshedTracking.save();
+
+  if (refundMode === 'wallet' && computedRefundAmount > 0) {
+    student.enrollment.excessAmount = normalizeMoney(
+      (student.enrollment?.excessAmount || 0) + computedRefundAmount
+    );
+    student.enrollment.isExcessAmountTrue = student.enrollment.excessAmount > 0;
+  }
+
+  // Update Student state
+  if (facilityType === 'transport') {
+    student.transport = {
+      ...(student.transport?.toObject ? student.transport.toObject() : student.transport),
+      isApplicable: false,
+      endDate: new Date(endDate),
+    };
+  } else if (facilityType === 'hostel') {
+    student.hostel = {
+      ...(student.hostel?.toObject ? student.hostel.toObject() : student.hostel),
+      isApplicable: false,
+      endDate: new Date(endDate),
+    };
+  }
+
+  await student.save();
+
+  return {
+    student,
+    tracking: refreshedTracking,
+    settlement: {
+      facilityType,
+      paidAmount: currentPaid,
+      consumedAmount: normalizedConsumedAmount,
+      refundedAmount: computedRefundAmount,
+      cancellationConcession,
+      refundMode,
+      refundReceiptNo: refundRecord?.refundReceiptNo || null,
+    }
+  };
+};
+
+
+module.exports = { updateFacility, removeFacility: exports.removeFacility };

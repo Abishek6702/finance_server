@@ -1017,7 +1017,7 @@
         }
       ]
     },
-   {
+    {
       "name": "Fee Details",
       "item": [
         {
@@ -1362,17 +1362,22 @@
       ]
     },
     {
-      "name": "Reports", 
+      "name": "Reports",
       "item": [
-                {
+        {
           "name": "Classwise Report",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{base_url}}/reports/classwise?academicYear={{academic_year}}",
-              "host": ["{{base_url}}"],
-              "path": ["reports", "classwise"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "classwise"
+              ],
               "query": [
                 {
                   "key": "academicYear",
@@ -1397,8 +1402,7 @@
                   "key": "semNo",
                   "value": "1",
                   "disabled": true
-                }
-                ,
+                },
                 {
                   "key": "section",
                   "value": "A",
@@ -1428,7 +1432,8 @@
                   "key": "rollNo",
                   "value": "{{student_roll_no}}",
                   "description": "Exact roll number lookup"
-                },{
+                },
+                {
                   "key": "academicYear",
                   "value": "{{academic_year}}",
                   "description": "Filter by academicYear "
@@ -1752,8 +1757,116 @@
         }
       ]
     },
-   
-     
+    {
+      "name": "Student Facility",
+      "item": [
+        {
+          "name": "Update Facility (Add/Change)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/studentFacility/{{student_roll_no}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "studentFacility",
+                "{{student_roll_no}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"facilityType\": \"hostel\",\n  \"applyFromAcademicYear\": \"{{academic_year}}\",\n  \"effectiveDate\": \"2025-07-01\",\n  \"hostel\": {\n    \"isApplicable\": true,\n    \"block\": \"A\",\n    \"sharing\": 2,\n    \"isAttached\": true\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Adds/changes facility from applyFromAcademicYear. effectiveDate is required when isApplicable=true."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Facility update successful', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.equal(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Remove Facility (Settlement + Refund)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-idempotency-key",
+                "value": "facility-remove-{{$timestamp}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/studentFacility/remove/{{student_roll_no}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "studentFacility",
+                "remove",
+                "{{student_roll_no}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"facilityType\": \"hostel\",\n  \"applyFromAcademicYear\": \"{{academic_year}}\",\n  \"endDate\": \"2025-09-30\",\n  \"conceptionAmount\": 5000,\n  \"refundMode\": \"wallet\",\n  \"refundAmount\": 1000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Cancels facility with consumed amount and computes refund using refund service. Stores consumed amount separately."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Facility removed successfully', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.equal(true);",
+                  "  pm.expect(body.data.settlement).to.be.an('object');",
+                  "  pm.expect(body.data.settlement.consumedAmount).to.be.a('number');",
+                  "  pm.expect(body.data.settlement.refundedAmount).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
     {
       "name": "Refund",
       "item": [
@@ -1784,14 +1897,14 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"academicYear\": \"2025-2026\",\n  \"semNumber\": 1,\n  \"feeHead\": \"tuition\",\n  \"refundAmount\": 2000,\n  \"reason\": \"Duplicate payment\"\n}",
+              "raw": "{\n  \"academicYear\": \"2025-2026\",\n  \"semNumber\": 1,\n  \"feeHead\": \"tuition\",\n  \"refundAmount\": 2000,\n  \"reason\": \"Duplicate payment\",\n  \"isActive\": true\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             },
-            "description": "Process a refund for a specific fee head. semNumber is required for academic heads (tuition/exam/erp/book/lab); omit for hostel/transport."
+            "description": "Process refund for a fee head. semNumber required for academic heads. Set isActive=false to deactivate that ledger breakdown."
           },
           "event": [
             {
@@ -2074,7 +2187,6 @@
         }
       ]
     }
-  
   ],
   "auth": {
     "type": "bearer",

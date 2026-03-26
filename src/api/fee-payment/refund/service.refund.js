@@ -37,7 +37,8 @@ const getNextRefundReceiptNo = async () => {
    all parent totals, then creates an immutable FeeRefund record.
 =================================================================== */
 const createRefund = async (data, userId) => {
-  const { rollNo, academicYear, semNumber, feeHead, refundAmount, reason, idempotencyKey } = data;
+  const { rollNo, academicYear, semNumber, feeHead, refundAmount, reason, idempotencyKey, isActive } = data;
+  const deactivateAfterRefund = isActive === false;
 
   const amount = normalizeMoney(refundAmount);
   if (amount <= 0) throw new AppError("refundAmount must be greater than 0", 400);
@@ -59,6 +60,9 @@ const createRefund = async (data, userId) => {
     if (!tracking) throw new AppError("Fee tracking not found for this student", 404);
 
     if (feeHead === "excessAmount") {
+      if (deactivateAfterRefund) {
+        throw new AppError("isActive=false is not supported for excessAmount refunds", 400);
+      }
       if ((tracking.excessAmount || 0) < amount) {
         throw new AppError(`Refund amount ₹${amount} exceeds available excess amount ₹${tracking.excessAmount || 0}`, 400);
       }
@@ -76,6 +80,7 @@ const createRefund = async (data, userId) => {
         reason,
         refundReceiptNo,
         refundedBy: userId,
+        ledgerIsActive: true,
         idempotencyKey
       }], { session });
 
@@ -93,6 +98,7 @@ const createRefund = async (data, userId) => {
 
     // ── Locate the target component ──────────────────────────────────────────
     let component;
+    let ledgerContainer;
 
     if (ACADEMIC_HEADS.has(feeHead)) {
       const semKey = semNumber % 2 === 1 ? "odd" : "even";
@@ -111,6 +117,7 @@ const createRefund = async (data, userId) => {
         );
       }
       component = sem[feeHead];
+      ledgerContainer = component;
       if (!component) {
         throw new AppError(`Fee head '${feeHead}' not found in semester ${semNumber}`, 404);
       }
@@ -119,12 +126,31 @@ const createRefund = async (data, userId) => {
         throw new AppError(`No transport fee record found for ${academicYear}`, 404);
       }
       component = yearRecord.transport.total;
+      ledgerContainer = yearRecord.transport;
     } else {
       // hostel
       if (!yearRecord.hostel?.total) {
         throw new AppError(`No hostel fee record found for ${academicYear}`, 404);
       }
       component = yearRecord.hostel.total;
+      ledgerContainer = yearRecord.hostel;
+    }
+
+    if (deactivateAfterRefund) {
+      if (amount > normalizeMoney(component.total || 0)) {
+        throw new AppError(
+          `Refund amount ₹${amount} exceeds total amount ₹${normalizeMoney(component.total || 0)}`,
+          400
+        );
+      }
+
+      if (ACADEMIC_HEADS.has(feeHead)) {
+        if (component.isActive === false) {
+          throw new AppError(`Fee head '${feeHead}' is already inactive for semester ${semNumber}`, 400);
+        }
+      } else if (ledgerContainer?.isActive === false) {
+        throw new AppError(`${feeHead} ledger is already inactive for ${academicYear}`, 400);
+      }
     }
 
     // ── Guard: nothing paid ──────────────────────────────────────────────────
@@ -142,6 +168,28 @@ const createRefund = async (data, userId) => {
 
     // ── Deduct paid ──────────────────────────────────────────────────────────
     component.paid = Math.max(0, normalizeMoney(component.paid - amount));
+
+    if (deactivateAfterRefund) {
+      component.total = Math.max(0, normalizeMoney((component.total || 0) - amount));
+
+      if (ACADEMIC_HEADS.has(feeHead)) {
+        component.concession = normalizeMoney((component.concession || 0) + amount);
+        component.isActive = false;
+      } else if (feeHead === "transport") {
+        yearRecord.transport.conceptionOnPartialCancellation = normalizeMoney(
+          (yearRecord.transport.conceptionOnPartialCancellation || 0) + amount
+        );
+        yearRecord.transport.isActive = false;
+        if (!yearRecord.transport.endDate) yearRecord.transport.endDate = new Date();
+      } else if (feeHead === "hostel") {
+        yearRecord.hostel.conceptionOnPartialCancellation = normalizeMoney(
+          (yearRecord.hostel.conceptionOnPartialCancellation || 0) + amount
+        );
+        yearRecord.hostel.isActive = false;
+        if (!yearRecord.hostel.endDate) yearRecord.hostel.endDate = new Date();
+      }
+    }
+
     setStatus(component);
 
     // ── Recalculate parent totals ────────────────────────────────────────────
@@ -193,6 +241,7 @@ const createRefund = async (data, userId) => {
       reason,
       refundReceiptNo,
       refundedBy: userId,
+      ledgerIsActive: deactivateAfterRefund ? false : true,
       idempotencyKey
     }], { session });
 
