@@ -1268,7 +1268,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/feedemands/{{student_roll_no}}",
+              "raw": "{{base_url}}/feedemands/{{student_roll_no}}?academicYear={{academic_year}}",
               "host": [
                 "{{base_url}}"
               ],
@@ -1278,10 +1278,9 @@
               ],
               "query": [
                 {
-                  "key": "includeProfile",
-                  "value": "true",
-                  "description": "Include student profile and contact (default true)",
-                  "disabled": true
+                  "key": "academicYear",
+                  "value": "{{academic_year}}",
+                  "description": "Required. Academic year in YYYY-YYYY format"
                 }
               ]
             }
@@ -1292,66 +1291,21 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Year-wise fee demand fetched', function () {",
+                  "pm.test('Academic-year fee demand fetched', function () {",
                   "  pm.response.to.have.status(200);",
                   "  const body = pm.response.json();",
                   "  pm.expect(body.success).to.equal(true);",
-                  "  pm.expect(body.data.studentCurrentAcademicYear).to.be.a('string');",
-                  "  pm.expect(body.data.feeAcademicYears).to.be.an('array');",
-                  "  pm.expect(body.data.feeSummary).to.be.an('array');",
-                  "  pm.expect(body.data.overall).to.be.an('object');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "response": []
-        },
-        {
-          "name": "Get Fee Demand By Roll No & Academic Year",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/feedemands/{{student_roll_no}}/{{academic_year}}",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "feedemands",
-                "{{student_roll_no}}",
-                "{{academic_year}}"
-              ],
-              "query": [
-                {
-                  "key": "semester",
-                  "value": "odd",
-                  "description": "Filter to odd or even semester only",
-                  "disabled": true
-                },
-                {
-                  "key": "includeProfile",
-                  "value": "true",
-                  "description": "Include student profile and contact (default true)",
-                  "disabled": true
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Semester fee demand fetched', function () {",
-                  "  pm.response.to.have.status(200);",
-                  "  const body = pm.response.json();",
-                  "  pm.expect(body.success).to.equal(true);",
-                  "  pm.expect(body.data.studentCurrentAcademicYear).to.be.a('string');",
-                  "  pm.expect(body.data.feeAcademicYear).to.be.a('string');",
-                  "  pm.expect(body.data.semesters).to.be.an('array');",
-                  "  pm.expect(body.data.academicYear).to.be.a('string');",
+                  "  pm.expect(body.data.rollNo).to.be.a('string');",
+                  "  pm.expect(body.data.name).to.be.a('string');",
+                  "  pm.expect(body.data.department).to.be.a('string');",
+                  "  pm.expect(body.data.studentType).to.be.an('object');",
+                  "  pm.expect(body.data.studentType.transport).to.be.a('boolean');",
+                  "  pm.expect(body.data.studentType.hostel).to.be.a('boolean');",
+                  "  pm.expect(body.data.studentType.hostelDetails).to.equal(null);",
+                  "  if (body.data.studentType.transportDetails) {",
+                  "    pm.expect(body.data.studentType.transportDetails.paid).to.be.a('number');",
+                  "    pm.expect(body.data.studentType.transportDetails.consession).to.be.a('number');",
+                  "  }",
                   "});"
                 ]
               }
@@ -1761,35 +1715,40 @@
       "name": "Student Facility",
       "item": [
         {
-          "name": "Update Facility (Add/Change)",
+          "name": "Assign Facility",
           "request": {
             "method": "PUT",
             "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
               {
                 "key": "Content-Type",
                 "value": "application/json"
               }
             ],
             "url": {
-              "raw": "{{base_url}}/studentFacility/{{student_roll_no}}",
+              "raw": "{{base_url}}/studentFacility/assign/{{student_roll_no}}",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "studentFacility",
+                "assign",
                 "{{student_roll_no}}"
               ]
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"facilityType\": \"hostel\",\n  \"applyFromAcademicYear\": \"{{academic_year}}\",\n  \"effectiveDate\": \"2025-07-01\",\n  \"hostel\": {\n    \"isApplicable\": true,\n    \"block\": \"A\",\n    \"sharing\": 2,\n    \"isAttached\": true\n  }\n}",
+              "raw": "{\n  \"facilityType\": \"hostel\",\n  \"applyFromAcademicYear\": \"{{academic_year}}\",\n  \"effectiveDate\": \"2025-07-01\",\n  \"hostel\": {\n    \"isApplicable\": true,\n    \"id\": \"{{hostel_id}}\"\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             },
-            "description": "Adds/changes facility from applyFromAcademicYear. effectiveDate is required when isApplicable=true."
+            "description": "Assigns transport/hostel from applyFromAcademicYear. Use transport.id/hostel.id from master docs and include effectiveDate when isApplicable=true."
           },
           "event": [
             {
@@ -1809,10 +1768,14 @@
           "response": []
         },
         {
-          "name": "Remove Facility (Settlement + Refund)",
+          "name": "Cancel Facility (Settlement + Refund)",
           "request": {
-            "method": "POST",
+            "method": "PUT",
             "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
               {
                 "key": "Content-Type",
                 "value": "application/json"
@@ -1824,13 +1787,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/studentFacility/remove/{{student_roll_no}}",
+              "raw": "{{base_url}}/studentFacility/cancel/{{student_roll_no}}",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "studentFacility",
-                "remove",
+                "cancel",
                 "{{student_roll_no}}"
               ]
             },
@@ -2154,6 +2117,114 @@
             }
           ],
           "response": []
+        }
+      ]
+    },
+    {
+      "name": "Transport",
+      "item": [
+        {
+          "name": "Get Transport Master (Grouped)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/transport",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "transport"
+              ]
+            },
+            "description": "Returns grouped transport data with info.routes, info.busNos and detailed[]"
+          },
+          "response": [
+            {
+              "name": "Grouped Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/transport",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "transport"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Transport configurations retrieved successfully\",\n  \"data\": {\n    \"info\": {\n      \"routes\": [\"Bharathiyar University\"],\n      \"busNos\": [\"1\"]\n    },\n    \"detailed\": [\n      {\n        \"route\": \"Bharathiyar University\",\n        \"busNo\": \"1\",\n        \"stops\": [\n          {\n            \"id\": \"67f0a4f7a0f66b2cf5f41234\",\n            \"stop\": \"Bharathiyar University\",\n            \"fee\": 15000\n          }\n        ]\n      }\n    ]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Transport By BusNo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/transport?busNo=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "transport"
+              ],
+              "query": [
+                {
+                  "key": "busNo",
+                  "value": "1",
+                  "description": "Optional bus number filter. Returns only grouped records for the given bus number."
+                }
+              ]
+            },
+            "description": "Returns only grouped transport rows matching the busNo query parameter"
+          },
+          "response": [
+            {
+              "name": "Filtered Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/transport?busNo=1",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "transport"
+                  ],
+                  "query": [
+                    {
+                      "key": "busNo",
+                      "value": "1"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Transport configurations retrieved successfully\",\n  \"data\": [\n    {\n      \"route\": \"Bharathiyar University\",\n      \"busNo\": \"1\",\n      \"stops\": [\n        {\n          \"id\": \"67f0a4f7a0f66b2cf5f41234\",\n          \"stop\": \"Bharathiyar University\",\n          \"fee\": 15000\n        }\n      ]\n    }\n  ]\n}"
+            }
+          ]
         }
       ]
     },

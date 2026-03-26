@@ -135,7 +135,7 @@ Cancels one facility for a specific academic year and settles paid amounts using
 ### Settlement Logic
 
 - `paidAmount` is taken from the facility ledger (`hostel.total.paid` / `transport.total.paid`).
-- `consumedAmount` = `conceptionAmount` (stored separately as `consumedAmountOnPartialCancellation`).
+- `consumedAmount` is the frontend-provided consumed value (stored as `consumedAmount`).
 - `refundedAmount` = `paidAmount - consumedAmount`.
 - The API validates that consumed amount cannot exceed paid amount.
 - For wallet mode, refunded amount is credited to `student.enrollment.excessAmount`.

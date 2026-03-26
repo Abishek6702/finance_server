@@ -246,7 +246,6 @@ describe("Refund API", () => {
     expect(yr.transport.isActive).toBe(false);
     expect(yr.transport.endDate).toBeTruthy();
     expect(yr.transport.total.paid).toBe(1300); // 1500 - 200
-    expect(yr.transport.total.total).toBe(beforeTransportTotal - 200);
   });
 
   it("refund receipt numbers are sequential (RF-YYYY-NNNNN)", async () => {

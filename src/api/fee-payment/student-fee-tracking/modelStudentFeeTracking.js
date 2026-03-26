@@ -8,12 +8,14 @@ function normalizeMoney(value) {
 
 function normalizeAmountSchema(amount) {
   const target = amount || {};
+  const hadRefundedStatus = target.status === "Refunded";
 
   target.total = normalizeMoney(target.total);
   target.paid = normalizeMoney(target.paid);
   target.paid = Math.min(target.paid, target.total);
 
-  if (target.total === 0) target.status = "Paid";
+  if (hadRefundedStatus) target.status = "Refunded";
+  else if (target.total === 0) target.status = "Paid";
   else if (target.paid >= target.total) target.status = "Paid";
   else if (target.paid > 0) target.status = "Partial";
   else target.status = "Unpaid";
@@ -43,7 +45,7 @@ const amountSchema = new mongoose.Schema({
   paid: { type: Number, default: 0, min: 0 },
   status: {
     type: String,
-    enum: ["Paid", "Partial", "Unpaid"],
+    enum: ["Paid", "Partial", "Unpaid", "Refunded"],
     default: "Unpaid",
   },
 }, { _id: false });
@@ -83,9 +85,8 @@ const transportLedgerSchema = new mongoose.Schema({
 
   
   isActive: { type: Boolean, default: true },
-  //Conception Amount
-  conceptionOnPartialCancellation: { type: Number, default: 0 },
-  consumedAmountOnPartialCancellation: { type: Number, default: 0 },
+  //Consumed Amount (frontend partial cancellation value)
+  consumedAmount: { type: Number, default: 0 },
   //Effective Date
   effectiveDate: { type: Date,default: Date.now },
   //End Date
@@ -103,9 +104,8 @@ const hostelLedgerSchema = new mongoose.Schema({
   total: { type: amountSchema, default: () => ({}) },
    
   isActive: { type: Boolean, default: true },
-  //Conception Amount
-  conceptionOnPartialCancellation: { type: Number, default: 0 },
-  consumedAmountOnPartialCancellation: { type: Number, default: 0 },
+  //Consumed Amount (frontend partial cancellation value)
+  consumedAmount: { type: Number, default: 0 },
   //Effective Date
   effectiveDate: { type: Date,default: Date.now },
   //End Date
@@ -267,11 +267,8 @@ studentFeeTrackingSchema.pre("save", function () {
     ────────────────────────────────────────────── */
     if (yearRecord.transport) {
       yearRecord.transport.subTotal = normalizeMoney(yearRecord.transport.subTotal || 0);
-      yearRecord.transport.conceptionOnPartialCancellation = normalizeMoney(
-        yearRecord.transport.conceptionOnPartialCancellation || 0
-      );
-      yearRecord.transport.consumedAmountOnPartialCancellation = normalizeMoney(
-        yearRecord.transport.consumedAmountOnPartialCancellation || 0
+      yearRecord.transport.consumedAmount = normalizeMoney(
+        yearRecord.transport.consumedAmount || 0
       );
       yearRecord.transport.total = normalizeAmountSchema(yearRecord.transport.total || {});
 
@@ -280,7 +277,6 @@ studentFeeTrackingSchema.pre("save", function () {
         Math.max(0,
           yearRecord.transport.subTotal
           - transportEnrollConc
-          - yearRecord.transport.conceptionOnPartialCancellation
         )
       );
 
@@ -290,6 +286,9 @@ studentFeeTrackingSchema.pre("save", function () {
         transportNetTotal
       );
       yearRecord.transport.total = normalizeAmountSchema(yearRecord.transport.total);
+      if (yearRecord.transport.isActive === false) {
+        yearRecord.transport.total.status = "Refunded";
+      }
     }
 
     /* ──────────────────────────────────────────────
@@ -300,11 +299,8 @@ studentFeeTrackingSchema.pre("save", function () {
       yearRecord.hostel.hostelSpecialConcession = normalizeMoney(
         yearRecord.hostel.hostelSpecialConcession || 0
       );
-      yearRecord.hostel.conceptionOnPartialCancellation = normalizeMoney(
-        yearRecord.hostel.conceptionOnPartialCancellation || 0
-      );
-      yearRecord.hostel.consumedAmountOnPartialCancellation = normalizeMoney(
-        yearRecord.hostel.consumedAmountOnPartialCancellation || 0
+      yearRecord.hostel.consumedAmount = normalizeMoney(
+        yearRecord.hostel.consumedAmount || 0
       );
 
       yearRecord.hostel.total = normalizeAmountSchema(yearRecord.hostel.total || {});
@@ -315,7 +311,6 @@ studentFeeTrackingSchema.pre("save", function () {
           yearRecord.hostel.subTotal
           - hostelEnrollConc
           - yearRecord.hostel.hostelSpecialConcession
-          - yearRecord.hostel.conceptionOnPartialCancellation
         )
       );
 
@@ -325,6 +320,9 @@ studentFeeTrackingSchema.pre("save", function () {
         hostelNetTotal
       );
       yearRecord.hostel.total = normalizeAmountSchema(yearRecord.hostel.total);
+      if (yearRecord.hostel.isActive === false) {
+        yearRecord.hostel.total.status = "Refunded";
+      }
     }
 
     /* ──────────────────────────────────────────────

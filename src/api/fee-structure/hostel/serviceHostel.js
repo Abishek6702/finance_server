@@ -5,7 +5,26 @@ const AppError = require("../../../utils/appError");
  * Get all hostel configurations
  */
 const getAllHostels = async () => {
-  return await Hostel.find().lean();
+  const hostels = await Hostel.find().lean();
+
+  const blocks = [...new Set(hostels.map((item) => item.block))];
+  const sharing = [...new Set(hostels.map((item) => item.sharing))];
+  const isAttached = [...new Set(hostels.map((item) => item.isAttached))];
+
+  return {
+    info: {
+      blocks,
+      sharing,
+      isAttached
+    },
+    detailed: hostels.map((item) => ({
+      id: String(item._id),
+      block: item.block,
+      sharing: item.sharing,
+      isAttached: item.isAttached,
+      fee: item.fee
+    }))
+  };
 };
 
 /**

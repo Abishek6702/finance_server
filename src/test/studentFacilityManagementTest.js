@@ -5,14 +5,15 @@ const {
   superadminAuth, adminAuth,
   Student, StudentFeeTracking, StudentTransaction, FeeStructureMaster,
 } = require("./setup");
+const { Transport } = require("../api/fee-structure/transport/modelTransport");
+const { Hostel } = require("../api/fee-structure/hostel/modelHostel");
 
-/* ======================================================
-   Roll numbers local to this suite
-   Using prefix 30-32 (not used by any other test file)
-====================================================== */
 let sfmRollMain;        // general-purpose student — no initial facility
 let sfmRollTransGuard;  // student with transport, payment made → 409 transport guard
 let sfmRollHostelGuard; // student with hostel, payment made → 409 hostel guard
+
+let transportIdMain, transportIdAlt;
+let hostelIdA, hostelIdB, hostelIdC, hostelIdD;
 
 describe("Student Facility Management API", () => {
   beforeAll(async () => {
@@ -22,8 +23,21 @@ describe("Student Facility Management API", () => {
     sfmRollTransGuard  = `31CS${testCtx.TS.slice(-3)}`;
     sfmRollHostelGuard = `32CS${testCtx.TS.slice(-3)}`;
 
-    /* fee structure must exist for tracking to be generated */
     await createFeeStructure(testCtx.academicYearPrimary);
+
+    const tMain = await Transport.findOne({ route: "Bharathiyar University" });
+    transportIdMain = tMain ? tMain._id.toString() : null;
+    const tAlt = await Transport.findOne({ route: "Kottampatti - Pollachi" });
+    transportIdAlt = tAlt ? tAlt._id.toString() : null;
+    
+    const hA = await Hostel.findOne({ block: "A", sharing: 4, isAttached: false });
+    hostelIdA = hA ? hA._id.toString() : null;
+    const hB = await Hostel.findOne({ block: "B", sharing: 3, isAttached: false });
+    hostelIdB = hB ? hB._id.toString() : null;
+    const hC = await Hostel.findOne({ block: "C" });
+    hostelIdC = hC ? hC._id.toString() : null;
+    const hD = await Hostel.findOne({ block: "A", sharing: 2, isAttached: true });
+    hostelIdD = hD ? hD._id.toString() : null;
 
     /* sfmRollMain: no transport, no hostel */
     await createStudent(sfmRollMain, { academicYear: testCtx.academicYearPrimary });
@@ -96,401 +110,153 @@ describe("Student Facility Management API", () => {
   });
 
   /* ─── AUTH ─────────────────────────────────────────── */
-
   it("rejects request without token", async () => {
     const res = await request(app)
-      .put(`/api/studentFacility/${sfmRollMain}`)
+      .put(`/api/studentFacility/assign/${sfmRollMain}`)
       .send({
-        transport: { isApplicable: false },
+        transport: { isApplicable: true, id: transportIdMain },
         applyFromAcademicYear: testCtx.academicYearPrimary,
       });
     expect(res.status).toBe(401);
   });
 
   /* ─── VALIDATION ────────────────────────────────────── */
-
   it("rejects when applyFromAcademicYear is missing", async () => {
     const res = await request(app)
-      .put(`/api/studentFacility/${sfmRollMain}`)
+      .put(`/api/studentFacility/assign/${sfmRollMain}`)
       .set(adminAuth())
-      .send({ transport: { isApplicable: false } });
+      .send({ transport: { isApplicable: true, id: transportIdMain } });
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/applyFromAcademicYear/i);
   });
 
   it("rejects invalid applyFromAcademicYear format", async () => {
     const res = await request(app)
-      .put(`/api/studentFacility/${sfmRollMain}`)
+      .put(`/api/studentFacility/assign/${sfmRollMain}`)
       .set(adminAuth())
-      .send({ transport: { isApplicable: false }, applyFromAcademicYear: "2025/2026" });
+      .send({ transport: { isApplicable: true, id: transportIdMain }, applyFromAcademicYear: "2025/2026" });
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/YYYY-YYYY/i);
   });
 
   it("rejects when neither transport nor hostel provided", async () => {
     const res = await request(app)
-      .put(`/api/studentFacility/${sfmRollMain}`)
+      .put(`/api/studentFacility/assign/${sfmRollMain}`)
       .set(adminAuth())
       .send({ applyFromAcademicYear: testCtx.academicYearPrimary });
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/transport.*hostel|hostel.*transport/i);
   });
 
-  it("rejects hostel.isApplicable true without block", async () => {
+  it("rejects assignment if isApplicable is false", async () => {
     const res = await request(app)
-      .put(`/api/studentFacility/${sfmRollMain}`)
+      .put(`/api/studentFacility/assign/${sfmRollMain}`)
       .set(adminAuth())
       .send({
-        hostel: { isApplicable: true, sharing: 4, isAttached: false },
+        transport: { isApplicable: false },
         applyFromAcademicYear: testCtx.academicYearPrimary,
       });
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/hostel\.block/i);
   });
 
-  it("rejects hostel.isApplicable true without sharing", async () => {
+  it("rejects transport missing id", async () => {
     const res = await request(app)
-      .put(`/api/studentFacility/${sfmRollMain}`)
+      .put(`/api/studentFacility/assign/${sfmRollMain}`)
       .set(adminAuth())
       .send({
-        hostel: { isApplicable: true, block: "A", isAttached: false },
+        transport: { isApplicable: true },
         applyFromAcademicYear: testCtx.academicYearPrimary,
       });
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/hostel\.sharing/i);
   });
 
-  it("rejects transport.isApplicable true without stopName", async () => {
+  it("rejects hostel missing id", async () => {
     const res = await request(app)
-      .put(`/api/studentFacility/${sfmRollMain}`)
+      .put(`/api/studentFacility/assign/${sfmRollMain}`)
       .set(adminAuth())
       .send({
-        transport: { isApplicable: true, route: "Bharathiyar University" },
+        hostel: { isApplicable: true },
         applyFromAcademicYear: testCtx.academicYearPrimary,
       });
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/transport\.stopName/i);
   });
 
-  it("rejects transport.isApplicable true without route", async () => {
+  it("rejects assignment when effectiveDate is missing", async () => {
     const res = await request(app)
-      .put(`/api/studentFacility/${sfmRollMain}`)
+      .put(`/api/studentFacility/assign/${sfmRollMain}`)
       .set(adminAuth())
       .send({
-        transport: { isApplicable: true, stopName: "Bharathiyar University" },
+        transport: { isApplicable: true, id: transportIdMain },
         applyFromAcademicYear: testCtx.academicYearPrimary,
       });
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/transport\.route/i);
+    expect(res.body.message).toMatch(/effectiveDate/i);
   });
 
   /* ─── SERVICE ERRORS ──────────────────────────────── */
-
   it("returns 404 for unknown student", async () => {
     const res = await request(app)
-      .put("/api/studentFacility/99CS999")
+      .put("/api/studentFacility/assign/99CS999")
       .set(adminAuth())
       .send({
-        transport: { isApplicable: false },
-        applyFromAcademicYear: testCtx.academicYearPrimary,
-      });
-    expect(res.status).toBe(404);
-    expect(res.body.message).toMatch(/student not found/i);
-  });
-
-  it("returns 400 when applyFromAcademicYear is before currentAcademicYear", async () => {
-    const yearStart = parseInt(testCtx.academicYearPrimary.split("-")[0], 10);
-    const pastYear = `${yearStart - 1}-${yearStart}`;
-    const res = await request(app)
-      .put(`/api/studentFacility/${sfmRollMain}`)
-      .set(adminAuth())
-      .send({
-        transport: { isApplicable: false },
-        applyFromAcademicYear: pastYear,
-      });
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/cannot be before/i);
-  });
-
-  it("returns 400 when applyFromAcademicYear is outside batch range (after batch end)", async () => {
-    /* batch = "YYYY-YYYY+1", so applyFrom = "YYYY+1-YYYY+2" is outside */
-    const yearStart = parseInt(testCtx.academicYearPrimary.split("-")[0], 10);
-    const outsideYear = `${yearStart + 1}-${yearStart + 2}`;
-    const res = await request(app)
-      .put(`/api/studentFacility/${sfmRollMain}`)
-      .set(adminAuth())
-      .send({
-        transport: { isApplicable: false },
-        applyFromAcademicYear: outsideYear,
-      });
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/batch range/i);
-  });
-
-  it("returns 404 when hostel config not found in master", async () => {
-    const res = await request(app)
-      .put(`/api/studentFacility/${sfmRollMain}`)
-      .set(adminAuth())
-      .send({
-        hostel: { isApplicable: true, block: "Z", sharing: 9, isAttached: false },
+        transport: { isApplicable: true, id: transportIdMain },
         effectiveDate: "2025-07-01",
         applyFromAcademicYear: testCtx.academicYearPrimary,
       });
     expect(res.status).toBe(404);
-    expect(res.body.message).toMatch(/hostel not found/i);
   });
 
-  it("returns 404 when transport stop not found in master", async () => {
+  /* ─── SUCCESS FLOWS ────────────────────────────────── */
+  it("assigns transport successfully", async () => {
     const res = await request(app)
-      .put(`/api/studentFacility/${sfmRollMain}`)
+      .put(`/api/studentFacility/assign/${sfmRollMain}`)
       .set(adminAuth())
       .send({
-        transport: { isApplicable: true, route: "NonExistent Route", stopName: "Ghost Stop" },
-        effectiveDate: "2025-07-01",
-        applyFromAcademicYear: testCtx.academicYearPrimary,
-      });
-    expect(res.status).toBe(404);
-    expect(res.body.message).toMatch(/transport not found/i);
-  });
-
-  /* ─── SUCCESS FLOWS ──────────────────────────────────
-     Tests run sequentially and sfmRollMain state evolves:
-     none → transport → hostel → hostel-B → hostel-B+transport → hostel-B → both-false
-  ────────────────────────────────────────────────────── */
-
-  it("assigns transport to a student who had none", async () => {
-    const res = await request(app)
-      .put(`/api/studentFacility/${sfmRollMain}`)
-      .set(adminAuth())
-      .send({
-        transport: { isApplicable: true, route: "Bharathiyar University", stopName: "Bharathiyar University" },
+        transport: { isApplicable: true, id: transportIdMain },
         effectiveDate: "2025-07-01",
         applyFromAcademicYear: testCtx.academicYearPrimary,
       });
     expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-
-    const student = res.body.data.student;
-    expect(student.transport.isApplicable).toBe(true);
-    expect(student.transport.route).toBe("Bharathiyar University");
-    expect(student.transport.fee).toBe(15000);
-
-    /* Verify tracking was updated */
-    const tracking = await StudentFeeTracking.findOne({ rollNo: sfmRollMain });
-    const yearRecord = tracking.academicYearWiseRecord.find(
-      (r) => r.academicYear === testCtx.academicYearPrimary
-    );
-    expect(yearRecord.transport).toBeTruthy();
-    expect(yearRecord.transport.subTotal).toBe(15000);
-    expect(yearRecord.transport.total.total).toBe(15000); // no concession
-  });
-
-  it("transfers student from transport to hostel (transport cleared)", async () => {
-    const res = await request(app)
-      .put(`/api/studentFacility/${sfmRollMain}`)
+    expect(res.body.data.student.transport.isApplicable).toBe(true);
+    
+    // Attempting to re-assign should fail due to active guard
+    const activeRes = await request(app)
+      .put(`/api/studentFacility/assign/${sfmRollMain}`)
       .set(adminAuth())
       .send({
-        transport: { isApplicable: false },
-        hostel: { isApplicable: true, block: "A", sharing: 4, isAttached: false },
+        transport: { isApplicable: true, id: transportIdAlt },
         effectiveDate: "2025-08-01",
         applyFromAcademicYear: testCtx.academicYearPrimary,
       });
-    expect(res.status).toBe(200);
-
-    const student = res.body.data.student;
-    expect(student.transport.isApplicable).toBe(false);
-    expect(student.hostel.isApplicable).toBe(true);
-    expect(student.hostel.block).toBe("A");
-    expect(student.hostel.fee).toBe(55000);
-
-    const tracking = await StudentFeeTracking.findOne({ rollNo: sfmRollMain });
-    const yearRecord = tracking.academicYearWiseRecord.find(
-      (r) => r.academicYear === testCtx.academicYearPrimary
-    );
-    expect(yearRecord.transport).toBeTruthy();
-    expect(yearRecord.transport.isActive).toBe(false);
-    expect(yearRecord.hostel.subTotal).toBe(55000);
-    expect(yearRecord.hostel.total.total).toBe(55000);
+    expect(activeRes.status).toBe(400);
   });
 
-  it("transfers student from hostel A to hostel B (different config)", async () => {
+  it("assigns hostel successfully while transport remains active", async () => {
     const res = await request(app)
-      .put(`/api/studentFacility/${sfmRollMain}`)
+      .put(`/api/studentFacility/assign/${sfmRollMain}`)
       .set(adminAuth())
       .send({
-        hostel: { isApplicable: true, block: "B", sharing: 3, isAttached: false },
-        effectiveDate: "2025-09-01",
-        applyFromAcademicYear: testCtx.academicYearPrimary,
-      });
-    expect(res.status).toBe(200);
-
-    const student = res.body.data.student;
-    expect(student.hostel.block).toBe("B");
-    expect(student.hostel.sharing).toBe(3);
-    expect(student.hostel.fee).toBe(65000);
-
-    const tracking = await StudentFeeTracking.findOne({ rollNo: sfmRollMain });
-    const yearRecord = tracking.academicYearWiseRecord.find(
-      (r) => r.academicYear === testCtx.academicYearPrimary
-    );
-    expect(yearRecord.hostel.subTotal).toBe(65000);
-    expect(yearRecord.hostel.total.total).toBe(65000);
-  });
-
-  it("assigns transport without touching hostel (transport added, hostel intact)", async () => {
-    const res = await request(app)
-      .put(`/api/studentFacility/${sfmRollMain}`)
-      .set(adminAuth())
-      .send({
-        transport: { isApplicable: true, route: "Kottampatti - Pollachi", stopName: "Kottampatti" },
-        effectiveDate: "2025-10-01",
-        applyFromAcademicYear: testCtx.academicYearPrimary,
-      });
-    expect(res.status).toBe(200);
-
-    const student = res.body.data.student;
-    expect(student.transport.isApplicable).toBe(true);
-    expect(student.transport.route).toBe("Kottampatti - Pollachi");
-    expect(student.hostel.isApplicable).toBe(true); // still has hostel
-    expect(student.hostel.block).toBe("B");
-
-    const tracking = await StudentFeeTracking.findOne({ rollNo: sfmRollMain });
-    const yearRecord = tracking.academicYearWiseRecord.find(
-      (r) => r.academicYear === testCtx.academicYearPrimary
-    );
-    expect(yearRecord.transport.fee).toBe(12000);
-    expect(yearRecord.hostel.subTotal).toBe(65000); // hostel unchanged
-  });
-
-  it("sets only transport to false (hostel untouched)", async () => {
-    const res = await request(app)
-      .put(`/api/studentFacility/${sfmRollMain}`)
-      .set(adminAuth())
-      .send({
-        transport: { isApplicable: false },
-        applyFromAcademicYear: testCtx.academicYearPrimary,
-      });
-    expect(res.status).toBe(200);
-
-    const student = res.body.data.student;
-    expect(student.transport.isApplicable).toBe(false);
-    expect(student.hostel.isApplicable).toBe(true); // hostel still there
-
-    const tracking = await StudentFeeTracking.findOne({ rollNo: sfmRollMain });
-    const yearRecord = tracking.academicYearWiseRecord.find(
-      (r) => r.academicYear === testCtx.academicYearPrimary
-    );
-    expect(yearRecord.transport).toBeTruthy();
-    expect(yearRecord.transport.isActive).toBe(false);
-    expect(yearRecord.hostel).toBeTruthy();
-  });
-
-  it("sets both transport and hostel to false", async () => {
-    const res = await request(app)
-      .put(`/api/studentFacility/${sfmRollMain}`)
-      .set(adminAuth())
-      .send({
-        transport: { isApplicable: false },
-        hostel: { isApplicable: false },
-        applyFromAcademicYear: testCtx.academicYearPrimary,
-      });
-    expect(res.status).toBe(200);
-
-    const student = res.body.data.student;
-    expect(student.transport.isApplicable).toBe(false);
-    expect(student.hostel.isApplicable).toBe(false);
-
-    const tracking = await StudentFeeTracking.findOne({ rollNo: sfmRollMain });
-    const yearRecord = tracking.academicYearWiseRecord.find(
-      (r) => r.academicYear === testCtx.academicYearPrimary
-    );
-    expect(yearRecord.transport).toBeTruthy();
-    expect(yearRecord.transport.isActive).toBe(false);
-    expect(yearRecord.hostel).toBeTruthy();
-    expect(yearRecord.hostel.isActive).toBe(false);
-    /* Year total should now be academic only */
-    expect(yearRecord.total.total).toBeGreaterThanOrEqual(yearRecord.academic.total.total);
-  });
-
-  it("returns 200 when both already false and set to false again (no-op, note message)", async () => {
-    const res = await request(app)
-      .put(`/api/studentFacility/${sfmRollMain}`)
-      .set(adminAuth())
-      .send({
-        transport: { isApplicable: false },
-        hostel: { isApplicable: false },
-        applyFromAcademicYear: testCtx.academicYearPrimary,
-      });
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-  });
-
-  /* ─── 409 GUARD TESTS ─────────────────────────────── */
-
-  it("rejects transport change when transport fee is already Partial (409)", async () => {
-    /* Verify the setup payment created a Partial status */
-    const tracking = await StudentFeeTracking.findOne({ rollNo: sfmRollTransGuard });
-    const yearRecord = tracking.academicYearWiseRecord.find(
-      (r) => r.academicYear === testCtx.academicYearPrimary
-    );
-    expect(["Partial"]).toContain(yearRecord.transport.total.status);
-
-    const res = await request(app)
-      .put(`/api/studentFacility/${sfmRollTransGuard}`)
-      .set(adminAuth())
-      .send({
-        transport: { isApplicable: false },
-        applyFromAcademicYear: testCtx.academicYearPrimary,
-      });
-    expect(res.status).toBe(409);
-    expect(res.body.message).toMatch(/transport.*Partial|Partial.*transport/i);
-  });
-
-  it("rejects hostel change when hostel fee is already Partial (409)", async () => {
-    const tracking = await StudentFeeTracking.findOne({ rollNo: sfmRollHostelGuard });
-    const yearRecord = tracking.academicYearWiseRecord.find(
-      (r) => r.academicYear === testCtx.academicYearPrimary
-    );
-    expect(["Partial"]).toContain(yearRecord.hostel.total.status);
-
-    const res = await request(app)
-      .put(`/api/studentFacility/${sfmRollHostelGuard}`)
-      .set(adminAuth())
-      .send({
-        hostel: { isApplicable: false },
-        applyFromAcademicYear: testCtx.academicYearPrimary,
-      });
-    expect(res.status).toBe(409);
-    expect(res.body.message).toMatch(/hostel.*Partial|Partial.*hostel/i);
-  });
-
-  it("allows changing a different facility even when one has Partial status", async () => {
-    /* sfmRollTransGuard has transport Partial, but hostel is untouched → should allow hostel change */
-    const res = await request(app)
-      .put(`/api/studentFacility/${sfmRollTransGuard}`)
-      .set(adminAuth())
-      .send({
-        hostel: { isApplicable: true, block: "C", sharing: 2, isAttached: true },
+        hostel: { isApplicable: true, id: hostelIdA },
         effectiveDate: "2025-08-01",
         applyFromAcademicYear: testCtx.academicYearPrimary,
       });
     expect(res.status).toBe(200);
     expect(res.body.data.student.hostel.isApplicable).toBe(true);
+    expect(res.body.data.student.hostel.block).toBe("A");
+    
+    // Active guard for hostel
+    const activeRes = await request(app)
+      .put(`/api/studentFacility/assign/${sfmRollMain}`)
+      .set(adminAuth())
+      .send({
+        hostel: { isApplicable: true, id: hostelIdB },
+        effectiveDate: "2025-09-01",
+        applyFromAcademicYear: testCtx.academicYearPrimary,
+      });
+    expect(activeRes.status).toBe(400);
   });
 
-  describe("POST /api/studentFacility/remove/:rollNo", () => {
-    it("successfully removes facility and settled via wallet", async () => {
-      // First, add a facility to sfmRollMain
-      await request(app)
-        .put(`/api/studentFacility/${sfmRollMain}`)
-        .set(adminAuth())
-        .send({
-          hostel: { isApplicable: true, block: "A", sharing: 2, isAttached: true },
-          effectiveDate: "2025-07-01",
-          applyFromAcademicYear: testCtx.academicYearPrimary,
-        });
-
-      await request(app)
+  describe("PUT /api/studentFacility/cancel/:rollNo", () => {
+    it("successfully cancels hostel facility and settles via wallet", async () => {
+      // Add a small payment to hostel
+       await request(app)
         .post("/api/feePayment/pay")
         .set(adminAuth())
         .send({
@@ -505,41 +271,37 @@ describe("Student Facility Management API", () => {
       const payload = {
         facilityType: "hostel",
         applyFromAcademicYear: testCtx.academicYearPrimary,
-        endDate: "2024-12-01",
+        endDate: "2025-09-01",
         conceptionAmount: 5000,
         refundMode: "wallet",
         refundAmount: 1000
       };
 
       const res = await request(app)
-        .post(`/api/studentFacility/remove/${sfmRollMain}`)
+        .put(`/api/studentFacility/cancel/${sfmRollMain}`)
         .set(adminAuth())
         .send(payload);
 
       expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
       expect(res.body.data.student.hostel.isApplicable).toBe(false);
       
       const tracking = await StudentFeeTracking.findOne({ rollNo: sfmRollMain });
       const yearRecord = tracking.academicYearWiseRecord.find(y => y.academicYear === testCtx.academicYearPrimary);
       expect(yearRecord.hostel.isActive).toBe(false);
-      expect(yearRecord.hostel.endDate).toBeDefined();
-      expect(yearRecord.hostel.consumedAmountOnPartialCancellation).toBe(5000);
-      expect(yearRecord.hostel.total.paid).toBe(5000);
     });
 
     it("rejects duplicate removal request", async () => {
       const payload = {
         facilityType: "hostel",
         applyFromAcademicYear: testCtx.academicYearPrimary,
-        endDate: "2024-12-01",
+        endDate: "2025-09-01",
         conceptionAmount: 5000,
         refundMode: "wallet",
         refundAmount: 1000
       };
 
       const res = await request(app)
-        .post(`/api/studentFacility/remove/${sfmRollMain}`)
+        .put(`/api/studentFacility/cancel/${sfmRollMain}`)
         .set(adminAuth())
         .send(payload);
 

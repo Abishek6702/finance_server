@@ -170,21 +170,14 @@ const createRefund = async (data, userId) => {
     component.paid = Math.max(0, normalizeMoney(component.paid - amount));
 
     if (deactivateAfterRefund) {
-      component.total = Math.max(0, normalizeMoney((component.total || 0) - amount));
-
       if (ACADEMIC_HEADS.has(feeHead)) {
+        component.total = Math.max(0, normalizeMoney((component.total || 0) - amount));
         component.concession = normalizeMoney((component.concession || 0) + amount);
         component.isActive = false;
       } else if (feeHead === "transport") {
-        yearRecord.transport.conceptionOnPartialCancellation = normalizeMoney(
-          (yearRecord.transport.conceptionOnPartialCancellation || 0) + amount
-        );
         yearRecord.transport.isActive = false;
         if (!yearRecord.transport.endDate) yearRecord.transport.endDate = new Date();
       } else if (feeHead === "hostel") {
-        yearRecord.hostel.conceptionOnPartialCancellation = normalizeMoney(
-          (yearRecord.hostel.conceptionOnPartialCancellation || 0) + amount
-        );
         yearRecord.hostel.isActive = false;
         if (!yearRecord.hostel.endDate) yearRecord.hostel.endDate = new Date();
       }

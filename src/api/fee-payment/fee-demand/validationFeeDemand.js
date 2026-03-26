@@ -30,14 +30,18 @@ const validateGetList = (req, res, next) => {
 
 const validateGetByRollNo = (req, res, next) => {
   const { rollNo } = req.params;
-  const { includeProfile } = req.query;
+  const { academicYear } = req.query;
 
   if (!/^[A-Za-z0-9]+$/.test(rollNo)) {
     return next(new AppError("rollNo must be alphanumeric", 400));
   }
 
-  if (includeProfile !== undefined && includeProfile !== "true" && includeProfile !== "false") {
-    return next(new AppError("includeProfile must be 'true' or 'false'", 400));
+  if (!academicYear) {
+    return next(new AppError("academicYear query is required", 400));
+  }
+
+  if (!/^\d{4}-\d{4}$/.test(academicYear)) {
+    return next(new AppError("academicYear must be in YYYY-YYYY format", 400));
   }
 
   next();

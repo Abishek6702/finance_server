@@ -137,8 +137,35 @@ describe("Transport Configuration API", () => {
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
+      expect(res.body.data.info).toBeDefined();
+      expect(Array.isArray(res.body.data.info.routes)).toBe(true);
+      expect(Array.isArray(res.body.data.info.busNos)).toBe(true);
+      expect(Array.isArray(res.body.data.detailed)).toBe(true);
+      expect(res.body.data.detailed.length).toBeGreaterThan(0);
+      expect(Array.isArray(res.body.data.detailed[0].stops)).toBe(true);
+      expect(res.body.data.detailed[0].stops[0].id).toBeDefined();
+      expect(res.body.data.detailed[0].stops[0]._id).toBeUndefined();
+    });
+
+    it("filters grouped transport configurations by busNo (200)", async () => {
+      const seedRes = await request(app)
+        .get("/api/transport")
+        .set(adminAuth());
+
+      const busNo = seedRes.body.data.info.busNos[0];
+
+      const res = await request(app)
+        .get(`/api/transport?busNo=${encodeURIComponent(busNo)}`)
+        .set(adminAuth());
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
       expect(Array.isArray(res.body.data)).toBe(true);
       expect(res.body.data.length).toBeGreaterThan(0);
+      expect(res.body.data[0].route).toBeDefined();
+      expect(res.body.data[0].busNo).toBe(busNo);
+      expect(Array.isArray(res.body.data[0].stops)).toBe(true);
+      expect(res.body.data[0].stops[0].id).toBeDefined();
     });
   });
 

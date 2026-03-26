@@ -30,33 +30,20 @@ const validateFacilityChange = (req, res, next) => {
   }
 
   if (transport !== undefined) {
-    if (typeof transport.isApplicable !== "boolean") {
-      return next(new AppError("transport.isApplicable must be a boolean", 400));
+    if (transport.isApplicable !== true) {
+      return next(new AppError("assign facility only accepts isApplicable: true. Use /cancel to remove a facility.", 400));
     }
-    if (transport.isApplicable) {
-      if (!transport.route) {
-        return next(new AppError("transport.route is required when transport.isApplicable is true", 400));
-      }
-      if (!transport.stopName) {
-        return next(new AppError("transport.stopName is required when transport.isApplicable is true", 400));
-      }
+    if (!transport.id) {
+      return next(new AppError("transport.id is required", 400));
     }
   }
 
   if (hostel !== undefined) {
-    if (typeof hostel.isApplicable !== "boolean") {
-      return next(new AppError("hostel.isApplicable must be a boolean", 400));
+    if (hostel.isApplicable !== true) {
+      return next(new AppError("assign facility only accepts isApplicable: true. Use /cancel to remove a facility.", 400));
     }
-    if (hostel.isApplicable) {
-      if (!hostel.block) {
-        return next(new AppError("hostel.block is required when hostel.isApplicable is true", 400));
-      }
-      if (hostel.sharing === undefined || hostel.sharing === null) {
-        return next(new AppError("hostel.sharing is required when hostel.isApplicable is true", 400));
-      }
-      if (hostel.isAttached === undefined || hostel.isAttached === null) {
-        return next(new AppError("hostel.isAttached is required when hostel.isApplicable is true", 400));
-      }
+    if (!hostel.id) {
+      return next(new AppError("hostel.id is required", 400));
     }
   }
 

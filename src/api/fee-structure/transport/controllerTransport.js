@@ -2,7 +2,7 @@ const transportService = require("./serviceTransport");
 const asyncHandler = require("../../../utils/asyncHandler");
 
 const getAllTransportStops = asyncHandler(async (req, res) => {
-  const data = await transportService.getAllTransportStops();
+  const data = await transportService.getAllTransportStops(req.query.busNo);
   res.status(200).json({
     success: true,
     data,

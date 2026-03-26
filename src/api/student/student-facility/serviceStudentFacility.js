@@ -20,7 +20,7 @@ function buildTargetYears(applyFromAcademicYear, batchEndYear) {
   return years;
 }
 
-const updateFacility = async (rollNo, { transport, hostel, applyFromAcademicYear, effectiveDate }) => {
+const assignFacility = async (rollNo, { transport, hostel, applyFromAcademicYear, effectiveDate }) => {
   /* ─── Phase 1: Fetch student ─── */
   const student = await Student.findOne({ "personal.rollNo": rollNo.toUpperCase() });
   if (!student) throw new AppError("Student not found", 404);
@@ -44,20 +44,22 @@ const updateFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
     );
   }
 
-  /* ─── Phase 3: Resolve transport & hostel master docs ─── */
+  /* ─── Phase 3: Fetch Tracking & Master Docs & Active Checks ─── */
+  const tracking = await StudentFeeTracking.findOne({ rollNo: rollNo.toUpperCase() });
   const resolvedEffectiveDate = effectiveDate ? new Date(effectiveDate) : new Date();
 
   let resolvedTransport = null;
   if (transport !== undefined && transport.isApplicable) {
-    const transportDoc = await Transport.findOne({
-      route: transport.route,
-      stop: transport.stopName,
-    });
+    const hasActiveStudentTransport = student.transport?.isApplicable && (!student.transport.endDate || new Date(student.transport.endDate) > new Date());
+    const hasActiveTrackingTransport = tracking?.academicYearWiseRecord.some(yr => yr.transport?.isActive && (!yr.transport.endDate || new Date(yr.transport.endDate) > new Date()));
+
+    if (hasActiveStudentTransport || hasActiveTrackingTransport) {
+      throw new AppError("Student already has an active transport facility", 400);
+    }
+
+    const transportDoc = await Transport.findById(transport.id);
     if (!transportDoc) {
-      throw new AppError(
-        `Transport not found for route "${transport.route}" and stop "${transport.stopName}"`,
-        404
-      );
+      throw new AppError(`Transport not found for id "${transport.id}"`, 404);
     }
     resolvedTransport = {
       isApplicable: true,
@@ -73,16 +75,16 @@ const updateFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
 
   let resolvedHostel = null;
   if (hostel !== undefined && hostel.isApplicable) {
-    const hostelDoc = await Hostel.findOne({
-      block: String(hostel.block).toUpperCase(),
-      sharing: hostel.sharing,
-      isAttached: hostel.isAttached,
-    });
+    const hasActiveStudentHostel = student.hostel?.isApplicable && (!student.hostel.endDate || new Date(student.hostel.endDate) > new Date());
+    const hasActiveTrackingHostel = tracking?.academicYearWiseRecord.some(yr => yr.hostel?.isActive && (!yr.hostel.endDate || new Date(yr.hostel.endDate) > new Date()));
+
+    if (hasActiveStudentHostel || hasActiveTrackingHostel) {
+      throw new AppError("Student already has an active hostel facility", 400);
+    }
+
+    const hostelDoc = await Hostel.findById(hostel.id);
     if (!hostelDoc) {
-      throw new AppError(
-        `Hostel not found for block "${hostel.block}", sharing ${hostel.sharing}, isAttached ${hostel.isAttached}`,
-        404
-      );
+      throw new AppError(`Hostel not found for id "${hostel.id}"`, 404);
     }
     resolvedHostel = {
       isApplicable: true,
@@ -97,7 +99,6 @@ const updateFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
   }
 
   /* ─── Phase 4: Paid/Partial guard (applyFromAcademicYear only) ─── */
-  const tracking = await StudentFeeTracking.findOne({ rollNo: rollNo.toUpperCase() });
 
   if (tracking) {
     const applyFromRecord = tracking.academicYearWiseRecord.find(
@@ -147,20 +148,16 @@ const updateFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
             yearRecord.transport.endDate = yearRecord.transport.endDate || new Date();
           }
         } else {
-          yearRecord.transport = {
-            transport: resolvedTransport.transport,
-            route: resolvedTransport.route,
-            busNo: resolvedTransport.busNo,
-            stop: resolvedTransport.stop,
-            fee: resolvedTransport.fee,
-            subTotal: normalizeMoney(resolvedTransport.fee),
-            consumedAmountOnPartialCancellation: 0,
-            conceptionOnPartialCancellation: 0,
-            isActive: true,
-            effectiveDate: resolvedTransport.effectiveDate,
-            endDate: null,
-            total: { total: 0 },
-          };
+          if (!yearRecord.transport) yearRecord.transport = { total: { total: 0 } };
+          yearRecord.transport.transport = resolvedTransport.transport;
+          yearRecord.transport.route = resolvedTransport.route;
+          yearRecord.transport.busNo = resolvedTransport.busNo;
+          yearRecord.transport.stop = resolvedTransport.stop;
+          yearRecord.transport.fee = resolvedTransport.fee;
+          yearRecord.transport.subTotal = normalizeMoney(resolvedTransport.fee);
+          yearRecord.transport.isActive = true;
+          yearRecord.transport.effectiveDate = resolvedTransport.effectiveDate;
+          yearRecord.transport.endDate = null;
         }
         trackingTouched = true;
       }
@@ -172,21 +169,16 @@ const updateFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
             yearRecord.hostel.endDate = yearRecord.hostel.endDate || new Date();
           }
         } else {
-          yearRecord.hostel = {
-            hostel: resolvedHostel.hostel,
-            block: resolvedHostel.block,
-            sharing: resolvedHostel.sharing,
-            isAttached: resolvedHostel.isAttached,
-            fee: resolvedHostel.fee,
-            subTotal: normalizeMoney(resolvedHostel.fee),
-            hostelSpecialConcession: 0,
-            consumedAmountOnPartialCancellation: 0,
-            conceptionOnPartialCancellation: 0,
-            isActive: true,
-            effectiveDate: resolvedHostel.effectiveDate,
-            endDate: null,
-            total: { total: 0 },
-          };
+          if (!yearRecord.hostel) yearRecord.hostel = { total: { total: 0 } };
+          yearRecord.hostel.hostel = resolvedHostel.hostel;
+          yearRecord.hostel.block = resolvedHostel.block;
+          yearRecord.hostel.sharing = resolvedHostel.sharing;
+          yearRecord.hostel.isAttached = resolvedHostel.isAttached;
+          yearRecord.hostel.fee = resolvedHostel.fee;
+          yearRecord.hostel.subTotal = normalizeMoney(resolvedHostel.fee);
+          yearRecord.hostel.isActive = true;
+          yearRecord.hostel.effectiveDate = resolvedHostel.effectiveDate;
+          yearRecord.hostel.endDate = null;
         }
         trackingTouched = true;
       }
@@ -228,7 +220,7 @@ const updateFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
   return { student, message };
 };
 
-exports.removeFacility = async (rollNo, payload, userId) => {
+exports.cancelFacility = async (rollNo, payload, userId) => {
   const { facilityType, applyFromAcademicYear, endDate, conceptionAmount, refundMode, refundAmount, idempotencyKey } = payload;
 
   const normalizedRollNo = rollNo.toUpperCase();
@@ -259,7 +251,6 @@ exports.removeFacility = async (rollNo, payload, userId) => {
 
   const normalizedConsumedAmount = normalizeMoney(conceptionAmount || 0);
   const currentPaid = normalizeMoney(ledger.total?.paid || 0);
-  const currentNetTotal = normalizeMoney(ledger.total?.total || 0);
 
   if (currentPaid <= 0) {
     throw new AppError(`No paid amount available to settle ${facilityType} cancellation`, 400);
@@ -312,11 +303,9 @@ exports.removeFacility = async (rollNo, payload, userId) => {
   const refreshedLedger = facilityType === 'transport' ? refreshedYear.transport : refreshedYear.hostel;
   if (!refreshedLedger) throw new AppError(`${facilityType} ledger not found for the academic year`, 404);
 
-  const cancellationConcession = normalizeMoney(Math.max(0, currentNetTotal - normalizedConsumedAmount));
-
-  refreshedLedger.consumedAmountOnPartialCancellation = normalizedConsumedAmount;
-  refreshedLedger.conceptionOnPartialCancellation = cancellationConcession;
-  refreshedLedger.total.paid = normalizedConsumedAmount;
+  refreshedLedger.consumedAmount = normalizedConsumedAmount;
+  refreshedLedger.total.paid = 0;
+  refreshedLedger.total.status = 'Refunded';
   refreshedLedger.isActive = false;
   refreshedLedger.endDate = new Date(endDate);
 
@@ -355,7 +344,6 @@ exports.removeFacility = async (rollNo, payload, userId) => {
       paidAmount: currentPaid,
       consumedAmount: normalizedConsumedAmount,
       refundedAmount: computedRefundAmount,
-      cancellationConcession,
       refundMode,
       refundReceiptNo: refundRecord?.refundReceiptNo || null,
     }
@@ -363,4 +351,4 @@ exports.removeFacility = async (rollNo, payload, userId) => {
 };
 
 
-module.exports = { updateFacility, removeFacility: exports.removeFacility };
+module.exports = { assignFacility, cancelFacility: exports.cancelFacility };

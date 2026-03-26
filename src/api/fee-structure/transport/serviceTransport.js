@@ -4,8 +4,50 @@ const AppError = require("../../../utils/appError");
 /**
  * Get all transport configurations
  */
-const getAllTransportStops = async () => {
-  return await Transport.find().lean();
+const getAllTransportStops = async (busNo) => {
+  const filter = {};
+  if (typeof busNo === "string" && busNo.trim() !== "") {
+    filter.busNo = busNo.trim();
+  }
+
+  const transports = await Transport.find(filter).lean();
+
+  const groupedMap = new Map();
+
+  transports.forEach((item) => {
+    const key = `${item.route}__${item.busNo}`;
+
+    if (!groupedMap.has(key)) {
+      groupedMap.set(key, {
+        route: item.route,
+        busNo: item.busNo,
+        stops: []
+      });
+    }
+
+    groupedMap.get(key).stops.push({
+      id: String(item._id),
+      stop: item.stop,
+      fee: item.fee
+    });
+  });
+
+  const detailed = Array.from(groupedMap.values());
+
+  if (filter.busNo) {
+    return detailed;
+  }
+
+  const routes = [...new Set(transports.map((item) => item.route))];
+  const busNos = [...new Set(transports.map((item) => item.busNo))];
+
+  return {
+    info: {
+      routes,
+      busNos
+    },
+    detailed
+  };
 };
 
 /**

@@ -95,7 +95,7 @@ Even semesters (2, 4, 6, 8) → `academic.even`
 ### Inactivation behavior (`isActive=false`)
 
 - Academic fee heads: component is marked inactive and refund amount is additionally applied as concession (so net total decreases).
-- Transport/Hostel: ledger is marked inactive (`isActive=false`), `endDate` is set, and `conceptionOnPartialCancellation` is applied so net total decreases.
+- Transport/Hostel: ledger is marked inactive (`isActive=false`), `endDate` is set, `consumedAmount` stores consumed value from cancellation flow, and ledger status is set to `Refunded`.
 - `excessAmount`: does not support `isActive=false`.
 
 ---

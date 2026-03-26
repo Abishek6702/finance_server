@@ -4,7 +4,7 @@ const controller = require("./controllerStudentFacility");
 const { validateFacilityChange, validateFacilityRemoval } = require("./validationStudentFacility");
 const { protect, admin } = require("../../../middleware/authMiddleware");
 
-router.put("/:rollNo", protect, admin, validateFacilityChange, controller.updateFacility);
-router.post("/remove/:rollNo", protect, admin, validateFacilityRemoval, controller.removeFacility);
+router.put("/assign/:rollNo", protect, admin, validateFacilityChange, controller.assignFacility);
+router.put("/cancel/:rollNo", protect, admin, validateFacilityRemoval, controller.cancelFacility);
 
 module.exports = router;

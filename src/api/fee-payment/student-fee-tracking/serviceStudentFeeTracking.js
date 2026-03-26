@@ -14,6 +14,50 @@ const normalizeMoney = (value) => {
   return Math.round(number * 100) / 100;
 };
 
+const computeStatus = (demand, paid) => {
+  if (demand === 0) return "Paid";
+  if (paid >= demand) return "Paid";
+  if (paid > 0) return "Partial";
+  return "Unpaid";
+};
+
+const buildFacilityArray = (yr) => {
+  const facility = [];
+  if (yr.transport && (yr.transport.subTotal || 0) > 0) {
+    const tTotal = normalizeMoney(yr.transport.total?.total || 0);
+    const tPaid = normalizeMoney(yr.transport.total?.paid || 0);
+    facility.push({
+      name: "Transport Fees",
+      isActive: yr.transport.isActive !== false,
+      consumedAmount: normalizeMoney(yr.transport.consumedAmount || 0),
+      effectiveDate: yr.transport.effectiveDate || null,
+      endDate: yr.transport.endDate || null,
+      total: tTotal,
+      concession: normalizeMoney(yr.concessions?.transport || 0),
+      paid: tPaid,
+      overdue: normalizeMoney(Math.max(0, tTotal - tPaid)),
+      status: yr.transport.total?.status || computeStatus(tTotal, tPaid)
+    });
+  }
+  if (yr.hostel && (yr.hostel.subTotal || 0) > 0) {
+    const hTotal = normalizeMoney(yr.hostel.total?.total || 0);
+    const hPaid = normalizeMoney(yr.hostel.total?.paid || 0);
+    facility.push({
+      name: "Hostel Fees",
+      isActive: yr.hostel.isActive !== false,
+      consumedAmount: normalizeMoney(yr.hostel.consumedAmount || 0),
+      effectiveDate: yr.hostel.effectiveDate || null,
+      endDate: yr.hostel.endDate || null,
+      total: hTotal,
+      concession: normalizeMoney(yr.concessions?.hostel || 0),
+      paid: hPaid,
+      overdue: normalizeMoney(Math.max(0, hTotal - hPaid)),
+      status: yr.hostel.total?.status || computeStatus(hTotal, hPaid)
+    });
+  }
+  return facility;
+};
+
 /* ────────────────────────────────────────────────
    Helper: Hide block data if isApplicable === false
    Keeps only { isApplicable: false }
@@ -334,12 +378,6 @@ const getStudentsFeeTrackingData = async (query = {}) => {
     return acc;
   }, {});
 
-  const computeStatus = (demand, paid) => {
-    if (demand === 0) return "Paid";
-    if (paid >= demand) return "Paid";
-    if (paid > 0) return "Partial";
-    return "Unpaid";
-  };
 
   const ACADEMIC_HEADS = ["tuition", "exam", "erp", "book", "lab"];
 
@@ -501,10 +539,13 @@ const getStudentsFeeTrackingData = async (query = {}) => {
       const total = normalizeMoney(yr.subTotal || 0);
       const concession = normalizeMoney(Math.max(0, total - demand));
 
+      const facility = buildFacilityArray(yr);
+
       return {
         academicYear: yr.academicYear,
         odd: buildSemesterDetail(yr.academic?.odd),
         even: buildSemesterDetail(yr.academic?.even),
+        facility,
         overall: buildOverall({
           demand,
           concession,
@@ -576,6 +617,14 @@ const stripTracking = (t) => {
   if (!t) return null;
 
   const { _id, student, __v, rollNo, ...rest } = t;
+  
+  if (rest.academicYearWiseRecord && Array.isArray(rest.academicYearWiseRecord)) {
+    rest.academicYearWiseRecord = rest.academicYearWiseRecord.map((yr) => {
+      const facility = buildFacilityArray(yr);
+      return { ...yr, facility };
+    });
+  }
+
   return rest;
 };
   /* ────────────────────────────────────────────────

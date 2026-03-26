@@ -132,8 +132,14 @@ describe("Hostel Configuration API", () => {
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(Array.isArray(res.body.data)).toBe(true);
-      expect(res.body.data.length).toBeGreaterThan(0);
+      expect(res.body.data.info).toBeDefined();
+      expect(Array.isArray(res.body.data.info.blocks)).toBe(true);
+      expect(Array.isArray(res.body.data.info.sharing)).toBe(true);
+      expect(Array.isArray(res.body.data.info.isAttached)).toBe(true);
+      expect(Array.isArray(res.body.data.detailed)).toBe(true);
+      expect(res.body.data.detailed.length).toBeGreaterThan(0);
+      expect(res.body.data.detailed[0].id).toBeDefined();
+      expect(res.body.data.detailed[0]._id).toBeUndefined();
     });
   });
 

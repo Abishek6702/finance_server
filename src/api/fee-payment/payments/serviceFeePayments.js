@@ -150,6 +150,9 @@ const createPayment = async (data) => {
       }
       seenHostelKeys.add(bd.academicYear);
       if (!yearRecord.hostel) throw new AppError(`No hostel fee record found for ${bd.academicYear}`, 404);
+      if (yearRecord.hostel.isActive === false) {
+        throw new AppError(`Cannot process hostel payment for ${bd.academicYear} as the facility is inactive`, 400);
+      }
       const hostelRemaining = normalizeMoney(
         (yearRecord.hostel.total?.total || 0) - (yearRecord.hostel.total?.paid || 0)
       );
@@ -170,6 +173,9 @@ const createPayment = async (data) => {
       }
       seenTransportKeys.add(bd.academicYear);
       if (!yearRecord.transport) throw new AppError(`No transport fee record found for ${bd.academicYear}`, 404);
+      if (yearRecord.transport.isActive === false) {
+        throw new AppError(`Cannot process transport payment for ${bd.academicYear} as the facility is inactive`, 400);
+      }
       const transportRemaining = normalizeMoney(
         (yearRecord.transport.total?.total || 0) - (yearRecord.transport.total?.paid || 0)
       );

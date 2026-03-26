@@ -16,19 +16,10 @@
    res.status(200).json({
      success: true,
      data,
-     message: "Student fee year-wise summary fetched successfully",
+    message: "Student fee demand fetched successfully",
    });
  });
+  
  
- const getFeeDemandBySemester = asyncHandler(async (req, res) => {
-   const { rollNo, academicYear } = req.params;
-   const data = await service.getFeeDemandBySemester(rollNo, academicYear, req.query);
-   res.status(200).json({
-     success: true,
-     data,
-     message: "Semester fee breakdown fetched successfully",
-   });
- });
- 
- module.exports = { getFeeDemandList, getFeeDemandByRollNo, getFeeDemandBySemester };
+ module.exports = { getFeeDemandList, getFeeDemandByRollNo };
  
