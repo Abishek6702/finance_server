@@ -2229,6 +2229,56 @@
       ]
     },
     {
+      "name": "Hostel",
+      "item": [
+        {
+          "name": "Get Hostel Master",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/hostel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "hostel"
+              ]
+            },
+            "description": "Returns hostel master data with info (blocks, sharing, isAttached) and detailed rows"
+          },
+          "response": [
+            {
+              "name": "Hostel Master Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/hostel",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "hostel"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Hostel configurations retrieved successfully\",\n  \"data\": {\n    \"info\": {\n      \"blocks\": [\"A\", \"B\"],\n      \"sharing\": [2, 3, 4],\n      \"isAttached\": [true, false]\n    },\n    \"detailed\": [\n      {\n        \"id\": \"67f0a4f7a0f66b2cf5f49999\",\n        \"block\": \"A\",\n        \"sharing\": 2,\n        \"isAttached\": true,\n        \"fee\": 65000\n      }\n    ]\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "Superadmin",
       "item": [
         {
