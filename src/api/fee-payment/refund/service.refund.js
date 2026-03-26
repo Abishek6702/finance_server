@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const FeeRefund = require("./model.refund");
 const RefundCounter = require("./modelRefundCounter");
 const StudentFeeTracking = require("../student-fee-tracking/modelStudentFeeTracking");
+const Student = require("../../student/students-management/modelStudent");
 const AppError = require("../../../utils/appError");
 
 const ACADEMIC_HEADS = new Set(["tuition", "exam", "erp", "book", "lab"]);
@@ -63,12 +64,20 @@ const createRefund = async (data, userId) => {
       if (deactivateAfterRefund) {
         throw new AppError("isActive=false is not supported for excessAmount refunds", 400);
       }
-      if ((tracking.excessAmount || 0) < amount) {
-        throw new AppError(`Refund amount ₹${amount} exceeds available excess amount ₹${tracking.excessAmount || 0}`, 400);
+      const student = await Student.findOne({ "personal.rollNo": rollNo }).session(session);
+      if (!student) {
+        throw new AppError("Student not found", 404);
       }
-      tracking.excessAmount = normalizeMoney((tracking.excessAmount || 0) - amount);
-      tracking.markModified("excessAmount");
-      await tracking.save({ session });
+
+      const currentExcess = normalizeMoney(student.enrollment?.excessAmount || 0);
+      if (currentExcess < amount) {
+        throw new AppError(`Refund amount ₹${amount} exceeds available excess amount ₹${currentExcess}`, 400);
+      }
+
+      const updatedExcess = normalizeMoney(currentExcess - amount);
+      student.enrollment.excessAmount = updatedExcess;
+      student.enrollment.isExcessAmountTrue = updatedExcess > 0;
+      await student.save({ session });
 
       const refundReceiptNo = await getNextRefundReceiptNo();
       const [refundRecord] = await FeeRefund.create([{

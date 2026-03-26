@@ -272,6 +272,41 @@ describe("Refund API", () => {
     expect(res.body.message).toMatch(/exceeds paid/i);
   });
 
+  it("processes excessAmount refund using student enrollment excess balance", async () => {
+    await Student.updateOne(
+      { "personal.rollNo": rollNo },
+      {
+        $set: {
+          "enrollment.excessAmount": 27000,
+          "enrollment.isExcessAmountTrue": true,
+        },
+      }
+    );
+
+    const res = await request(app)
+      .post(`/api/refund/${rollNo}`)
+      .set(adminAuth())
+      .send({
+        academicYear: year,
+        feeHead: "excessAmount",
+        refundAmount: 500,
+        reason: "Excess returned",
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.feeHead).toBe("excessAmount");
+    expect(res.body.data.refundAmount).toBe(500);
+
+    const student = await Student.findOne(
+      { "personal.rollNo": rollNo },
+      { "enrollment.excessAmount": 1, "enrollment.isExcessAmountTrue": 1 }
+    ).lean();
+
+    expect(student.enrollment.excessAmount).toBe(26500);
+    expect(student.enrollment.isExcessAmountTrue).toBe(true);
+  });
+
   /* ─── GET ENDPOINTS ─────────────────────────────────────────────── */
 
   it("GET /refund/student/:rollNo returns all refunds for student", async () => {
