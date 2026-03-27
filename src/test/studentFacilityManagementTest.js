@@ -216,8 +216,8 @@ describe("Student Facility Management API", () => {
     expect(res.status).toBe(200);
     expect(res.body.data.student.transport.isApplicable).toBe(true);
     
-    // Attempting to re-assign should fail due to active guard
-    const activeRes = await request(app)
+    // Re-assigning transport should update transport details and keep hostel untouched.
+    const reassignRes = await request(app)
       .put(`/api/studentFacility/assign/${sfmRollMain}`)
       .set(adminAuth())
       .send({
@@ -225,7 +225,9 @@ describe("Student Facility Management API", () => {
         effectiveDate: "2025-08-01",
         applyFromAcademicYear: testCtx.academicYearPrimary,
       });
-    expect(activeRes.status).toBe(400);
+    expect(reassignRes.status).toBe(200);
+    expect(reassignRes.body.data.student.transport.isApplicable).toBe(true);
+    expect(reassignRes.body.data.student.transport.route).toBe("Kottampatti - Pollachi");
   });
 
   it("assigns hostel successfully while transport remains active", async () => {
@@ -240,9 +242,10 @@ describe("Student Facility Management API", () => {
     expect(res.status).toBe(200);
     expect(res.body.data.student.hostel.isApplicable).toBe(true);
     expect(res.body.data.student.hostel.block).toBe("A");
+    expect(res.body.data.student.transport.isApplicable).toBe(true);
     
-    // Active guard for hostel
-    const activeRes = await request(app)
+    // Re-assigning hostel should update hostel details and keep transport untouched.
+    const reassignRes = await request(app)
       .put(`/api/studentFacility/assign/${sfmRollMain}`)
       .set(adminAuth())
       .send({
@@ -250,7 +253,11 @@ describe("Student Facility Management API", () => {
         effectiveDate: "2025-09-01",
         applyFromAcademicYear: testCtx.academicYearPrimary,
       });
-    expect(activeRes.status).toBe(400);
+    expect(reassignRes.status).toBe(200);
+    expect(reassignRes.body.data.student.hostel.isApplicable).toBe(true);
+    expect(reassignRes.body.data.student.hostel.block).toBe("B");
+    expect(reassignRes.body.data.student.transport.isApplicable).toBe(true);
+    expect(reassignRes.body.data.student.transport.route).toBe("Kottampatti - Pollachi");
   });
 
   it("creates reduction payment when assigning facility with reduction > 0", async () => {

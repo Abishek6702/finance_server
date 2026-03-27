@@ -21,6 +21,23 @@ function buildTargetYears(applyFromAcademicYear, batchEndYear) {
   return years;
 }
 
+function isStudentFacilityActive(facility) {
+  if (!facility?.isApplicable) return false;
+  if (facility.isActive === false) return false;
+  return !facility.endDate || new Date(facility.endDate) > new Date();
+}
+
+function hasActiveFacilityInTracking(tracking, facilityType) {
+  return (
+    tracking?.academicYearWiseRecord?.some((yearRecord) => {
+      const facility = yearRecord?.[facilityType];
+      if (!facility) return false;
+      if (facility.isActive === false) return false;
+      return !facility.endDate || new Date(facility.endDate) > new Date();
+    }) || false
+  );
+}
+
 const assignFacility = async (rollNo, { transport, hostel, applyFromAcademicYear, effectiveDate, reduction }, session = null) => {
   /* ─── Phase 1: Fetch student ─── */
   const student = await Student.findOne({ "personal.rollNo": rollNo.toUpperCase() }).session(session);
@@ -49,15 +66,29 @@ const assignFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
   const tracking = await StudentFeeTracking.findOne({ rollNo: rollNo.toUpperCase() }).session(session);
   const resolvedEffectiveDate = effectiveDate ? new Date(effectiveDate) : new Date();
 
+  const assignTransport = transport?.isApplicable === true;
+  const assignHostel = hostel?.isApplicable === true;
+
+  // Assigning both together is allowed only when both facilities are currently inactive.
+  if (assignTransport && assignHostel) {
+    const hasAnyActiveTransport =
+      isStudentFacilityActive(student.transport) ||
+      hasActiveFacilityInTracking(tracking, "transport");
+
+    const hasAnyActiveHostel =
+      isStudentFacilityActive(student.hostel) ||
+      hasActiveFacilityInTracking(tracking, "hostel");
+
+    if (hasAnyActiveTransport || hasAnyActiveHostel) {
+      throw new AppError(
+        "Both facilities can be assigned together only when existing hostel and transport are inactive",
+        400
+      );
+    }
+  }
+
   let resolvedTransport = null;
   if (transport !== undefined && transport.isApplicable) {
-    const hasActiveStudentTransport = student.transport?.isApplicable && (!student.transport.endDate || new Date(student.transport.endDate) > new Date());
-    const hasActiveTrackingTransport = tracking?.academicYearWiseRecord.some(yr => yr.transport?.isActive && (!yr.transport.endDate || new Date(yr.transport.endDate) > new Date()));
-
-    if (hasActiveStudentTransport || hasActiveTrackingTransport) {
-      throw new AppError("Student already has an active transport facility", 400);
-    }
-
     const transportDoc = await Transport.findById(transport.id).session(session);
     if (!transportDoc) {
       throw new AppError(`Transport not found for id "${transport.id}"`, 404);
@@ -77,13 +108,6 @@ const assignFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
 
   let resolvedHostel = null;
   if (hostel !== undefined && hostel.isApplicable) {
-    const hasActiveStudentHostel = student.hostel?.isApplicable && (!student.hostel.endDate || new Date(student.hostel.endDate) > new Date());
-    const hasActiveTrackingHostel = tracking?.academicYearWiseRecord.some(yr => yr.hostel?.isActive && (!yr.hostel.endDate || new Date(yr.hostel.endDate) > new Date()));
-
-    if (hasActiveStudentHostel || hasActiveTrackingHostel) {
-      throw new AppError("Student already has an active hostel facility", 400);
-    }
-
     const hostelDoc = await Hostel.findById(hostel.id).session(session);
     if (!hostelDoc) {
       throw new AppError(`Hostel not found for id "${hostel.id}"`, 404);
