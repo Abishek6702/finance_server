@@ -84,6 +84,9 @@ const buildStudentTypeInfoForAcademicYear = (student, yearRecord) => {
   const transportSnapshot = yearRecord?.transport || {};
   const transportPaid = normalizeMoney(transportSnapshot.total?.paid || 0);
   const transportConcession = normalizeMoney(yearRecord?.concessions?.transport || 0);
+  const hostelSnapshot = yearRecord?.hostel || {};
+  const hostelPaid = normalizeMoney(hostelSnapshot.total?.paid || 0);
+  const hostelConcession = normalizeMoney(yearRecord?.concessions?.hostel || 0);
 
   return {
     transport,
@@ -99,7 +102,17 @@ const buildStudentTypeInfoForAcademicYear = (student, yearRecord) => {
           consession: transportConcession,
         }
       : null,
-    hostelDetails: null,
+    hostelDetails: hostel
+      ? {
+          hostel: hostelSnapshot.hostel || student.hostel?.hostel || "",
+          block: hostelSnapshot.block || student.hostel?.block || "",
+          sharing: hostelSnapshot.sharing ?? student.hostel?.sharing ?? null,
+          isAttached: hostelSnapshot.isAttached ?? student.hostel?.isAttached ?? null,
+          fee: normalizeMoney(hostelSnapshot.fee ?? student.hostel?.fee ?? 0),
+          paid: hostelPaid,
+          consession: hostelConcession,
+        }
+      : null,
   };
 };
  

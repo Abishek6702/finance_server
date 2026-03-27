@@ -36,7 +36,8 @@ Records a fee payment for a student across one or more academic years and fee ca
 ```json
 {
   "rollNo":      "string",
-  "paymentType": "Cash | Card | UPI | NetBanking | Cheque | DD | excessAmount",
+  "paymentType": "Cash | Card | UPI | NetBanking | Cheque | DD | excessAmount | reduction",
+  "reason":      "string (required when paymentType is reduction)",
   "bankName":    "string (optional)",
   "bankLocation":"string (optional)",
   "billingDate": "string (optional) — dd/mm/yyyy or ISO 8601; defaults to today",
@@ -64,7 +65,8 @@ Records a fee payment for a student across one or more academic years and fee ca
 | Field | Rules |
 |---|---|
 | `rollNo` | Required |
-| `paymentType` | Required. Must be one of: `Cash`, `Card`, `UPI`, `NetBanking`, `Cheque`, `DD`, `excessAmount` |
+| `paymentType` | Required. Must be one of: `Cash`, `Card`, `UPI`, `NetBanking`, `Cheque`, `DD`, `excessAmount`, `reduction` |
+| `reason` | Required only when `paymentType` is `reduction`; ignored for all other payment types |
 | `bankName` | Optional string |
 | `bankLocation` | Optional string |
 | `billingDate` | Optional. Accepted formats: `dd/mm/yyyy` or ISO 8601. Defaults to current date |
@@ -85,6 +87,7 @@ Records a fee payment for a student across one or more academic years and fee ca
 - The aggregate academic payment per year is also cross-checked against the **net academic total** (post-concession) to prevent overpayment across semesters.
 - If `excessAmount` is provided and > 0, it is added to `enrollment.excessAmount` and `enrollment.isExcessAmountTrue` is set to `true`.
 - For `paymentType=excessAmount`, the student's available excess balance (current balance + any `excessAmount` provided in the request) must be **greater than or equal to** the total payable. On success, the student's `enrollment.excessAmount` is reduced by the paid total and `enrollment.isExcessAmountTrue` is updated based on whether the remaining balance is > 0.
+- For `paymentType=reduction`, `reason` is mandatory and stored with the transaction.
 - Receipt number is auto-generated in format `REC-YYYYMMDD-NNN` (e.g., `REC-20260304-001`).
 - `studentTransactionDoc` is created lazily on first payment.
 
@@ -154,7 +157,7 @@ Returns all transactions across all students, with optional filters. Can be pagi
 | Parameter    | Type   | Required | Description |
 |--------------|--------|----------|-------------|
 | `department` | string | No       | Filter by department. One of: `CSE`, `IT`, `AIML`, `AIDS`, `ECE`, `EEE`, `MECH`, `CIVIL` |
-| `paymentMode`| string | No       | Filter by payment type. One of: `Cash`, `Card`, `UPI`, `NetBanking`, `Cheque`, `DD`, `excessAmount` |
+| `paymentMode`| string | No       | Filter by payment type. One of: `Cash`, `Card`, `UPI`, `NetBanking`, `Cheque`, `DD`, `excessAmount`, `reduction` |
 | `fromDate`   | string | No       | Start of date range (inclusive). Any valid date string |
 | `toDate`     | string | No       | End of date range (inclusive, up to 23:59:59). Any valid date string |
 | `page`       | integer| No       | Page number (≥ 1). Default: `1`. Only with `limit` |
@@ -420,7 +423,7 @@ Returns an unpacked list of individual fee head feePayment across all students. 
 | Parameter      | Type   | Required | Description |
 |----------------|--------|----------|-------------|
 | `department`   | string | No       | Filter by department. One of: `CSE`, `IT`, `AIML`, `AIDS`, `ECE`, `EEE`, `MECH`, `CIVIL` |
-| `paymentMode`  | string | No       | Filter by payment type. One of: `Cash`, `Card`, `UPI`, `NetBanking`, `Cheque`, `DD`, `excessAmount` |
+| `paymentMode`  | string | No       | Filter by payment type. One of: `Cash`, `Card`, `UPI`, `NetBanking`, `Cheque`, `DD`, `excessAmount`, `reduction` |
 | `feeHead`      | string | No       | Filter by fee category. One of: `tuition`, `exam`, `erp`, `book`, `lab`, `hostel`, `transport` |
 | `yearStudying` | string | No       | Filter by student's current year of study (`1`, `2`, `3`, `4`) |
 | `rollNo`       | string | No       | Filter by exact student roll number (case-insensitive — converted to uppercase) |
@@ -630,7 +633,8 @@ All error responses follow the structure:
 | Transport payment exceeds remaining due | `Transport payment ₹<amount> exceeds remaining concession-adjusted due ₹<remaining> for <YYYY-YYYY>` |
 | Total payment is zero | `Total payment amount must be greater than 0` |
 | Invalid `department` query param | `department must be one of: CSE, IT, AIML, AIDS, ECE, EEE, MECH, CIVIL` |
-| Invalid `paymentMode` query param | `paymentMode must be one of: Cash, Card, UPI, NetBanking, Cheque, DD, excessAmount` |
+| Invalid `paymentMode` query param | `paymentMode must be one of: Cash, Card, UPI, NetBanking, Cheque, DD, excessAmount, reduction` |
+| Missing reason for reduction payment | `reason is required when paymentType is reduction` |
 | Invalid `fromDate` / `toDate` | `fromDate must be a valid date` / `toDate must be a valid date` |
 | `fromDate` after `toDate` | `fromDate cannot be after toDate` |
 | `page` not a positive integer | `page must be a positive integer` |

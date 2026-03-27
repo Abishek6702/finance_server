@@ -21,13 +21,13 @@ const setStatus = (target) => {
   else target.status = "Unpaid";
 };
 
-const getNextRefundReceiptNo = async () => {
+const getNextRefundReceiptNo = async ({ session = null } = {}) => {
   const year = String(new Date().getFullYear());
   const counter = await RefundCounter.findOneAndUpdate(
     { year },
     { $inc: { sequence: 1 } },
     { upsert: true, new: true }
-  );
+  ).session(session);
   const seq = String(counter.sequence).padStart(5, "0");
   return `RF-${year}-${seq}`;
 };
@@ -37,34 +37,36 @@ const getNextRefundReceiptNo = async () => {
    Deducts `paid` from the StudentFeeTracking ledger, recalculates
    all parent totals, then creates an immutable FeeRefund record.
 =================================================================== */
-const createRefund = async (data, userId) => {
+const createRefund = async (data, userId, options = {}) => {
   const { rollNo, academicYear, semNumber, feeHead, refundAmount, reason, idempotencyKey, isActive } = data;
   const deactivateAfterRefund = isActive === false;
+  const { session: externalSession = null } = options;
 
   const amount = normalizeMoney(refundAmount);
   if (amount <= 0) throw new AppError("refundAmount must be greater than 0", 400);
 
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  const ownSession = externalSession ? null : await mongoose.startSession();
+  const session = externalSession || ownSession;
+  if (ownSession) ownSession.startTransaction();
+
+  const withSession = (query) => query.session(session);
 
   try {
     if (idempotencyKey) {
-      const existingRefund = await FeeRefund.findOne({ idempotencyKey }).session(session);
+      const existingRefund = await withSession(FeeRefund.findOne({ idempotencyKey }));
       if (existingRefund) {
-        await session.abortTransaction();
-        session.endSession();
         return existingRefund; // or throw a 409 Conflict if preferred
       }
     }
 
-    const tracking = await StudentFeeTracking.findOne({ rollNo }).session(session);
+    const tracking = await withSession(StudentFeeTracking.findOne({ rollNo }));
     if (!tracking) throw new AppError("Fee tracking not found for this student", 404);
 
     if (feeHead === "excessAmount") {
       if (deactivateAfterRefund) {
         throw new AppError("isActive=false is not supported for excessAmount refunds", 400);
       }
-      const student = await Student.findOne({ "personal.rollNo": rollNo }).session(session);
+      const student = await withSession(Student.findOne({ "personal.rollNo": rollNo }));
       if (!student) {
         throw new AppError("Student not found", 404);
       }
@@ -79,7 +81,7 @@ const createRefund = async (data, userId) => {
       student.enrollment.isExcessAmountTrue = updatedExcess > 0;
       await student.save({ session });
 
-      const refundReceiptNo = await getNextRefundReceiptNo();
+      const refundReceiptNo = await getNextRefundReceiptNo({ session });
       const [refundRecord] = await FeeRefund.create([{
         rollNo,
         academicYear,
@@ -93,8 +95,7 @@ const createRefund = async (data, userId) => {
         idempotencyKey
       }], { session });
 
-      await session.commitTransaction();
-      session.endSession();
+      if (ownSession) await ownSession.commitTransaction();
       return refundRecord;
     }
 
@@ -232,7 +233,7 @@ const createRefund = async (data, userId) => {
     await tracking.save({ session });
 
     // ── Create refund record ─────────────────────────────────────────────────
-    const refundReceiptNo = await getNextRefundReceiptNo();
+    const refundReceiptNo = await getNextRefundReceiptNo({ session });
 
     const [refundRecord] = await FeeRefund.create([{
       rollNo,
@@ -247,15 +248,15 @@ const createRefund = async (data, userId) => {
       idempotencyKey
     }], { session });
 
-    await session.commitTransaction();
-    session.endSession();
+    if (ownSession) await ownSession.commitTransaction();
     return refundRecord;
 
   } catch (error) {
     console.error("REFUND ERROR:", error);
-    await session.abortTransaction();
-    session.endSession();
+    if (ownSession) await ownSession.abortTransaction();
     throw error;
+  } finally {
+    if (ownSession) ownSession.endSession();
   }
 };
 

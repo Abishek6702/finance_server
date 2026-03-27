@@ -253,6 +253,42 @@ describe("Student Facility Management API", () => {
     expect(activeRes.status).toBe(400);
   });
 
+  it("creates reduction payment when assigning facility with reduction > 0", async () => {
+    const rollNo = `33CS${testCtx.TS.slice(-3)}`;
+
+    const createRes = await createStudent(rollNo, { academicYear: testCtx.academicYearPrimary });
+    expect([200, 201]).toContain(createRes.status);
+
+    const res = await request(app)
+      .put(`/api/studentFacility/assign/${rollNo}`)
+      .set(adminAuth())
+      .send({
+        transport: { isApplicable: true, id: transportIdMain },
+        effectiveDate: "2025-07-01",
+        applyFromAcademicYear: testCtx.academicYearPrimary,
+        reduction: 1200,
+      });
+
+    expect(res.status).toBe(200);
+
+    const txDoc = await StudentTransaction.findOne({ rollNo }).lean();
+    expect(txDoc).toBeTruthy();
+    const latestTx = txDoc.transactions[txDoc.transactions.length - 1];
+    expect(latestTx.paymentType).toBe("reduction");
+    expect(latestTx.reason).toMatch(/partially added transport facility/i);
+    expect(latestTx.reason).toMatch(/Reduction amount Rs 1200/i);
+
+    const tracking = await StudentFeeTracking.findOne({ rollNo });
+    const yearRecord = tracking.academicYearWiseRecord.find(y => y.academicYear === testCtx.academicYearPrimary);
+    expect(yearRecord.transport.total.paid).toBeCloseTo(1200, 2);
+
+    await Promise.all([
+      StudentTransaction.deleteMany({ rollNo }),
+      StudentFeeTracking.deleteMany({ rollNo }),
+      Student.deleteMany({ "personal.rollNo": rollNo }),
+    ]);
+  });
+
   describe("PUT /api/studentFacility/cancel/:rollNo", () => {
     it("successfully cancels hostel facility and settles via wallet", async () => {
       // Add a small payment to hostel

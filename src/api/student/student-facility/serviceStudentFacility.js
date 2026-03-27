@@ -2,6 +2,7 @@ const Student = require("../students-management/modelStudent");
 const { Transport } = require("../../fee-structure/transport/modelTransport");
 const { Hostel } = require("../../fee-structure/hostel/modelHostel");
 const StudentFeeTracking = require("../../fee-payment/student-fee-tracking/modelStudentFeeTracking");
+const feePaymentsService = require("../../fee-payment/payments/serviceFeePayments");
 const refundService = require("../../fee-payment/refund/service.refund");
 const AppError = require("../../../utils/appError");
 
@@ -20,9 +21,9 @@ function buildTargetYears(applyFromAcademicYear, batchEndYear) {
   return years;
 }
 
-const assignFacility = async (rollNo, { transport, hostel, applyFromAcademicYear, effectiveDate }) => {
+const assignFacility = async (rollNo, { transport, hostel, applyFromAcademicYear, effectiveDate, reduction }, session = null) => {
   /* ─── Phase 1: Fetch student ─── */
-  const student = await Student.findOne({ "personal.rollNo": rollNo.toUpperCase() });
+  const student = await Student.findOne({ "personal.rollNo": rollNo.toUpperCase() }).session(session);
   if (!student) throw new AppError("Student not found", 404);
 
   /* ─── Phase 2: Validate applyFromAcademicYear range ─── */
@@ -45,7 +46,7 @@ const assignFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
   }
 
   /* ─── Phase 3: Fetch Tracking & Master Docs & Active Checks ─── */
-  const tracking = await StudentFeeTracking.findOne({ rollNo: rollNo.toUpperCase() });
+  const tracking = await StudentFeeTracking.findOne({ rollNo: rollNo.toUpperCase() }).session(session);
   const resolvedEffectiveDate = effectiveDate ? new Date(effectiveDate) : new Date();
 
   let resolvedTransport = null;
@@ -57,7 +58,7 @@ const assignFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
       throw new AppError("Student already has an active transport facility", 400);
     }
 
-    const transportDoc = await Transport.findById(transport.id);
+    const transportDoc = await Transport.findById(transport.id).session(session);
     if (!transportDoc) {
       throw new AppError(`Transport not found for id "${transport.id}"`, 404);
     }
@@ -69,6 +70,7 @@ const assignFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
       stop: transportDoc.stop,
       fee: transportDoc.fee,
       effectiveDate: resolvedEffectiveDate,
+      consumedAmount: 0,
       endDate: null,
     };
   }
@@ -82,7 +84,7 @@ const assignFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
       throw new AppError("Student already has an active hostel facility", 400);
     }
 
-    const hostelDoc = await Hostel.findById(hostel.id);
+    const hostelDoc = await Hostel.findById(hostel.id).session(session);
     if (!hostelDoc) {
       throw new AppError(`Hostel not found for id "${hostel.id}"`, 404);
     }
@@ -186,7 +188,7 @@ const assignFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
 
     if (trackingTouched) {
       tracking.markModified("academicYearWiseRecord");
-      await tracking.save();
+      await tracking.save({ session });
     }
   }
 
@@ -211,7 +213,63 @@ const assignFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
         };
   }
 
-  await student.save();
+  await student.save({ session });
+
+  const normalizedReduction = normalizeMoney(reduction || 0);
+  const isTransportAssigned = transport?.isApplicable === true;
+  const isHostelAssigned = hostel?.isApplicable === true;
+
+  if (normalizedReduction > 0) {
+    if (isTransportAssigned && isHostelAssigned) {
+      throw new AppError(
+        "reduction can be used only when assigning exactly one facility per request",
+        400
+      );
+    }
+
+    if (!isTransportAssigned && !isHostelAssigned) {
+      throw new AppError(
+        "reduction can be applied only when assigning a new hostel or transport facility",
+        400
+      );
+    }
+
+    if (!tracking) {
+      throw new AppError("Fee tracking not found for this student", 404);
+    }
+
+    const applyFromRecord = tracking.academicYearWiseRecord.find(
+      (r) => r.academicYear === applyFromAcademicYear
+    );
+
+    if (!applyFromRecord) {
+      throw new AppError(
+        `Academic year ${applyFromAcademicYear} not found in fee tracking`,
+        404
+      );
+    }
+
+    const ledgerTotal = isTransportAssigned
+      ? normalizeMoney(applyFromRecord.transport?.total?.total || 0)
+      : normalizeMoney(applyFromRecord.hostel?.total?.total || 0);
+
+    const facilityLabel = isTransportAssigned ? "transport" : "hostel";
+    const effectiveDateText = resolvedEffectiveDate.toISOString().slice(0, 10);
+    const reason = `Student partially added ${facilityLabel} facility from ${effectiveDateText}. Reduction amount Rs ${normalizedReduction} adjusted against total Rs ${ledgerTotal} for ${applyFromAcademicYear}.`;
+
+    const reductionBreakdown = {
+      academicYear: applyFromAcademicYear,
+      hostel: isHostelAssigned ? normalizedReduction : 0,
+      transport: isTransportAssigned ? normalizedReduction : 0,
+    };
+
+    await feePaymentsService.createPayment({
+      rollNo: rollNo.toUpperCase(),
+      paymentType: "reduction",
+      reason,
+      breakdowns: [reductionBreakdown],
+    }, { session });
+  }
 
   const message = trackingTouched
     ? "Facility updated successfully"
@@ -220,15 +278,15 @@ const assignFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
   return { student, message };
 };
 
-exports.cancelFacility = async (rollNo, payload, userId) => {
+exports.cancelFacility = async (rollNo, payload, userId, session = null) => {
   const { facilityType, applyFromAcademicYear, endDate, conceptionAmount, refundMode, refundAmount, idempotencyKey } = payload;
 
   const normalizedRollNo = rollNo.toUpperCase();
 
-  const student = await Student.findOne({ "personal.rollNo": normalizedRollNo });
+  const student = await Student.findOne({ "personal.rollNo": normalizedRollNo }).session(session);
   if (!student) throw new AppError("Student not found", 404);
 
-  const tracking = await StudentFeeTracking.findOne({ rollNo: normalizedRollNo });
+  const tracking = await StudentFeeTracking.findOne({ rollNo: normalizedRollNo }).session(session);
   if (!tracking) throw new AppError("Fee tracking record not found", 404);
 
   const yearRecord = tracking.academicYearWiseRecord.find(
@@ -288,11 +346,12 @@ exports.cancelFacility = async (rollNo, payload, userId) => {
         isActive: false,
         idempotencyKey,
       },
-      userId
+      userId,
+      { session }
     );
   }
 
-  const refreshedTracking = await StudentFeeTracking.findOne({ rollNo: normalizedRollNo });
+  const refreshedTracking = await StudentFeeTracking.findOne({ rollNo: normalizedRollNo }).session(session);
   if (!refreshedTracking) throw new AppError("Fee tracking record not found after refund processing", 404);
 
   const refreshedYear = refreshedTracking.academicYearWiseRecord.find(
@@ -310,7 +369,7 @@ exports.cancelFacility = async (rollNo, payload, userId) => {
   refreshedLedger.endDate = new Date(endDate);
 
   refreshedTracking.markModified("academicYearWiseRecord");
-  await refreshedTracking.save();
+  await refreshedTracking.save({ session });
 
   if (refundMode === 'wallet' && computedRefundAmount > 0) {
     student.enrollment.excessAmount = normalizeMoney(
@@ -334,7 +393,7 @@ exports.cancelFacility = async (rollNo, payload, userId) => {
     };
   }
 
-  await student.save();
+  await student.save({ session });
 
   return {
     student,

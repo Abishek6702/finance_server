@@ -68,7 +68,7 @@ describe("Student Fee Tracking API", () => {
 
   it("returns a single student when filtered by rollNo", async () => {
     const res = await request(app)
-      .get("/api/studentFeeTracking")
+      .get("/api/studentFeeTracking/v2")
       .set(adminAuth())
       .query({ rollNo: testCtx.studentRollFinance });
     expect(res.status).toBe(200);
@@ -94,7 +94,7 @@ describe("Student Fee Tracking API", () => {
 
   it("filters by department", async () => {
     const res = await request(app)
-      .get("/api/studentFeeTracking")
+      .get("/api/studentFeeTracking/v2")
       .set(adminAuth())
       .query({ department: "CSE" });
     expect(res.status).toBe(200);
@@ -118,7 +118,7 @@ describe("Student Fee Tracking API", () => {
 
   it("filters by batch", async () => {
     const res = await request(app)
-      .get("/api/studentFeeTracking")
+      .get("/api/studentFeeTracking/v2")
       .set(adminAuth())
       .query({ batch: testCtx.academicYearPrimary });
     expect(res.status).toBe(200);
@@ -142,7 +142,7 @@ describe("Student Fee Tracking API", () => {
 
   it("filters by batch + department", async () => {
     const res = await request(app)
-      .get("/api/studentFeeTracking")
+      .get("/api/studentFeeTracking/v2")
       .set(adminAuth())
       .query({ batch: testCtx.academicYearPrimary, department: "CSE" });
     expect(res.status).toBe(200);
@@ -154,7 +154,7 @@ describe("Student Fee Tracking API", () => {
 
   it("filters by batch + department + rollNo", async () => {
     const res = await request(app)
-      .get("/api/studentFeeTracking")
+      .get("/api/studentFeeTracking/v2")
       .set(adminAuth())
       .query({
         batch: testCtx.academicYearPrimary,
@@ -170,7 +170,7 @@ describe("Student Fee Tracking API", () => {
 
   it("response contains student profile, summary, and breakdown", async () => {
     const res = await request(app)
-      .get("/api/studentFeeTracking")
+      .get("/api/studentFeeTracking/v2")
       .set(adminAuth())
       .query({ rollNo: testCtx.studentRollFinance });
     expect(res.status).toBe(200);
@@ -335,7 +335,7 @@ describe("Student Fee Tracking API", () => {
       expect([200, 201]).toContain(stuRes.status);
 
       const res = await request(app)
-        .get("/api/studentFeeTracking")
+        .get("/api/studentFeeTracking/v2")
         .set(adminAuth())
         .query({ rollNo: testCtx.studentRollConcSingle });
       expect(res.status).toBe(200);
@@ -404,7 +404,7 @@ describe("Student Fee Tracking API", () => {
       expect([200, 201]).toContain(stuRes.status);
 
       const res = await request(app)
-        .get("/api/studentFeeTracking")
+        .get("/api/studentFeeTracking/v2")
         .set(adminAuth())
         .query({ rollNo: testCtx.studentRollConcMulti });
       expect(res.status).toBe(200);
@@ -445,7 +445,7 @@ describe("Student Fee Tracking API", () => {
 
     it("rejects payment exceeding concession-adjusted net total", async () => {
       const res = await request(app)
-        .get("/api/studentFeeTracking")
+        .get("/api/studentFeeTracking/v2")
         .set(adminAuth())
         .query({ rollNo: testCtx.studentRollConcSingle });
       expect(res.status).toBe(200);
@@ -480,7 +480,7 @@ describe("Student Fee Tracking API", () => {
 
     it("allows exact payment up to concession-adjusted net total", async () => {
       const res = await request(app)
-        .get("/api/studentFeeTracking")
+        .get("/api/studentFeeTracking/v2")
         .set(adminAuth())
         .query({ rollNo: testCtx.studentRollConcMulti });
       expect(res.status).toBe(200);
@@ -515,7 +515,7 @@ describe("Student Fee Tracking API", () => {
     it("zero-concession student has gross = net totals", async () => {
       // studentRollFinance was created with all schemes isApplicable: false
       const res = await request(app)
-        .get("/api/studentFeeTracking")
+        .get("/api/studentFeeTracking/v2")
         .set(adminAuth())
         .query({ rollNo: testCtx.studentRollFinance });
       expect(res.status).toBe(200);

@@ -28,11 +28,12 @@ const paymentRecordSchema=new mongoose.Schema({
   },
   paymentType:{
     type:String,
-    enum:["Cash","Card","UPI","NetBanking","Cheque","DD","excessAmount"],
+    enum:["Cash","Card","UPI","NetBanking","Cheque","DD","excessAmount","reduction"],
     required:true
   },
   bankName:{type:String,trim:true,default:null},
   bankLocation:{type:String,trim:true,default:null},
+  reason:{type:String,trim:true,default:null},
   billingDate:{type:Date,default:Date.now},
   paidOn:{type:Date,default:Date.now},
   breakdowns:{type:[paymentBreakdownSchema],default:[]},

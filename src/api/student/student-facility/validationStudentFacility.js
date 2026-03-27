@@ -3,7 +3,7 @@ const AppError = require("../../../utils/appError");
 const YEAR_REGEX = /^\d{4}-\d{4}$/;
 
 const validateFacilityChange = (req, res, next) => {
-  const { transport, hostel, applyFromAcademicYear, effectiveDate, facilityType } = req.body;
+  const { transport, hostel, applyFromAcademicYear, effectiveDate, facilityType, reduction } = req.body;
 
   if (!applyFromAcademicYear) {
     return next(new AppError("applyFromAcademicYear is required", 400));
@@ -54,6 +54,12 @@ const validateFacilityChange = (req, res, next) => {
   if (requiresEffectiveDate) {
     if (!effectiveDate || isNaN(Date.parse(effectiveDate))) {
       return next(new AppError("effectiveDate is required and must be a valid date when adding a facility", 400));
+    }
+  }
+
+  if (reduction !== undefined) {
+    if (typeof reduction !== "number" || Number.isNaN(reduction) || reduction < 0) {
+      return next(new AppError("reduction must be a non-negative number when provided", 400));
     }
   }
 

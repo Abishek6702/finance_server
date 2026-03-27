@@ -24,6 +24,7 @@ Assigns, transfers, or removes hostel and/or transport facility for a student.
 {
   "facilityType": "transport",
   "effectiveDate": "2025-07-01",
+  "reduction": 1200,
   "transport": {
     "isApplicable": true,
     "route": "Bharathiyar University",
@@ -44,6 +45,7 @@ Assigns, transfers, or removes hostel and/or transport facility for a student.
 | `applyFromAcademicYear` | String | Yes | `YYYY-YYYY` format; must be ≥ student's `currentAcademicYear`; must fall within the student's batch range |
 | `facilityType` | String | No | `hostel` or `transport`; if provided, corresponding payload block must be present |
 | `effectiveDate` | Date String | Required when adding a facility | Start date of service within the academic year |
+| `reduction` | Number | No | Non-negative amount. If `> 0`, system records an immediate `reduction` payment for `applyFromAcademicYear` using existing payment service |
 | `transport` | Object | At least one of transport/hostel | — |
 | `transport.isApplicable` | Boolean | Yes (if transport present) | — |
 | `transport.route` | String | Yes (if `isApplicable: true`) | Must match a route in Transport master |
@@ -61,6 +63,7 @@ Assigns, transfers, or removes hostel and/or transport facility for a student.
 - **Fee recalculation** — the `StudentFeeTracking` pre-save hook automatically recalculates NET totals (`total.total = subTotal − concession`) and year-level aggregates after each update. Existing `paid` amounts are preserved.
 - **Setting `isApplicable: false`** marks the facility as inactive and sets `endDate`; records are retained for audit (not deleted).
 - **Omitting a facility key** (e.g., omitting `hostel`) means that facility is not touched.
+- **Reduction auto-payment**: when `reduction > 0`, assign flow triggers the existing payment service with `paymentType = reduction` and a generated `reason` describing partial facility addition from `effectiveDate`.
 
 ### Edge Case — Paid/Partial Guard
 

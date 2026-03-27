@@ -45,10 +45,11 @@ const setStatus = (target) => {
   else target.status = "Unpaid";
 };
 
-const createPayment = async (data) => {
-  const { rollNo, paymentType, bankName, bankLocation, billingDate, breakdowns, excessAmount } = data;
-  const { receiptNo } = await getNextReceiptNo();
-  const tracking = await StudentFeeTracking.findOne({ rollNo });
+const createPayment = async (data, options = {}) => {
+  const { session = null } = options;
+  const { rollNo, paymentType, bankName, bankLocation, billingDate, breakdowns, excessAmount, reason } = data;
+  const { receiptNo } = await getNextReceiptNo({ session });
+  const tracking = await StudentFeeTracking.findOne({ rollNo }).session(session);
   if (!tracking) throw new AppError("Fee tracking not found for this student", 404);
 
   const isExcessPayment = paymentType === "excessAmount";
@@ -57,7 +58,7 @@ const createPayment = async (data) => {
   let availableExcess = 0;
 
   if (isExcessPayment || topUpAmount > 0) {
-    studentDoc = await Student.findOne({ "personal.rollNo": rollNo });
+    studentDoc = await Student.findOne({ "personal.rollNo": rollNo }).session(session);
     if (!studentDoc) throw new AppError("Student not found", 404);
 
     const currentExcess = normalizeMoney(studentDoc.enrollment?.excessAmount || 0);
@@ -220,9 +221,9 @@ const createPayment = async (data) => {
      STEP 2: ALL VALIDATIONS PASSED – Create transaction record
   =================================================================== */
 
-  let transactionDoc = await StudentTransaction.findOne({ rollNo });
+  let transactionDoc = await StudentTransaction.findOne({ rollNo }).session(session);
   if (!transactionDoc) {
-    const student = studentDoc || await Student.findOne({ "personal.rollNo": rollNo });
+    const student = studentDoc || await Student.findOne({ "personal.rollNo": rollNo }).session(session);
     if (!student) throw new AppError("Student not found", 404);
     transactionDoc = new StudentTransaction({
       student: student._id,
@@ -262,12 +263,13 @@ transactionDoc.transactions.push({
   paymentType,
   bankName,
   bankLocation,
+  reason: reason || null,
   billingDate: parseBillingDate(billingDate),
   createdAt: new Date(), // mongo transaction time
   breakdowns: mappedBreakdowns
 });
 
-  await transactionDoc.save();
+  await transactionDoc.save({ session });
 
   for (const bd of breakdowns) {
     const yearRecord = tracking.academicYearWiseRecord.find(r => r.academicYear === bd.academicYear);
@@ -315,7 +317,7 @@ transactionDoc.transactions.push({
   }
 
   tracking.markModified("academicYearWiseRecord");
-  await tracking.save();
+  await tracking.save({ session });
 
   if (studentDoc) {
     const newExcess = isExcessPayment
@@ -323,7 +325,7 @@ transactionDoc.transactions.push({
       : normalizeMoney(availableExcess);
     studentDoc.enrollment.excessAmount = newExcess;
     studentDoc.enrollment.isExcessAmountTrue = newExcess > 0;
-    await studentDoc.save();
+    await studentDoc.save({ session });
   }
 
   const docObj = transactionDoc.toObject();
@@ -337,7 +339,7 @@ transactionDoc.transactions.push({
 
 
 const createAcknowledgment = async (data) => {
-  const { rollNo, paymentType, bankName, bankLocation, billingDate, breakdowns, excessAmount } = data;
+  const { rollNo, paymentType, bankName, bankLocation, billingDate, breakdowns, excessAmount, reason } = data;
   const { receiptNo } = await getNextReceiptNo();
   const tracking = await StudentFeeTracking.findOne({ rollNo });
   if (!tracking) throw new AppError("Fee tracking not found for this student", 404);
@@ -553,6 +555,7 @@ acknoledgementDoc.acknoledgements.push({
   paymentType,
   bankName,
   bankLocation,
+  reason: reason || null,
   billingDate: parseBillingDate(billingDate),
   createdAt: new Date(), // mongo acknoledgement time
   breakdowns: mappedBreakdowns
@@ -564,8 +567,108 @@ acknoledgementDoc.acknoledgements.push({
 };
 
 
-const updateAcknowledgment = async (rollNo) => {
-}
+const updateAcknowledgment = async (data) => {
+  const { rollNo, receiptNo, status } = data;
+
+  const ackDoc = await StudentAcknoledgement.findOne({ rollNo });
+  if (!ackDoc) throw new AppError("No acknowledgements found for this student", 404);
+
+  const ackRecord = ackDoc.acknoledgements.find(a => a.receiptNo === receiptNo);
+  if (!ackRecord) throw new AppError("Acknowledgement record not found", 404);
+
+  if (ackRecord.status !== "RECEIVED") {
+    throw new AppError(`Acknowledgement is already ${ackRecord.status}`, 400);
+  }
+
+  ackRecord.status = status;
+  await ackDoc.save();
+
+  if (status === "REJECTED") {
+    return { receiptNo, status };
+  }
+
+  // Handle SUCCESSFUL payment - Apply to fee tracking just like regular payments
+  const tracking = await StudentFeeTracking.findOne({ rollNo });
+  if (!tracking) throw new AppError("Fee tracking not found for this student", 404);
+  
+  let studentDoc = await Student.findOne({ "personal.rollNo": rollNo });
+  if (!studentDoc) throw new AppError("Student not found", 404);
+
+  let transactionDoc = await StudentTransaction.findOne({ rollNo });
+  if (!transactionDoc) {
+    transactionDoc = new StudentTransaction({
+      student: studentDoc._id,
+      rollNo,
+      transactions: []
+    });
+  }
+
+  transactionDoc.transactions.push({
+    receiptNo: ackRecord.receiptNo,
+    paymentType: ackRecord.paymentType,
+    bankName: ackRecord.bankName,
+    bankLocation: ackRecord.bankLocation,
+    reason: ackRecord.reason,
+    billingDate: ackRecord.billingDate,
+    createdAt: new Date(),
+    breakdowns: ackRecord.breakdowns
+  });
+
+  await transactionDoc.save();
+
+  for (const bd of ackRecord.breakdowns) {
+    const yearRecord = tracking.academicYearWiseRecord.find(r => r.academicYear === bd.academicYear);
+    if (!yearRecord) continue;
+
+    const addPayment = (target, amount) => {
+      if (!target || !amount) return;
+      const increment = normalizeMoney(amount);
+      target.total = normalizeMoney(target.total || 0);
+      target.paid = normalizeMoney((target.paid || 0) + increment);
+      target.paid = Math.min(target.paid, target.total);
+      setStatus(target);
+    };
+
+    let termUpdated = false;
+    for (const head of bd.feeHeads) {
+      if (head.fee <= 0) continue;
+      
+      if (head.type === "hostel" && yearRecord.hostel) {
+        addPayment(yearRecord.hostel.total, head.fee);
+      } else if (head.type === "transport" && yearRecord.transport) {
+        addPayment(yearRecord.transport.total, head.fee);
+      } else {
+        if (bd.semesterNumber) {
+          const sem = bd.semesterNumber % 2 === 1 ? yearRecord.academic.odd : yearRecord.academic.even;
+          if (sem && sem[head.type]) {
+            addPayment(sem[head.type], head.fee);
+            termUpdated = true;
+          }
+        }
+      }
+    }
+
+    if (termUpdated && bd.semesterNumber) {
+      const sem = bd.semesterNumber % 2 === 1 ? yearRecord.academic.odd : yearRecord.academic.even;
+      if (sem) {
+        const semPaid = normalizeMoney((sem.tuition?.paid || 0) + (sem.exam?.paid || 0) + (sem.erp?.paid || 0) + (sem.book?.paid || 0) + (sem.lab?.paid || 0));
+        sem.total.paid = Math.min(semPaid, normalizeMoney(sem.total.total || 0));
+        setStatus(sem.total);
+      }
+      const termTotalPaid = normalizeMoney((yearRecord.academic.odd?.total?.paid || 0) + (yearRecord.academic.even?.total?.paid || 0));
+      yearRecord.academic.total.paid = Math.min(termTotalPaid, normalizeMoney(yearRecord.academic.total.total || 0));
+      setStatus(yearRecord.academic.total);
+    }
+    const yearPaid = normalizeMoney((yearRecord.academic.total?.paid || 0) + (yearRecord.hostel?.total?.paid || 0) + (yearRecord.transport?.total?.paid || 0));
+    yearRecord.total.paid = Math.min(yearPaid, normalizeMoney(yearRecord.total.total || 0));
+    setStatus(yearRecord.total);
+  }
+
+  tracking.markModified("academicYearWiseRecord");
+  await tracking.save();
+
+  return { receiptNo, status };
+};
 
 
 /* ============================================================
@@ -828,7 +931,7 @@ const studentData = {
  * Format: REC-YYYYMMDD-NNN
  * Uses atomic increment (no race condition).
  */
-const getNextReceiptNo = async () => {
+const getNextReceiptNo = async ({ session = null } = {}) => {
   const now = new Date();
 
   const yyyy = String(now.getFullYear());
@@ -844,7 +947,7 @@ const getNextReceiptNo = async () => {
       new: true,
       upsert: true
     }
-  );
+  ).session(session);
 
   const countStr = String(counter.sequence).padStart(3, "0");
 

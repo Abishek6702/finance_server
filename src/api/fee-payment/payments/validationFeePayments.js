@@ -15,12 +15,19 @@ const toMoney = (value) => Math.round(value * 100) / 100;
 const validatePayment = (req, res, next) => {
   const { rollNo, receiptNo, paymentType, breakdowns } = req.body;
   const excessAmount = req.body.excessAmount;
+  const reason = req.body.reason;
 
   if (!rollNo) return next(new AppError("rollNo is required", 400)); 
 
-  const validPaymentTypes = ["Cash", "Card", "UPI", "NetBanking", "Cheque", "DD", "excessAmount"];
+  const validPaymentTypes = ["Cash", "Card", "UPI", "NetBanking", "Cheque", "DD", "excessAmount", "reduction"];
   if (!paymentType || !validPaymentTypes.includes(paymentType)) {
     return next(new AppError("Valid paymentType is required", 400));
+  }
+
+  if (paymentType === "reduction") {
+    if (!reason || typeof reason !== "string" || !reason.trim()) {
+      return next(new AppError("reason is required when paymentType is reduction", 400));
+    }
   }
 
   if (!breakdowns || !Array.isArray(breakdowns) || breakdowns.length === 0) {
@@ -97,6 +104,7 @@ const validatePayment = (req, res, next) => {
     paymentType,
     bankName: req.body.bankName,
     bankLocation: req.body.bankLocation,
+    reason: typeof reason === "string" ? reason.trim() : undefined,
     billingDate: req.body.billingDate,
     breakdowns: sanitizedBreakdowns,
     excessAmount: sanitizedExcessAmount
@@ -113,7 +121,7 @@ const validateAllTransactionsQuery = (req, res, next) => {
     return next(new AppError(`department must be one of: ${validDepartments.join(", ")}`, 400));
   }
 
-  const validPaymentModes = ["Cash", "Card", "UPI", "NetBanking", "Cheque", "DD", "excessAmount"];
+  const validPaymentModes = ["Cash", "Card", "UPI", "NetBanking", "Cheque", "DD", "excessAmount", "reduction"];
   if (paymentMode && !validPaymentModes.includes(paymentMode)) {
     return next(new AppError(`paymentMode must be one of: ${validPaymentModes.join(", ")}`, 400));
   }
@@ -164,7 +172,7 @@ const validateStudentTransactionsQuery = (req, res, next) => {
 
 const VALID_FEE_HEADS = ["tuition", "exam", "erp", "book", "lab", "hostel", "transport"];
 const VALID_DEPARTMENTS = ["CSE", "IT", "AIML", "AIDS", "ECE", "EEE", "MECH", "CIVIL"];
-const VALID_PAYMENT_MODES = ["Cash", "Card", "UPI", "NetBanking", "Cheque", "DD", "excessAmount"];
+const VALID_PAYMENT_MODES = ["Cash", "Card", "UPI", "NetBanking", "Cheque", "DD", "excessAmount", "reduction"];
 
 const validateBillReceiptParam = (req, res, next) => {
   const { receiptNo } = req.params;
@@ -216,4 +224,18 @@ const validateRecentTransactionsQuery = (req, res, next) => {
   next();
 };
 
-module.exports = { validatePayment, validateAllTransactionsQuery, validateStudentTransactionsQuery, validateRecentTransactionsQuery, validateBillReceiptParam };
+const validateUpdateAcknowledgment = (req, res, next) => {
+  const { rollNo, receiptNo, status } = req.body;
+  if (!rollNo || typeof rollNo !== "string" || !rollNo.trim()) {
+    return next(new AppError("rollNo is required", 400));
+  }
+  if (!receiptNo || typeof receiptNo !== "string" || !receiptNo.trim()) {
+    return next(new AppError("receiptNo is required", 400));
+  }
+  if (!status || !["SUCCESSFUL", "REJECTED"].includes(status)) {
+    return next(new AppError("status must be either SUCCESSFUL or REJECTED", 400));
+  }
+  next();
+};
+
+module.exports = { validatePayment, validateAllTransactionsQuery, validateStudentTransactionsQuery, validateRecentTransactionsQuery, validateBillReceiptParam, validateUpdateAcknowledgment };

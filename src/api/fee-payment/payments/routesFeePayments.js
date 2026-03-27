@@ -1,14 +1,14 @@
 const express = require("express");
 const router = express.Router();
 const controller = require("./controllerFeePayments");
-const { validatePayment, validateAllTransactionsQuery, validateStudentTransactionsQuery, validateRecentTransactionsQuery, validateBillReceiptParam } = require("./validationFeePayments");
+const { validatePayment, validateAllTransactionsQuery, validateStudentTransactionsQuery, validateRecentTransactionsQuery, validateBillReceiptParam, validateUpdateAcknowledgment } = require("./validationFeePayments");
 const { protect, admin } = require("../../../middleware/authMiddleware");
 
 router.use(protect, admin);
 
 router.post("/pay", validatePayment, controller.createPayment);
 router.post("/ack", validatePayment, controller.createAcknowledgment);
-router.put("/ack", validatePayment, controller.updateAcknowledgment);
+router.put("/ack", validateUpdateAcknowledgment, controller.updateAcknowledgment);
 router.get("/recent", validateRecentTransactionsQuery, controller.getRecentTransactions);
 router.get("/", validateAllTransactionsQuery, controller.getAllTransactions);
 router.get("/bill/:receiptNo", validateBillReceiptParam, controller.getBillByReceiptNo);

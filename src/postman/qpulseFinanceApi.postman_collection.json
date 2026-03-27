@@ -550,7 +550,7 @@
           "name": "Record Payment (Pay)",
           "request": {
             "method": "POST",
-            "description": "Records a fee payment. All breakdown amounts are validated against **concession-adjusted net totals** — the net amount after enrollment-based concessions (firstGraduate, scheme7point5, pmss, sakthi, special) have been applied to each fee category. Attempting to pay more than the remaining net due returns HTTP 400 with a message like: `\"tuition payment ₹X exceeds remaining concession-adjusted due ₹Y for Semester N (YYYY-YYYY)\"`.",
+            "description": "Records a fee payment. All breakdown amounts are validated against **concession-adjusted net totals** — the net amount after enrollment-based concessions (firstGraduate, scheme7point5, pmss, sakthi, special) have been applied to each fee category. Attempting to pay more than the remaining net due returns HTTP 400 with a message like: `\"tuition payment ₹X exceeds remaining concession-adjusted due ₹Y for Semester N (YYYY-YYYY)\"`. For `paymentType=reduction`, include a non-empty `reason`.",
             "header": [
               {
                 "key": "Content-Type",
@@ -569,7 +569,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"rollNo\": \"{{student_roll_no}}\",\n  \"paymentType\": \"Cash\",\n  \"bankName\": \"Indian Bank\",\n  \"bankLocation\": \"Kinathukadavu\",\n  \"billingDate\": \"03/03/2026\",\n  \"excessAmount\": 0,\n  \"breakdowns\": [\n    {\n      \"academicYear\": \"{{academic_year}}\",\n      \"academic\": {\n        \"semesterNumber\": 1,\n        \"tuition\": 5000,\n        \"exam\": 500,\n        \"erp\": 100,\n        \"book\": 200,\n        \"lab\": 200\n      },\n      \"hostel\": 0,\n      \"transport\": 0\n    }\n  ]\n}",
+              "raw": "{\n  \"rollNo\": \"{{student_roll_no}}\",\n  \"paymentType\": \"reduction\",\n  \"reason\": \"Student partially added transport facility from 2025-07-01. Reduction amount Rs 1200 adjusted against total Rs 15000 for {{academic_year}}.\",\n  \"bankName\": \"Indian Bank\",\n  \"bankLocation\": \"Kinathukadavu\",\n  \"billingDate\": \"03/03/2026\",\n  \"excessAmount\": 0,\n  \"breakdowns\": [\n    {\n      \"academicYear\": \"{{academic_year}}\",\n      \"transport\": 1200,\n      \"hostel\": 0\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1741,7 +1741,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"facilityType\": \"hostel\",\n  \"applyFromAcademicYear\": \"{{academic_year}}\",\n  \"effectiveDate\": \"2025-07-01\",\n  \"hostel\": {\n    \"isApplicable\": true,\n    \"id\": \"{{hostel_id}}\"\n  }\n}",
+              "raw": "{\n  \"facilityType\": \"hostel\",\n  \"applyFromAcademicYear\": \"{{academic_year}}\",\n  \"effectiveDate\": \"2025-07-01\",\n  \"reduction\": 1200,\n  \"hostel\": {\n    \"isApplicable\": true,\n    \"id\": \"{{hostel_id}}\"\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"

@@ -1,4 +1,4 @@
-﻿const {
+const {
   request, app, testCtx,
   buildFeeStructurePayload, buildStudentPayload,
   createFeeStructure, createStudent,
@@ -95,7 +95,7 @@ describe("Fee Payment / Transaction API", () => {
 
     // Fetch tracking to get net and gross amounts
     const trackRes = await request(app)
-      .get("/api/studentFeeTracking")
+      .get("/api/studentFeeTracking/v2")
       .set(adminAuth())
       .query({ rollNo });
     expect(trackRes.status).toBe(200);
@@ -268,6 +268,75 @@ describe("Fee Payment / Transaction API", () => {
     ]);
   });
 
+  it("rejects reduction payment without reason", async () => {
+    const rollNo = `33CS${testCtx.TS.slice(-3)}`;
+
+    const stuRes = await createStudent(rollNo, {
+      academicYear: testCtx.academicYearPrimary,
+      transport: { isApplicable: true, route: "Bharathiyar University", stopName: "Kinathukadavu" },
+    });
+    expect([200, 201]).toContain(stuRes.status);
+
+    const payRes = await request(app)
+      .post("/api/feePayment/pay")
+      .set(adminAuth())
+      .send({
+        rollNo,
+        paymentType: "reduction",
+        breakdowns: [{
+          academicYear: testCtx.academicYearPrimary,
+          transport: 1000,
+        }],
+      });
+
+    expect(payRes.status).toBe(400);
+    expect(payRes.body.message).toMatch(/reason is required/i);
+
+    await Promise.all([
+      StudentTransaction.deleteMany({ rollNo }),
+      StudentFeeTracking.deleteMany({ rollNo }),
+      Student.deleteMany({ "personal.rollNo": rollNo }),
+    ]);
+  });
+
+  it("accepts reduction payment with reason and stores it", async () => {
+    const rollNo = `34CS${testCtx.TS.slice(-3)}`;
+
+    const stuRes = await createStudent(rollNo, {
+      academicYear: testCtx.academicYearPrimary,
+      hostel: { isApplicable: true, block: "A", sharing: 3, isAttached: true },
+    });
+    expect([200, 201]).toContain(stuRes.status);
+
+    const reductionReason = "Student partially added hostel facility from 2025-07-01. Reduction amount Rs 1500 adjusted against total Rs 20000.";
+
+    const payRes = await request(app)
+      .post("/api/feePayment/pay")
+      .set(adminAuth())
+      .send({
+        rollNo,
+        paymentType: "reduction",
+        reason: reductionReason,
+        breakdowns: [{
+          academicYear: testCtx.academicYearPrimary,
+          hostel: 1500,
+        }],
+      });
+
+    expect(payRes.status).toBe(201);
+
+    const txDoc = await StudentTransaction.findOne({ rollNo }).lean();
+    const latestTx = txDoc.transactions[txDoc.transactions.length - 1];
+    expect(latestTx.paymentType).toBe("reduction");
+    expect(latestTx.reason).toBe(reductionReason);
+
+    await Promise.all([
+      StudentTransaction.deleteMany({ rollNo }),
+      StudentFeeTracking.deleteMany({ rollNo }),
+      Student.deleteMany({ "personal.rollNo": rollNo }),
+    ]);
+  });
+
   describe("GET /api/feePayment/recent", () => {
     it("returns array of flat rows with required fields", async () => {
       const res = await request(app)
@@ -430,4 +499,117 @@ describe("Fee Payment / Transaction API", () => {
       expect(res.status).toBe(401);
     });
   });
+
+  describe("Acknowledgement API", () => {
+    let ackReceiptNo;
+    const testAckRollNo = `35CS${testCtx.TS.slice(-3)}`;
+
+    beforeAll(async () => {
+      // Create student for ack tests
+      const stuRes = await createStudent(testAckRollNo, { academicYear: testCtx.academicYearPrimary });
+      expect([200, 201, 409]).toContain(stuRes.status);
+    });
+
+    afterAll(async () => {
+      await Promise.all([
+        StudentTransaction.deleteMany({ rollNo: testAckRollNo }),
+        StudentFeeTracking.deleteMany({ rollNo: testAckRollNo }),
+        Student.deleteMany({ "personal.rollNo": testAckRollNo }),
+        // We must also delete StudentAcknoledgement but we might need to import it. Let's just rely on teardown or clean it via mongoose directly.
+        require("../api/fee-payment/payments/model/modelAcknoledgement").deleteMany({ rollNo: testAckRollNo })
+      ]);
+    });
+
+    it("POST /api/feePayment/ack creates an acknowledgement without altering balance", async () => {
+      const payRes = await request(app)
+        .post("/api/feePayment/ack")
+        .set(adminAuth())
+        .send({
+          rollNo: testAckRollNo,
+          paymentType: "DD",
+          bankName: "Test Bank",
+          bankLocation: "Test City",
+          breakdowns: [{
+            academicYear: testCtx.academicYearPrimary,
+            academic: { semesterNumber: 1, tuition: 1500 },
+          }],
+        });
+
+      expect(payRes.status).toBe(201);
+      ackReceiptNo = payRes.body.data;
+
+      // Verify transaction is NOT created
+      const txDoc = await StudentTransaction.findOne({ rollNo: testAckRollNo });
+      expect(txDoc).toBeNull();
+      
+      // Verify ack record exists
+      const AckModel = require("../api/fee-payment/payments/model/modelAcknoledgement");
+      const ackDoc = await AckModel.findOne({ rollNo: testAckRollNo });
+      expect(ackDoc).not.toBeNull();
+      expect(ackDoc.acknoledgements.length).toBe(1);
+      expect(ackDoc.acknoledgements[0].status).toBe("RECEIVED");
+    });
+
+    it("PUT /api/feePayment/ack rejects acknowledgement with REJECTED status", async () => {
+      const putRes = await request(app)
+        .put("/api/feePayment/ack")
+        .set(adminAuth())
+        .send({
+          rollNo: testAckRollNo,
+          receiptNo: ackReceiptNo,
+          status: "REJECTED"
+        });
+
+      expect(putRes.status).toBe(200);
+
+      // Verify ack record updated
+      const AckModel = require("../api/fee-payment/payments/model/modelAcknoledgement");
+      const ackDoc = await AckModel.findOne({ rollNo: testAckRollNo });
+      expect(ackDoc.acknoledgements[0].status).toBe("REJECTED");
+    });
+
+    it("PUT /api/feePayment/ack accepts acknowledgement with SUCCESSFUL status when re-created", async () => {
+      // Create another ack
+      const payRes = await request(app)
+        .post("/api/feePayment/ack")
+        .set(adminAuth())
+        .send({
+          rollNo: testAckRollNo,
+          paymentType: "Cheque",
+          bankName: "Test Bank 2",
+          bankLocation: "Test City",
+          breakdowns: [{
+            academicYear: testCtx.academicYearPrimary,
+            academic: { semesterNumber: 1, tuition: 500 },
+          }],
+        });
+      
+      expect(payRes.status).toBe(201);
+      const newAckReceiptNo = payRes.body.data;
+
+      const putRes = await request(app)
+        .put("/api/feePayment/ack")
+        .set(adminAuth())
+        .send({
+          rollNo: testAckRollNo,
+          receiptNo: newAckReceiptNo,
+          status: "SUCCESSFUL"
+        });
+
+      expect(putRes.status).toBe(200);
+
+      // Verify transaction IS created
+      const txDoc = await StudentTransaction.findOne({ rollNo: testAckRollNo });
+      expect(txDoc).not.toBeNull();
+      expect(txDoc.transactions.length).toBe(1);
+      expect(txDoc.transactions[0].receiptNo).toBe(newAckReceiptNo);
+      
+      // Verify tracking updated
+      const tracking = await StudentFeeTracking.findOne({ rollNo: testAckRollNo });
+      const yearEntry = tracking.academicYearWiseRecord.find(r => r.academicYear === testCtx.academicYearPrimary);
+      expect(yearEntry.academic.total.paid).toBe(500);
+      expect(yearEntry.academic.odd.tuition.paid).toBe(500);
+    });
+  });
+
 });

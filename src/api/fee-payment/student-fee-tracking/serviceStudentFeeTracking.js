@@ -343,7 +343,6 @@ const buildAcademicYearTrackingRow = async (student, feeStructure, academicYear)
 ──────────────────────────────────────────────── */
 const getStudentsFeeTrackingData2 = async (query = {}) => {
   const search = {};
-console.log("hit 1 serv");
   if (query.batch) {
     search["academic.batch"] = query.batch;
   }
@@ -581,7 +580,6 @@ console.log("hit 1 serv");
 ──────────────────────────────────────────────── */
 const getStudentsFeeTrackingData = async (query = {}) => {
   const search = {};
-console.log("hit 2 serv");
   if (query.batch) {
     search["academic.batch"] = query.batch;
   }

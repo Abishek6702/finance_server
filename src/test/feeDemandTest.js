@@ -191,7 +191,14 @@ describe("Fee Demand API", () => {
 
     expect(data.studentType).toHaveProperty("transport", true);
     expect(data.studentType).toHaveProperty("hostel", true);
-    expect(data.studentType).toHaveProperty("hostelDetails", null);
+    expect(data.studentType.hostelDetails).toBeDefined();
+    expect(data.studentType.hostelDetails).toHaveProperty("hostel");
+    expect(data.studentType.hostelDetails).toHaveProperty("block");
+    expect(data.studentType.hostelDetails).toHaveProperty("sharing");
+    expect(data.studentType.hostelDetails).toHaveProperty("isAttached");
+    expect(data.studentType.hostelDetails).toHaveProperty("fee");
+    expect(data.studentType.hostelDetails).toHaveProperty("paid");
+    expect(data.studentType.hostelDetails).toHaveProperty("consession");
     expect(data.studentType.transportDetails).toBeDefined();
     expect(data.studentType.transportDetails).toHaveProperty("transport");
     expect(data.studentType.transportDetails).toHaveProperty("route");
