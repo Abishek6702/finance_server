@@ -335,15 +335,14 @@ const buildAcademicYearTrackingRow = async (student, feeStructure, academicYear)
     total: { total: yearTotal }
   };
 };
-
+ 
 /* ────────────────────────────────────────────────
    GET / — get student(s) data + fee tracking records
-   Filters: batch, department, rollNo gg
+   Filters: batch, department, rollNo
 ──────────────────────────────────────────────── */
-const getStudentsFeeTrackingData = async (query = {}) => {
-  console.log("hit 1 serv");
+const getStudentsFeeTrackingData2 = async (query = {}) => {
   const search = {};
-
+console.log("hit 1 serv");
   if (query.batch) {
     search["academic.batch"] = query.batch;
   }
@@ -379,6 +378,12 @@ const getStudentsFeeTrackingData = async (query = {}) => {
     return acc;
   }, {});
 
+  const computeStatus = (demand, paid) => {
+    if (demand === 0) return "Paid";
+    if (paid >= demand) return "Paid";
+    if (paid > 0) return "Partial";
+    return "Unpaid";
+  };
 
   const ACADEMIC_HEADS = ["tuition", "exam", "erp", "book", "lab"];
 
@@ -540,13 +545,10 @@ const getStudentsFeeTrackingData = async (query = {}) => {
       const total = normalizeMoney(yr.subTotal || 0);
       const concession = normalizeMoney(Math.max(0, total - demand));
 
-      const facility = buildFacilityArray(yr);
-
       return {
         academicYear: yr.academicYear,
         odd: buildSemesterDetail(yr.academic?.odd),
         even: buildSemesterDetail(yr.academic?.even),
-        facility,
         overall: buildOverall({
           demand,
           concession,
@@ -569,11 +571,14 @@ const getStudentsFeeTrackingData = async (query = {}) => {
     };
   });
 };
+
+
+
 /* ────────────────────────────────────────────────
    GET / — get student(s) data + fee tracking records
    Filters: batch, department, rollNo
 ──────────────────────────────────────────────── */
-const getStudentsFeeTrackingData2 = async (query = {}) => {
+const getStudentsFeeTrackingData = async (query = {}) => {
   const search = {};
 console.log("hit 2 serv");
   if (query.batch) {
