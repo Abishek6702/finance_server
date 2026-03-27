@@ -1760,6 +1760,7 @@
                   "  pm.response.to.have.status(200);",
                   "  const body = pm.response.json();",
                   "  pm.expect(body.success).to.equal(true);",
+                  "  pm.expect(body.data.student).to.be.an('object');",
                   "});"
                 ]
               }
@@ -1799,7 +1800,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"facilityType\": \"hostel\",\n  \"applyFromAcademicYear\": \"{{academic_year}}\",\n  \"endDate\": \"2025-09-30\",\n  \"conceptionAmount\": 5000,\n  \"refundMode\": \"wallet\",\n  \"refundAmount\": 1000\n}",
+              "raw": "{\n  \"facilityType\": \"hostel\",\n  \"applyFromAcademicYear\": \"{{academic_year}}\",\n  \"endDate\": \"2025-09-30\",\n  \"conceptionAmount\": 5000,\n  \"refundMode\": \"bank\",\n  \"refundAmount\": 1000,\n  \"collegeAccount\": \"SECE-COLLEGE-001\",\n  \"studentBankName\": \"State Bank of India\",\n  \"studentAccount\": \"STUDENT-ACC-9988\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1819,8 +1820,71 @@
                   "  const body = pm.response.json();",
                   "  pm.expect(body.success).to.equal(true);",
                   "  pm.expect(body.data.settlement).to.be.an('object');",
+                  "  pm.expect(body.data.settlement.paidAmount).to.be.a('number');",
                   "  pm.expect(body.data.settlement.consumedAmount).to.be.a('number');",
                   "  pm.expect(body.data.settlement.refundedAmount).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Cancel And Assign Facility (Atomic)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-idempotency-key",
+                "value": "facility-cancel-assign-{{$timestamp}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/studentFacility/cancel-assign/{{student_roll_no}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "studentFacility",
+                "cancel-assign",
+                "{{student_roll_no}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cancel\": {\n    \"facilityType\": \"transport\",\n    \"applyFromAcademicYear\": \"{{academic_year}}\",\n    \"endDate\": \"2026-10-01\",\n    \"conceptionAmount\": 5000,\n    \"refundMode\": \"bank\",\n    \"refundAmount\": 2000,\n    \"collegeAccount\": \"SECE-COLLEGE-001\",\n    \"studentBankName\": \"State Bank of India\",\n    \"studentAccount\": \"STUDENT-ACC-9988\"\n  },\n  \"assign\": {\n    \"hostel\": {\n      \"isApplicable\": true,\n      \"id\": \"{{hostel_id}}\"\n    },\n    \"applyFromAcademicYear\": \"{{academic_year}}\",\n    \"effectiveDate\": \"2026-10-02\",\n    \"reduction\": 1200\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Atomic operation: Cancel runs first, Assign runs second in one transaction. Requires x-idempotency-key and strict cancel+assign payload blocks."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cancel and assign successful', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.equal(true);",
+                  "  pm.expect(body.data.settlement).to.be.an('object');",
+                  "  pm.expect(body.data.settlement.paidAmount).to.be.a('number');",
+                  "  pm.expect(body.data.settlement.refundedAmount).to.be.a('number');",
+                  "  pm.expect(body.data.student).to.be.an('object');",
                   "});"
                 ]
               }

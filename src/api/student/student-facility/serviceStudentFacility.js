@@ -302,8 +302,19 @@ const assignFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
   return { student, message };
 };
 
-exports.cancelFacility = async (rollNo, payload, userId, session = null) => {
-  const { facilityType, applyFromAcademicYear, endDate, conceptionAmount, refundMode, refundAmount, idempotencyKey } = payload;
+const cancelFacility = async (rollNo, payload, userId, session = null) => {
+  const {
+    facilityType,
+    applyFromAcademicYear,
+    endDate,
+    conceptionAmount,
+    refundMode,
+    refundAmount,
+    idempotencyKey,
+    collegeAccount,
+    studentBankName,
+    studentAccount,
+  } = payload;
 
   const normalizedRollNo = rollNo.toUpperCase();
 
@@ -331,12 +342,30 @@ exports.cancelFacility = async (rollNo, payload, userId, session = null) => {
     throw new AppError("Facility is already inactive or endDate is already set", 400);
   }
 
-  const normalizedConsumedAmount = normalizeMoney(conceptionAmount || 0);
   const currentPaid = normalizeMoney(ledger.total?.paid || 0);
 
-  if (currentPaid <= 0) {
-    throw new AppError(`No paid amount available to settle ${facilityType} cancellation`, 400);
+  const hasSettlementInput =
+    conceptionAmount !== undefined || refundMode !== undefined || refundAmount !== undefined;
+
+  if (currentPaid <= 0 && conceptionAmount !== undefined && normalizeMoney(conceptionAmount) > 0) {
+    throw new AppError("conceptionAmount must be 0 when paid amount is 0", 400);
   }
+
+  if (currentPaid <= 0 && refundAmount !== undefined && normalizeMoney(refundAmount) > 0) {
+    throw new AppError("refundAmount must be 0 when paid amount is 0", 400);
+  }
+
+  if (currentPaid > 0) {
+    if (conceptionAmount === undefined) {
+      throw new AppError("conceptionAmount is required when paid amount is greater than 0", 400);
+    }
+  }
+
+  if (refundMode !== undefined && !["wallet", "cash", "bank"].includes(refundMode)) {
+    throw new AppError("refundMode must be wallet, cash, or bank when provided", 400);
+  }
+
+  const normalizedConsumedAmount = normalizeMoney(conceptionAmount || 0);
 
   if (normalizedConsumedAmount > currentPaid) {
     throw new AppError(
@@ -346,6 +375,22 @@ exports.cancelFacility = async (rollNo, payload, userId, session = null) => {
   }
 
   const computedRefundAmount = normalizeMoney(Math.max(0, currentPaid - normalizedConsumedAmount));
+
+  if (computedRefundAmount > 0 && !refundMode) {
+    throw new AppError("refundMode is required when refund amount is greater than 0", 400);
+  }
+
+  if (computedRefundAmount > 0 && refundMode === "bank") {
+    if (!collegeAccount || !String(collegeAccount).trim()) {
+      throw new AppError("collegeAccount is required when refundMode is bank", 400);
+    }
+    if (!studentBankName || !String(studentBankName).trim()) {
+      throw new AppError("studentBankName is required when refundMode is bank", 400);
+    }
+    if (!studentAccount || !String(studentAccount).trim()) {
+      throw new AppError("studentAccount is required when refundMode is bank", 400);
+    }
+  }
 
   if (
     refundAmount !== undefined &&
@@ -366,9 +411,12 @@ exports.cancelFacility = async (rollNo, payload, userId, session = null) => {
         academicYear: applyFromAcademicYear,
         feeHead: facilityType,
         refundAmount: computedRefundAmount,
-        reason: `Facility removed via ${refundMode}`,
+        reason: `Facility removed via ${refundMode || "system"}`,
         isActive: false,
         idempotencyKey,
+        collegeAccount: refundMode === "bank" ? String(collegeAccount).trim() : null,
+        studentBankName: refundMode === "bank" ? String(studentBankName).trim() : null,
+        studentAccount: refundMode === "bank" ? String(studentAccount).trim() : null,
       },
       userId,
       { session }
@@ -388,7 +436,7 @@ exports.cancelFacility = async (rollNo, payload, userId, session = null) => {
 
   refreshedLedger.consumedAmount = normalizedConsumedAmount;
   refreshedLedger.total.paid = 0;
-  refreshedLedger.total.status = 'Refunded';
+  refreshedLedger.total.status = currentPaid > 0 ? 'Refunded' : refreshedLedger.total.status || 'Unpaid';
   refreshedLedger.isActive = false;
   refreshedLedger.endDate = new Date(endDate);
 
@@ -427,11 +475,70 @@ exports.cancelFacility = async (rollNo, payload, userId, session = null) => {
       paidAmount: currentPaid,
       consumedAmount: normalizedConsumedAmount,
       refundedAmount: computedRefundAmount,
-      refundMode,
+      refundMode: refundMode || (hasSettlementInput ? null : "not-required-paid-zero"),
       refundReceiptNo: refundRecord?.refundReceiptNo || null,
     }
   };
 };
 
+const cancelAndAssign = async (rollNo, payload, userId, session = null) => {
+  const { cancel, assign, idempotencyKey } = payload || {};
 
-module.exports = { assignFacility, cancelFacility: exports.cancelFacility };
+  if (!cancel || !assign) {
+    throw new AppError("Both cancel and assign blocks are required", 400);
+  }
+
+  if (!idempotencyKey || String(idempotencyKey).trim().length === 0) {
+    throw new AppError("x-idempotency-key header is required for cancel-assign operation", 400);
+  }
+
+  const normalizedRollNo = rollNo.toUpperCase();
+  const student = await Student.findOne({ "personal.rollNo": normalizedRollNo }).session(session);
+  if (!student) throw new AppError("Student not found", 404);
+
+  const assignFacilityType = assign.transport ? "transport" : "hostel";
+
+  // Defensive guard: this flow should never accept assign-only shortcuts.
+  if (!cancel.facilityType) {
+    const alreadyActive =
+      assignFacilityType === "transport"
+        ? isStudentFacilityActive(student.transport)
+        : isStudentFacilityActive(student.hostel);
+
+    if (alreadyActive) {
+      throw new AppError(
+        `Cannot assign ${assignFacilityType} without cancellation because the facility is already active`,
+        409
+      );
+    }
+  }
+
+  const cancelResult = await cancelFacility(
+    normalizedRollNo,
+    {
+      ...cancel,
+      idempotencyKey,
+    },
+    userId,
+    session
+  );
+
+  const assignPayload = {
+    transport: assign.transport,
+    hostel: assign.hostel,
+    applyFromAcademicYear: assign.applyFromAcademicYear,
+    effectiveDate: assign.effectiveDate,
+    reduction: assign.reduction,
+  };
+
+  const assignResult = await assignFacility(normalizedRollNo, assignPayload, session);
+
+  return {
+    student: assignResult.student,
+    settlement: cancelResult.settlement,
+    message: assignResult.message,
+  };
+};
+
+
+module.exports = { assignFacility, cancelFacility, cancelAndAssign };

@@ -38,7 +38,19 @@ const getNextRefundReceiptNo = async ({ session = null } = {}) => {
    all parent totals, then creates an immutable FeeRefund record.
 =================================================================== */
 const createRefund = async (data, userId, options = {}) => {
-  const { rollNo, academicYear, semNumber, feeHead, refundAmount, reason, idempotencyKey, isActive } = data;
+  const {
+    rollNo,
+    academicYear,
+    semNumber,
+    feeHead,
+    refundAmount,
+    reason,
+    idempotencyKey,
+    isActive,
+    collegeAccount,
+    studentBankName,
+    studentAccount,
+  } = data;
   const deactivateAfterRefund = isActive === false;
   const { session: externalSession = null } = options;
 
@@ -92,7 +104,10 @@ const createRefund = async (data, userId, options = {}) => {
         refundReceiptNo,
         refundedBy: userId,
         ledgerIsActive: true,
-        idempotencyKey
+        idempotencyKey,
+        collegeAccount: collegeAccount || null,
+        studentBankName: studentBankName || null,
+        studentAccount: studentAccount || null,
       }], { session });
 
       if (ownSession) await ownSession.commitTransaction();
@@ -245,7 +260,10 @@ const createRefund = async (data, userId, options = {}) => {
       refundReceiptNo,
       refundedBy: userId,
       ledgerIsActive: deactivateAfterRefund ? false : true,
-      idempotencyKey
+      idempotencyKey,
+      collegeAccount: collegeAccount || null,
+      studentBankName: studentBankName || null,
+      studentAccount: studentAccount || null,
     }], { session });
 
     if (ownSession) await ownSession.commitTransaction();

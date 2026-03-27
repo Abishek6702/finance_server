@@ -61,6 +61,21 @@ const feeRefundSchema = new mongoose.Schema(
       unique: true,
       trim: true,
     },
+    collegeAccount: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    studentBankName: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    studentAccount: {
+      type: String,
+      trim: true,
+      default: null,
+    },
   },
   { timestamps: true }
 );

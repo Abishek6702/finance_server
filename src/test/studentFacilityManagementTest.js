@@ -3,8 +3,9 @@ const {
   buildStudentPayload, createFeeStructure, createStudent,
   globalSetup, globalTeardown,
   superadminAuth, adminAuth,
-  Student, StudentFeeTracking, StudentTransaction, FeeStructureMaster,
+  Student, StudentFeeTracking, StudentTransaction, FeeStructureMaster, FeeRefund,
 } = require("./setup");
+const mongoose = require("mongoose");
 const { Transport } = require("../api/fee-structure/transport/modelTransport");
 const { Hostel } = require("../api/fee-structure/hostel/modelHostel");
 
@@ -350,6 +351,636 @@ describe("Student Facility Management API", () => {
 
       expect(res.status).toBe(400);
       expect(res.body.message).toMatch(/already inactive/i);
+    });
+
+    it("allows cancellation without settlement fields when paid amount is zero", async () => {
+      const rollNo = `38CS${testCtx.TS.slice(-3)}`;
+
+      const createRes = await request(app)
+        .post("/api/studentsManagement")
+        .set(superadminAuth())
+        .send(buildStudentPayload(rollNo, {
+          academicYear: testCtx.academicYearPrimary,
+          hostel: {
+            isApplicable: true,
+            block: "A",
+            sharing: 4,
+            isAttached: false,
+          },
+        }));
+      expect([200, 201]).toContain(createRes.status);
+
+      const res = await request(app)
+        .put(`/api/studentFacility/cancel/${rollNo}`)
+        .set(adminAuth())
+        .send({
+          facilityType: "hostel",
+          applyFromAcademicYear: testCtx.academicYearPrimary,
+          endDate: "2026-10-01",
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.student.hostel.isApplicable).toBe(false);
+      expect(res.body.data.settlement.paidAmount).toBe(0);
+      expect(res.body.data.settlement.refundedAmount).toBe(0);
+
+      await Promise.all([
+        StudentTransaction.deleteMany({ rollNo }),
+        FeeRefund.deleteMany({ rollNo }),
+        StudentFeeTracking.deleteMany({ rollNo }),
+        Student.deleteMany({ "personal.rollNo": rollNo }),
+      ]);
+    });
+
+    it("allows cancel without refundMode when conceptionAmount equals paid", async () => {
+      const rollNo = `41CS${testCtx.TS.slice(-3)}`;
+
+      const createRes = await request(app)
+        .post("/api/studentsManagement")
+        .set(superadminAuth())
+        .send(buildStudentPayload(rollNo, {
+          academicYear: testCtx.academicYearPrimary,
+          hostel: {
+            isApplicable: true,
+            block: "A",
+            sharing: 4,
+            isAttached: false,
+          },
+        }));
+      expect([200, 201]).toContain(createRes.status);
+
+      const payRes = await request(app)
+        .post("/api/feePayment/pay")
+        .set(adminAuth())
+        .send({
+          rollNo,
+          paymentType: "Cash",
+          breakdowns: [{
+            academicYear: testCtx.academicYearPrimary,
+            hostel: 5000,
+          }],
+        });
+      expect([200, 201]).toContain(payRes.status);
+
+      const res = await request(app)
+        .put(`/api/studentFacility/cancel/${rollNo}`)
+        .set(adminAuth())
+        .send({
+          facilityType: "hostel",
+          applyFromAcademicYear: testCtx.academicYearPrimary,
+          endDate: "2026-10-01",
+          conceptionAmount: 5000,
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.settlement.paidAmount).toBeCloseTo(5000, 2);
+      expect(res.body.data.settlement.consumedAmount).toBeCloseTo(5000, 2);
+      expect(res.body.data.settlement.refundedAmount).toBe(0);
+      expect(res.body.data.settlement.refundMode).toBeNull();
+
+      const refundDoc = await FeeRefund.findOne({ rollNo }).lean();
+      expect(refundDoc).toBeNull();
+
+      await Promise.all([
+        StudentTransaction.deleteMany({ rollNo }),
+        FeeRefund.deleteMany({ rollNo }),
+        StudentFeeTracking.deleteMany({ rollNo }),
+        Student.deleteMany({ "personal.rollNo": rollNo }),
+      ]);
+    });
+  });
+
+  describe("PUT /api/studentFacility/cancel-assign/:rollNo", () => {
+    it("cancels hostel and assigns transport in one transaction", async () => {
+      const rollNo = `34CS${testCtx.TS.slice(-3)}`;
+
+      const createRes = await request(app)
+        .post("/api/studentsManagement")
+        .set(superadminAuth())
+        .send(buildStudentPayload(rollNo, {
+          academicYear: testCtx.academicYearPrimary,
+          hostel: {
+            isApplicable: true,
+            block: "A",
+            sharing: 4,
+            isAttached: false,
+          },
+        }));
+      expect([200, 201]).toContain(createRes.status);
+
+      const payRes = await request(app)
+        .post("/api/feePayment/pay")
+        .set(adminAuth())
+        .send({
+          rollNo,
+          paymentType: "Cash",
+          breakdowns: [{
+            academicYear: testCtx.academicYearPrimary,
+            hostel: 8000,
+          }],
+        });
+      expect([200, 201]).toContain(payRes.status);
+
+      const res = await request(app)
+        .put(`/api/studentFacility/cancel-assign/${rollNo}`)
+        .set(adminAuth())
+        .set("x-idempotency-key", `sfm-combined-${Date.now()}-1`)
+        .send({
+          cancel: {
+            facilityType: "hostel",
+            applyFromAcademicYear: testCtx.academicYearPrimary,
+            endDate: "2026-10-01",
+            conceptionAmount: 5000,
+            refundMode: "wallet",
+          },
+          assign: {
+            transport: {
+              isApplicable: true,
+              id: transportIdMain,
+            },
+            applyFromAcademicYear: testCtx.academicYearPrimary,
+            effectiveDate: "2026-10-02",
+          },
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.student.hostel.isApplicable).toBe(false);
+      expect(res.body.data.student.transport.isApplicable).toBe(true);
+      expect(res.body.data.student.transport.route).toBe("Bharathiyar University");
+
+      const tracking = await StudentFeeTracking.findOne({ rollNo });
+      const yearRecord = tracking.academicYearWiseRecord.find(y => y.academicYear === testCtx.academicYearPrimary);
+      expect(yearRecord.hostel.isActive).toBe(false);
+      expect(yearRecord.transport.isActive).toBe(true);
+
+      await Promise.all([
+        StudentTransaction.deleteMany({ rollNo }),
+        FeeRefund.deleteMany({ rollNo }),
+        StudentFeeTracking.deleteMany({ rollNo }),
+        Student.deleteMany({ "personal.rollNo": rollNo }),
+      ]);
+    });
+
+    it("cancels transport and assigns hostel in one transaction", async () => {
+      const rollNo = `35CS${testCtx.TS.slice(-3)}`;
+
+      const createRes = await request(app)
+        .post("/api/studentsManagement")
+        .set(superadminAuth())
+        .send(buildStudentPayload(rollNo, {
+          academicYear: testCtx.academicYearPrimary,
+          transport: {
+            isApplicable: true,
+            route: "Bharathiyar University",
+            stopName: "Bharathiyar University",
+          },
+        }));
+      expect([200, 201]).toContain(createRes.status);
+
+      const payRes = await request(app)
+        .post("/api/feePayment/pay")
+        .set(adminAuth())
+        .send({
+          rollNo,
+          paymentType: "Cash",
+          breakdowns: [{
+            academicYear: testCtx.academicYearPrimary,
+            transport: 7000,
+          }],
+        });
+      expect([200, 201]).toContain(payRes.status);
+
+      const res = await request(app)
+        .put(`/api/studentFacility/cancel-assign/${rollNo}`)
+        .set(adminAuth())
+        .set("x-idempotency-key", `sfm-combined-${Date.now()}-2`)
+        .send({
+          cancel: {
+            facilityType: "transport",
+            applyFromAcademicYear: testCtx.academicYearPrimary,
+            endDate: "2026-10-01",
+            conceptionAmount: 3000,
+            refundMode: "bank",
+            collegeAccount: "SECE-COLLEGE-001",
+            studentBankName: "State Bank of India",
+            studentAccount: "STUDENT-ACC-9988",
+          },
+          assign: {
+            hostel: {
+              isApplicable: true,
+              id: hostelIdA,
+            },
+            applyFromAcademicYear: testCtx.academicYearPrimary,
+            effectiveDate: "2026-10-02",
+          },
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.student.transport.isApplicable).toBe(false);
+      expect(res.body.data.student.hostel.isApplicable).toBe(true);
+      expect(res.body.data.student.hostel.block).toBe("A");
+
+      const refundDoc = await FeeRefund.findOne({ rollNo }).sort({ createdAt: -1 }).lean();
+      expect(refundDoc).toBeTruthy();
+      expect(refundDoc.collegeAccount).toBe("SECE-COLLEGE-001");
+      expect(refundDoc.studentBankName).toBe("State Bank of India");
+      expect(refundDoc.studentAccount).toBe("STUDENT-ACC-9988");
+
+      const refundGetRes = await request(app)
+        .get(`/api/refund/student/${rollNo}`)
+        .set(adminAuth());
+
+      expect(refundGetRes.status).toBe(200);
+      expect(Array.isArray(refundGetRes.body.data)).toBe(true);
+      expect(refundGetRes.body.data[0].collegeAccount).toBe("SECE-COLLEGE-001");
+      expect(refundGetRes.body.data[0].studentBankName).toBe("State Bank of India");
+      expect(refundGetRes.body.data[0].studentAccount).toBe("STUDENT-ACC-9988");
+
+      await Promise.all([
+        StudentTransaction.deleteMany({ rollNo }),
+        FeeRefund.deleteMany({ rollNo }),
+        StudentFeeTracking.deleteMany({ rollNo }),
+        Student.deleteMany({ "personal.rollNo": rollNo }),
+      ]);
+    });
+
+    it("rejects combined request without x-idempotency-key header", async () => {
+      const res = await request(app)
+        .put(`/api/studentFacility/cancel-assign/${sfmRollMain}`)
+        .set(adminAuth())
+        .send({
+          cancel: {
+            facilityType: "hostel",
+            applyFromAcademicYear: testCtx.academicYearPrimary,
+            endDate: "2026-10-01",
+            conceptionAmount: 1000,
+            refundMode: "wallet",
+          },
+          assign: {
+            transport: {
+              isApplicable: true,
+              id: transportIdMain,
+            },
+            applyFromAcademicYear: testCtx.academicYearPrimary,
+            effectiveDate: "2026-10-02",
+          },
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/idempotency/i);
+    });
+
+    it("blocks shortcut payload when cancel block is missing", async () => {
+      const res = await request(app)
+        .put(`/api/studentFacility/cancel-assign/${sfmRollMain}`)
+        .set(adminAuth())
+        .set("x-idempotency-key", `sfm-combined-${Date.now()}-3`)
+        .send({
+          assign: {
+            transport: {
+              isApplicable: true,
+              id: transportIdMain,
+            },
+            applyFromAcademicYear: testCtx.academicYearPrimary,
+            effectiveDate: "2026-10-02",
+          },
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/cancel block is required/i);
+    });
+
+    it("does not run assign when cancel step fails", async () => {
+      const rollNo = `36CS${testCtx.TS.slice(-3)}`;
+
+      const createRes = await createStudent(rollNo, { academicYear: testCtx.academicYearPrimary });
+      expect([200, 201]).toContain(createRes.status);
+
+      const res = await request(app)
+        .put(`/api/studentFacility/cancel-assign/${rollNo}`)
+        .set(adminAuth())
+        .set("x-idempotency-key", `sfm-combined-${Date.now()}-4`)
+        .send({
+          cancel: {
+            facilityType: "hostel",
+            applyFromAcademicYear: testCtx.academicYearPrimary,
+            endDate: "2026-10-01",
+            conceptionAmount: 1000,
+            refundMode: "wallet",
+          },
+          assign: {
+            transport: {
+              isApplicable: true,
+              id: transportIdMain,
+            },
+            applyFromAcademicYear: testCtx.academicYearPrimary,
+            effectiveDate: "2026-10-02",
+          },
+        });
+
+      expect(res.status).toBe(404);
+
+      const studentDoc = await Student.findOne({ "personal.rollNo": rollNo });
+      expect(studentDoc.transport?.isApplicable).toBe(false);
+
+      await Promise.all([
+        StudentTransaction.deleteMany({ rollNo }),
+        FeeRefund.deleteMany({ rollNo }),
+        StudentFeeTracking.deleteMany({ rollNo }),
+        Student.deleteMany({ "personal.rollNo": rollNo }),
+      ]);
+    });
+
+    it("rolls back cancel and refund when assign step fails", async () => {
+      const rollNo = `37CS${testCtx.TS.slice(-3)}`;
+      const combinedKey = `sfm-combined-${Date.now()}-5`;
+      const invalidHostelId = new mongoose.Types.ObjectId().toString();
+
+      const createRes = await request(app)
+        .post("/api/studentsManagement")
+        .set(superadminAuth())
+        .send(buildStudentPayload(rollNo, {
+          academicYear: testCtx.academicYearPrimary,
+          transport: {
+            isApplicable: true,
+            route: "Bharathiyar University",
+            stopName: "Bharathiyar University",
+          },
+        }));
+      expect([200, 201]).toContain(createRes.status);
+
+      const payRes = await request(app)
+        .post("/api/feePayment/pay")
+        .set(adminAuth())
+        .send({
+          rollNo,
+          paymentType: "Cash",
+          breakdowns: [{
+            academicYear: testCtx.academicYearPrimary,
+            transport: 9000,
+          }],
+        });
+      expect([200, 201]).toContain(payRes.status);
+
+      const res = await request(app)
+        .put(`/api/studentFacility/cancel-assign/${rollNo}`)
+        .set(adminAuth())
+        .set("x-idempotency-key", combinedKey)
+        .send({
+          cancel: {
+            facilityType: "transport",
+            applyFromAcademicYear: testCtx.academicYearPrimary,
+            endDate: "2026-10-01",
+            conceptionAmount: 1000,
+            refundMode: "wallet",
+          },
+          assign: {
+            hostel: {
+              isApplicable: true,
+              id: invalidHostelId,
+            },
+            applyFromAcademicYear: testCtx.academicYearPrimary,
+            effectiveDate: "2026-10-02",
+          },
+        });
+
+      expect(res.status).toBe(404);
+
+      const studentDoc = await Student.findOne({ "personal.rollNo": rollNo }).lean();
+      expect(studentDoc.transport?.isApplicable).toBe(true);
+      expect(studentDoc.hostel?.isApplicable).toBe(false);
+
+      const tracking = await StudentFeeTracking.findOne({ rollNo }).lean();
+      const yearRecord = tracking.academicYearWiseRecord.find((y) => y.academicYear === testCtx.academicYearPrimary);
+      expect(yearRecord.transport.isActive).toBe(true);
+      expect(yearRecord.transport.total.paid).toBeGreaterThan(0);
+
+      const refundDoc = await FeeRefund.findOne({ idempotencyKey: combinedKey }).lean();
+      expect(refundDoc).toBeNull();
+
+      await Promise.all([
+        StudentTransaction.deleteMany({ rollNo }),
+        FeeRefund.deleteMany({ rollNo }),
+        StudentFeeTracking.deleteMany({ rollNo }),
+        Student.deleteMany({ "personal.rollNo": rollNo }),
+      ]);
+    });
+
+    it("allows cancel-assign without settlement fields when paid amount is zero", async () => {
+      const rollNo = `39CS${testCtx.TS.slice(-3)}`;
+
+      const createRes = await request(app)
+        .post("/api/studentsManagement")
+        .set(superadminAuth())
+        .send(buildStudentPayload(rollNo, {
+          academicYear: testCtx.academicYearPrimary,
+          hostel: {
+            isApplicable: true,
+            block: "A",
+            sharing: 4,
+            isAttached: false,
+          },
+        }));
+      expect([200, 201]).toContain(createRes.status);
+
+      const res = await request(app)
+        .put(`/api/studentFacility/cancel-assign/${rollNo}`)
+        .set(adminAuth())
+        .set("x-idempotency-key", `sfm-combined-${Date.now()}-6`)
+        .send({
+          cancel: {
+            facilityType: "hostel",
+            applyFromAcademicYear: testCtx.academicYearPrimary,
+            endDate: "2026-10-01",
+          },
+          assign: {
+            transport: {
+              isApplicable: true,
+              id: transportIdMain,
+            },
+            applyFromAcademicYear: testCtx.academicYearPrimary,
+            effectiveDate: "2026-10-02",
+          },
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.student.hostel.isApplicable).toBe(false);
+      expect(res.body.data.student.transport.isApplicable).toBe(true);
+      expect(res.body.data.settlement.paidAmount).toBe(0);
+      expect(res.body.data.settlement.refundedAmount).toBe(0);
+
+      await Promise.all([
+        StudentTransaction.deleteMany({ rollNo }),
+        FeeRefund.deleteMany({ rollNo }),
+        StudentFeeTracking.deleteMany({ rollNo }),
+        Student.deleteMany({ "personal.rollNo": rollNo }),
+      ]);
+    });
+
+    it("applies assign.reduction in cancel-assign and creates reduction payment", async () => {
+      const rollNo = `40CS${testCtx.TS.slice(-3)}`;
+
+      const createRes = await request(app)
+        .post("/api/studentsManagement")
+        .set(superadminAuth())
+        .send(buildStudentPayload(rollNo, {
+          academicYear: testCtx.academicYearPrimary,
+          transport: {
+            isApplicable: true,
+            route: "Bharathiyar University",
+            stopName: "Bharathiyar University",
+          },
+        }));
+      expect([200, 201]).toContain(createRes.status);
+
+      const payRes = await request(app)
+        .post("/api/feePayment/pay")
+        .set(adminAuth())
+        .send({
+          rollNo,
+          paymentType: "Cash",
+          breakdowns: [{
+            academicYear: testCtx.academicYearPrimary,
+            transport: 7000,
+          }],
+        });
+      expect([200, 201]).toContain(payRes.status);
+
+      const res = await request(app)
+        .put(`/api/studentFacility/cancel-assign/${rollNo}`)
+        .set(adminAuth())
+        .set("x-idempotency-key", `sfm-combined-${Date.now()}-7`)
+        .send({
+          cancel: {
+            facilityType: "transport",
+            applyFromAcademicYear: testCtx.academicYearPrimary,
+            endDate: "2026-10-01",
+            conceptionAmount: 3000,
+            refundMode: "bank",
+            collegeAccount: "SECE-COLLEGE-001",
+            studentBankName: "Indian Bank",
+            studentAccount: "STUDENT-ACC-5566",
+          },
+          assign: {
+            hostel: {
+              isApplicable: true,
+              id: hostelIdA,
+            },
+            applyFromAcademicYear: testCtx.academicYearPrimary,
+            effectiveDate: "2026-10-02",
+            reduction: 900,
+          },
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.student.hostel.isApplicable).toBe(true);
+
+      const txDoc = await StudentTransaction.findOne({ rollNo }).lean();
+      expect(txDoc).toBeTruthy();
+      const latestTx = txDoc.transactions[txDoc.transactions.length - 1];
+      expect(latestTx.paymentType).toBe("reduction");
+      expect(latestTx.reason).toMatch(/partially added hostel facility/i);
+      expect(latestTx.reason).toMatch(/Reduction amount Rs 900/i);
+
+      await Promise.all([
+        StudentTransaction.deleteMany({ rollNo }),
+        FeeRefund.deleteMany({ rollNo }),
+        StudentFeeTracking.deleteMany({ rollNo }),
+        Student.deleteMany({ "personal.rollNo": rollNo }),
+      ]);
+    });
+
+    it("rejects cancel-assign when assign.reduction is negative", async () => {
+      const res = await request(app)
+        .put(`/api/studentFacility/cancel-assign/${sfmRollMain}`)
+        .set(adminAuth())
+        .set("x-idempotency-key", `sfm-combined-${Date.now()}-8`)
+        .send({
+          cancel: {
+            facilityType: "hostel",
+            applyFromAcademicYear: testCtx.academicYearPrimary,
+            endDate: "2026-10-01",
+          },
+          assign: {
+            transport: {
+              isApplicable: true,
+              id: transportIdMain,
+            },
+            applyFromAcademicYear: testCtx.academicYearPrimary,
+            effectiveDate: "2026-10-02",
+            reduction: -10,
+          },
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/assign\.reduction/i);
+    });
+
+    it("allows cancel-assign without refundMode when conceptionAmount equals paid", async () => {
+      const rollNo = `42CS${testCtx.TS.slice(-3)}`;
+
+      const createRes = await request(app)
+        .post("/api/studentsManagement")
+        .set(superadminAuth())
+        .send(buildStudentPayload(rollNo, {
+          academicYear: testCtx.academicYearPrimary,
+          transport: {
+            isApplicable: true,
+            route: "Bharathiyar University",
+            stopName: "Bharathiyar University",
+          },
+        }));
+      expect([200, 201]).toContain(createRes.status);
+
+      const payRes = await request(app)
+        .post("/api/feePayment/pay")
+        .set(adminAuth())
+        .send({
+          rollNo,
+          paymentType: "Cash",
+          breakdowns: [{
+            academicYear: testCtx.academicYearPrimary,
+            transport: 6000,
+          }],
+        });
+      expect([200, 201]).toContain(payRes.status);
+
+      const res = await request(app)
+        .put(`/api/studentFacility/cancel-assign/${rollNo}`)
+        .set(adminAuth())
+        .set("x-idempotency-key", `sfm-combined-${Date.now()}-9`)
+        .send({
+          cancel: {
+            facilityType: "transport",
+            applyFromAcademicYear: testCtx.academicYearPrimary,
+            endDate: "2026-10-01",
+            conceptionAmount: 6000,
+          },
+          assign: {
+            hostel: {
+              isApplicable: true,
+              id: hostelIdA,
+            },
+            applyFromAcademicYear: testCtx.academicYearPrimary,
+            effectiveDate: "2026-10-02",
+          },
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.student.transport.isApplicable).toBe(false);
+      expect(res.body.data.student.hostel.isApplicable).toBe(true);
+      expect(res.body.data.settlement.refundedAmount).toBe(0);
+      expect(res.body.data.settlement.refundMode).toBeNull();
+
+      const refundDoc = await FeeRefund.findOne({ rollNo }).lean();
+      expect(refundDoc).toBeNull();
+
+      await Promise.all([
+        StudentTransaction.deleteMany({ rollNo }),
+        FeeRefund.deleteMany({ rollNo }),
+        StudentFeeTracking.deleteMany({ rollNo }),
+        Student.deleteMany({ "personal.rollNo": rollNo }),
+      ]);
     });
   });
 

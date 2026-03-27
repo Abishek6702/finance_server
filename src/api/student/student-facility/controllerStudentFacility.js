@@ -11,6 +11,10 @@ const assignFacility = asyncHandler(async (req, res) => {
     await session.withTransaction(async () => {
       result = await facilityService.assignFacility(rollNo, req.body, session);
     });
+
+    if (!result) {
+      throw new Error("Transaction failed");
+    }
   } finally {
     session.endSession();
   }
@@ -34,6 +38,10 @@ const cancelFacility = asyncHandler(async (req, res) => {
         session
       );
     });
+
+    if (!data) {
+      throw new Error("Transaction failed");
+    }
   } finally {
     session.endSession();
   }
@@ -45,4 +53,38 @@ const cancelFacility = asyncHandler(async (req, res) => {
   });
 });
 
-module.exports = { assignFacility, cancelFacility };
+const cancelAndAssign = asyncHandler(async (req, res) => {
+  const { rollNo } = req.params;
+  const idempotencyKey = req.headers["x-idempotency-key"];
+  const session = await mongoose.startSession();
+
+  let data;
+
+  try {
+    await session.withTransaction(async () => {
+      data = await facilityService.cancelAndAssign(
+        rollNo,
+        {
+          ...req.body,
+          idempotencyKey,
+        },
+        req.user._id,
+        session
+      );
+    });
+
+    if (!data) {
+      throw new Error("Transaction failed");
+    }
+  } finally {
+    session.endSession();
+  }
+
+  res.status(200).json({
+    success: true,
+    data,
+    message: "Facility cancelled and assigned successfully",
+  });
+});
+
+module.exports = { assignFacility, cancelFacility, cancelAndAssign };
