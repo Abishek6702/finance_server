@@ -299,6 +299,8 @@ const assignFacility = async (
           }
         } else {
           if (!yearRecord.transport) yearRecord.transport = { total: { total: 0 } };
+          yearRecord.concessions = yearRecord.concessions || {};
+          yearRecord.concessions.transport = 0;
           yearRecord.transport.transport = resolvedTransport.transport;
           yearRecord.transport.route = resolvedTransport.route;
           yearRecord.transport.busNo = resolvedTransport.busNo;
@@ -320,6 +322,8 @@ const assignFacility = async (
           }
         } else {
           if (!yearRecord.hostel) yearRecord.hostel = { total: { total: 0 } };
+          yearRecord.concessions = yearRecord.concessions || {};
+          yearRecord.concessions.hostel = 0;
           yearRecord.hostel.hostel = resolvedHostel.hostel;
           yearRecord.hostel.block = resolvedHostel.block;
           yearRecord.hostel.sharing = resolvedHostel.sharing;
