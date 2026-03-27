@@ -338,9 +338,10 @@ const buildAcademicYearTrackingRow = async (student, feeStructure, academicYear)
 
 /* ────────────────────────────────────────────────
    GET / — get student(s) data + fee tracking records
-   Filters: batch, department, rollNo
+   Filters: batch, department, rollNo gg
 ──────────────────────────────────────────────── */
 const getStudentsFeeTrackingData = async (query = {}) => {
+  console.log("hit 1 serv");
   const search = {};
 
   if (query.batch) {
@@ -574,7 +575,7 @@ const getStudentsFeeTrackingData = async (query = {}) => {
 ──────────────────────────────────────────────── */
 const getStudentsFeeTrackingData2 = async (query = {}) => {
   const search = {};
-
+console.log("hit 2 serv");
   if (query.batch) {
     search["academic.batch"] = query.batch;
   }

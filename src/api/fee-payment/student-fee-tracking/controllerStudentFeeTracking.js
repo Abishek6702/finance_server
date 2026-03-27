@@ -1,7 +1,8 @@
 const trackingService = require("./serviceStudentFeeTracking");
 const asyncHandler = require("../../../utils/asyncHandler");
 
-const getStudentsFeeTrackingData = asyncHandler(async (req, res) => {
+const getStudentsFeeTrackingData = asyncHandler(async (req, res) => { 
+  
   const data = await trackingService.getStudentsFeeTrackingData(req.query);
   if (data.length === 0) {
     return res.status(200).json({ success: true, data: [], message: "No student fee tracking data found" });
