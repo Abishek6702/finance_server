@@ -17,5 +17,6 @@ router.put(
   validateCancelAndAssign,
   controller.cancelAndAssign
 );
+router.get("/transfer/:transferId", protect, admin, controller.getFacilityTransferById);
 
 module.exports = router;

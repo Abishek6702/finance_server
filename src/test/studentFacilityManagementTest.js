@@ -3,7 +3,7 @@ const {
   buildStudentPayload, createFeeStructure, createStudent,
   globalSetup, globalTeardown,
   superadminAuth, adminAuth,
-  Student, StudentFeeTracking, StudentTransaction, FeeStructureMaster, FeeRefund,
+  Student, StudentFeeTracking, StudentTransaction, FeeStructureMaster, FeeRefund, StudentFacilityTransfer,
 } = require("./setup");
 const mongoose = require("mongoose");
 const { Transport } = require("../api/fee-structure/transport/modelTransport");
@@ -102,6 +102,7 @@ describe("Student Facility Management API", () => {
   afterAll(async () => {
     const rolls = [sfmRollMain, sfmRollTransGuard, sfmRollHostelGuard];
     await Promise.all([
+      StudentFacilityTransfer.deleteMany({ rollNo: { $in: rolls } }),
       StudentTransaction.deleteMany({ rollNo: { $in: rolls } }),
       StudentFeeTracking.deleteMany({ rollNo: { $in: rolls } }),
       Student.deleteMany({ "personal.rollNo": { $in: rolls } }),
@@ -278,19 +279,28 @@ describe("Student Facility Management API", () => {
       });
 
     expect(res.status).toBe(200);
+    expect(res.body.data.facilityTransferId).toBeTruthy();
 
     const txDoc = await StudentTransaction.findOne({ rollNo }).lean();
     expect(txDoc).toBeTruthy();
     const latestTx = txDoc.transactions[txDoc.transactions.length - 1];
     expect(latestTx.paymentType).toBe("reduction");
-    expect(latestTx.reason).toMatch(/partially added transport facility/i);
-    expect(latestTx.reason).toMatch(/Reduction amount Rs 1200/i);
+    expect(String(latestTx.reductionId)).toBe(res.body.data.facilityTransferId);
+
+    const transferRes = await request(app)
+      .get(`/api/studentFacility/transfer/${res.body.data.facilityTransferId}`)
+      .set(adminAuth());
+
+    expect(transferRes.status).toBe(200);
+    expect(transferRes.body.data.action).toBe("assign");
+    expect(transferRes.body.data.reduction.amount).toBeCloseTo(1200, 2);
 
     const tracking = await StudentFeeTracking.findOne({ rollNo });
     const yearRecord = tracking.academicYearWiseRecord.find(y => y.academicYear === testCtx.academicYearPrimary);
     expect(yearRecord.transport.total.paid).toBeCloseTo(1200, 2);
 
     await Promise.all([
+      StudentFacilityTransfer.deleteMany({ rollNo }),
       StudentTransaction.deleteMany({ rollNo }),
       StudentFeeTracking.deleteMany({ rollNo }),
       Student.deleteMany({ "personal.rollNo": rollNo }),
@@ -874,15 +884,16 @@ describe("Student Facility Management API", () => {
 
       expect(res.status).toBe(200);
       expect(res.body.data.student.hostel.isApplicable).toBe(true);
+      expect(res.body.data.facilityTransferId).toBeTruthy();
 
       const txDoc = await StudentTransaction.findOne({ rollNo }).lean();
       expect(txDoc).toBeTruthy();
       const latestTx = txDoc.transactions[txDoc.transactions.length - 1];
       expect(latestTx.paymentType).toBe("reduction");
-      expect(latestTx.reason).toMatch(/partially added hostel facility/i);
-      expect(latestTx.reason).toMatch(/Reduction amount Rs 900/i);
+      expect(String(latestTx.reductionId)).toBe(res.body.data.facilityTransferId);
 
       await Promise.all([
+        StudentFacilityTransfer.deleteMany({ rollNo }),
         StudentTransaction.deleteMany({ rollNo }),
         FeeRefund.deleteMany({ rollNo }),
         StudentFeeTracking.deleteMany({ rollNo }),

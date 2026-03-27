@@ -8,6 +8,7 @@ const Student = require("../api/student/students-management/modelStudent");
 const FeeStructureMaster = require("../api/fee-structure/acadamic/modelAcadamic");
 const StudentTransaction = require("../api/fee-payment/payments/model/modelStudentFeePayments");
 const StudentFeeTracking = require("../api/fee-payment/student-fee-tracking/modelStudentFeeTracking");
+const StudentFacilityTransfer = require("../api/student/student-facility/modelStudentFacilityTransfer");
 const ReceiptRecallRequest = require("../api/fee-payment/receipt-recall/modelReceiptRecall");
 const FeeRefund = require("../api/fee-payment/refund/model.refund");
 const ActivityLog = require("../models/activityLog");
@@ -390,6 +391,7 @@ const globalTeardown = async () => {
     const trackedRolls = docs.map((s) => s.personal.rollNo);
     if (trackedRolls.length) {
       await Promise.all([
+        StudentFacilityTransfer.deleteMany({ rollNo: { $in: trackedRolls } }),
         StudentTransaction.deleteMany({ rollNo: { $in: trackedRolls } }),
         StudentFeeTracking.deleteMany({ rollNo: { $in: trackedRolls } }),
         ReceiptRecallRequest.deleteMany({ rollNo: { $in: trackedRolls } }),
@@ -411,6 +413,7 @@ const globalTeardown = async () => {
     testCtx.studentRollOverpay,  // transaction over-pay test student
   ];
   await Promise.all([
+    StudentFacilityTransfer.deleteMany({ rollNo: { $in: allRolls } }),
     StudentTransaction.deleteMany({ rollNo: { $in: allRolls } }),
     StudentFeeTracking.deleteMany({ rollNo: { $in: allRolls } }),
     ReceiptRecallRequest.deleteMany({ rollNo: { $in: allRolls } }),
@@ -454,6 +457,7 @@ module.exports = {
   FeeStructureMaster,
   StudentTransaction,
   StudentFeeTracking,
+  StudentFacilityTransfer,
   ReceiptRecallRequest,
   FeeRefund,
   ActivityLog,

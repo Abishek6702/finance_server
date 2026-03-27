@@ -4,6 +4,7 @@ const StudentFeeTracking = require("../student-fee-tracking/modelStudentFeeTrack
 const Student = require("../../student/students-management/modelStudent");
 
 const normalizeMoney = (val) => Math.round((Number(val) || 0) * 100) / 100;
+const normalizeReductionReasonId = (value) => (value ? String(value) : null);
 
 const formatFeeHeadInfo = (type) => {
   const map = {
@@ -178,6 +179,7 @@ exports.generateIndividualReport = async (query) => {
       $project: {
         _id: 0,
         receiptNo: "$transactions.receiptNo",
+        reductionReasonId: "$transactions.reductionId",
         paymentDate: "$transactions.billingDate",
         paymentMode: "$transactions.paymentType",
         academicYear: "$transactions.breakdowns.academicYear",
@@ -205,6 +207,7 @@ exports.generateIndividualReport = async (query) => {
     const feeInfo = formatFeeHeadInfo(row.feeType); 
     return {
       receiptNo: row.receiptNo,
+      reductionReasonId: normalizeReductionReasonId(row.reductionReasonId),
       feeHead: feeInfo.feeHead,
       subHead: feeInfo.subHead,
       paidForAcademicYear: row.academicYear,
@@ -335,6 +338,7 @@ exports.generateDatewiseReport = async (query) => {
         _id: 0,
         rollNo: "$rollNo",
         receiptNo: "$transactions.receiptNo",
+        reductionReasonId: "$transactions.reductionId",
         amount: "$transactions.breakdowns.feeHeads.fee",
         date: "$transactions.billingDate",
         paymentMode: "$transactions.paymentType",
@@ -401,7 +405,8 @@ exports.generateDatewiseReport = async (query) => {
       date: row.date,
       paymentMode: row.paymentMode,
       bank: row.bank,
-      receiptNo: row.receiptNo
+      receiptNo: row.receiptNo,
+      reductionReasonId: normalizeReductionReasonId(row.reductionReasonId)
     };
   });
 

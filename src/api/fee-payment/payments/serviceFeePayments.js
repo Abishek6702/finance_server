@@ -3,6 +3,7 @@ const StudentAcknoledgement = require("./model/modelAcknoledgement");
 const StudentFeeTracking = require("../student-fee-tracking/modelStudentFeeTracking");
 const Student = require("../../student/students-management/modelStudent");
 const ReceiptCounter = require("./model/modelReceiptCounter");
+const mongoose = require("mongoose");
 const AppError = require("../../../utils/appError");
 
 const parseBillingDate = (billingDate) => {
@@ -37,6 +38,8 @@ const reshapeBreakdowns = (breakdowns) =>
     };
   });
 
+const normalizeReductionReasonId = (value) => (value ? String(value) : null);
+
 const setStatus = (target) => {
   if (!target) return;
   if (target.total === 0) target.status = "Paid";
@@ -47,7 +50,10 @@ const setStatus = (target) => {
 
 const createPayment = async (data, options = {}) => {
   const { session = null } = options;
-  const { rollNo, paymentType, bankName, bankLocation, billingDate, breakdowns, excessAmount, reason } = data;
+  const { rollNo, paymentType, bankName, bankLocation, billingDate, breakdowns, excessAmount, reductionId } = data;
+  if (paymentType === "reduction" && !mongoose.Types.ObjectId.isValid(reductionId)) {
+    throw new AppError("reductionId is required as a valid MongoDB ObjectId when paymentType is reduction", 400);
+  }
   const { receiptNo } = await getNextReceiptNo({ session });
   const tracking = await StudentFeeTracking.findOne({ rollNo }).session(session);
   if (!tracking) throw new AppError("Fee tracking not found for this student", 404);
@@ -263,7 +269,7 @@ transactionDoc.transactions.push({
   paymentType,
   bankName,
   bankLocation,
-  reason: reason || null,
+  reductionId: paymentType === "reduction" ? reductionId : null,
   billingDate: parseBillingDate(billingDate),
   createdAt: new Date(), // mongo transaction time
   breakdowns: mappedBreakdowns
@@ -339,7 +345,10 @@ transactionDoc.transactions.push({
 
 
 const createAcknowledgment = async (data) => {
-  const { rollNo, paymentType, bankName, bankLocation, billingDate, breakdowns, excessAmount, reason } = data;
+  const { rollNo, paymentType, bankName, bankLocation, billingDate, breakdowns, excessAmount, reductionId } = data;
+  if (paymentType === "reduction" && !mongoose.Types.ObjectId.isValid(reductionId)) {
+    throw new AppError("reductionId is required as a valid MongoDB ObjectId when paymentType is reduction", 400);
+  }
   const { receiptNo } = await getNextReceiptNo();
   const tracking = await StudentFeeTracking.findOne({ rollNo });
   if (!tracking) throw new AppError("Fee tracking not found for this student", 404);
@@ -555,7 +564,7 @@ acknoledgementDoc.acknoledgements.push({
   paymentType,
   bankName,
   bankLocation,
-  reason: reason || null,
+  reductionId: paymentType === "reduction" ? reductionId : null,
   billingDate: parseBillingDate(billingDate),
   createdAt: new Date(), // mongo acknoledgement time
   breakdowns: mappedBreakdowns
@@ -608,7 +617,7 @@ const updateAcknowledgment = async (data) => {
     paymentType: ackRecord.paymentType,
     bankName: ackRecord.bankName,
     bankLocation: ackRecord.bankLocation,
-    reason: ackRecord.reason,
+    reductionId: ackRecord.paymentType === "reduction" ? ackRecord.reductionId : null,
     billingDate: ackRecord.billingDate,
     createdAt: new Date(),
     breakdowns: ackRecord.breakdowns
@@ -785,7 +794,11 @@ const getAllTransactions = async (query) => {
     return {
       transactions: result.data.map(item => ({
         ...item,
-        transaction: { ...item.transaction, breakdowns: reshapeBreakdowns(item.transaction?.breakdowns) }
+        transaction: {
+          ...item.transaction,
+          reductionReasonId: normalizeReductionReasonId(item.transaction?.reductionId),
+          breakdowns: reshapeBreakdowns(item.transaction?.breakdowns)
+        }
       })),
       pagination: {
         total,
@@ -802,7 +815,11 @@ const getAllTransactions = async (query) => {
   return {
     transactions: results.map(item => ({
       ...item,
-      transaction: { ...item.transaction, breakdowns: reshapeBreakdowns(item.transaction?.breakdowns) }
+      transaction: {
+        ...item.transaction,
+        reductionReasonId: normalizeReductionReasonId(item.transaction?.reductionId),
+        breakdowns: reshapeBreakdowns(item.transaction?.breakdowns)
+      }
     })),
     pagination: {
       total: results.length,
@@ -895,6 +912,7 @@ const studentData = {
       studentData,
       transactions: result.data.map(d => ({
         ...d.transaction,
+        reductionReasonId: normalizeReductionReasonId(d.transaction?.reductionId),
         breakdowns: reshapeBreakdowns(d.transaction?.breakdowns)
       })),
       pagination: {
@@ -913,6 +931,7 @@ const studentData = {
     student,
     transactions: results.map(r => ({
       ...r.transaction,
+      reductionReasonId: normalizeReductionReasonId(r.transaction?.reductionId),
       breakdowns: reshapeBreakdowns(r.transaction?.breakdowns)
     })),
     pagination: {
@@ -1082,6 +1101,7 @@ const getRecentTransactions = async (query) => {
 
       receiptNo: "$transactions.receiptNo",
       paymentMode: "$transactions.paymentType",
+      reductionReasonId: "$transactions.reductionId",
       bank: "$transactions.bankName",
       paidOn: "$transactions.billingDate",
 
@@ -1107,7 +1127,10 @@ const getRecentTransactions = async (query) => {
   const total = result.metadata[0]?.total || 0;
 
   return {
-    transactions: result.data,
+    transactions: result.data.map((row) => ({
+      ...row,
+      reductionReasonId: normalizeReductionReasonId(row.reductionReasonId),
+    })),
     pagination: {
       total,
       page: pageNum,
@@ -1216,6 +1239,7 @@ for (const bd of tx.breakdowns || []) {
 
   return {
     receiptNo: tx.receiptNo,
+    reductionReasonId: normalizeReductionReasonId(tx.reductionId),
     date: formatBillingDate(tx.billingDate),
     studentName: student.personal.studentName || null,
     rollNo: student.personal.rollNo,

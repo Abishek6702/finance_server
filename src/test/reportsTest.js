@@ -102,6 +102,7 @@ describe("Reports API", () => {
         expect(row).toHaveProperty("balance");
         expect(row).toHaveProperty("paymentDate");
         expect(row).toHaveProperty("paymentMode");
+        expect(row).toHaveProperty("reductionReasonId");
       }
     });
 
@@ -193,6 +194,7 @@ describe("Reports API", () => {
         expect(row).toHaveProperty("paymentMode");
         expect(row).toHaveProperty("bank");
         expect(row).toHaveProperty("receiptNo");
+        expect(row).toHaveProperty("reductionReasonId");
       }
     });
 

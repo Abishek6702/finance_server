@@ -550,7 +550,7 @@
           "name": "Record Payment (Pay)",
           "request": {
             "method": "POST",
-            "description": "Records a fee payment. All breakdown amounts are validated against **concession-adjusted net totals** — the net amount after enrollment-based concessions (firstGraduate, scheme7point5, pmss, sakthi, special) have been applied to each fee category. Attempting to pay more than the remaining net due returns HTTP 400 with a message like: `\"tuition payment ₹X exceeds remaining concession-adjusted due ₹Y for Semester N (YYYY-YYYY)\"`. For `paymentType=reduction`, include a non-empty `reason`.",
+            "description": "Records a fee payment. All breakdown amounts are validated against **concession-adjusted net totals** — the net amount after enrollment-based concessions (firstGraduate, scheme7point5, pmss, sakthi, special) have been applied to each fee category. Attempting to pay more than the remaining net due returns HTTP 400 with a message like: `\"tuition payment ₹X exceeds remaining concession-adjusted due ₹Y for Semester N (YYYY-YYYY)\"`. For `paymentType=reduction`, include `reductionId` from student facility transfer API.",
             "header": [
               {
                 "key": "Content-Type",
@@ -569,7 +569,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"rollNo\": \"{{student_roll_no}}\",\n  \"paymentType\": \"reduction\",\n  \"reason\": \"Student partially added transport facility from 2025-07-01. Reduction amount Rs 1200 adjusted against total Rs 15000 for {{academic_year}}.\",\n  \"bankName\": \"Indian Bank\",\n  \"bankLocation\": \"Kinathukadavu\",\n  \"billingDate\": \"03/03/2026\",\n  \"excessAmount\": 0,\n  \"breakdowns\": [\n    {\n      \"academicYear\": \"{{academic_year}}\",\n      \"transport\": 1200,\n      \"hostel\": 0\n    }\n  ]\n}",
+              "raw": "{\n  \"rollNo\": \"{{student_roll_no}}\",\n  \"paymentType\": \"reduction\",\n  \"reductionId\": \"{{facility_transfer_id}}\",\n  \"bankName\": \"Indian Bank\",\n  \"bankLocation\": \"Kinathukadavu\",\n  \"billingDate\": \"03/03/2026\",\n  \"excessAmount\": 0,\n  \"breakdowns\": [\n    {\n      \"academicYear\": \"{{academic_year}}\",\n      \"transport\": 1200,\n      \"hostel\": 0\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1761,6 +1761,7 @@
                   "  const body = pm.response.json();",
                   "  pm.expect(body.success).to.equal(true);",
                   "  pm.expect(body.data.student).to.be.an('object');",
+                  "  if (body.data.facilityTransferId) pm.environment.set('facility_transfer_id', body.data.facilityTransferId);",
                   "});"
                 ]
               }
@@ -1823,6 +1824,7 @@
                   "  pm.expect(body.data.settlement.paidAmount).to.be.a('number');",
                   "  pm.expect(body.data.settlement.consumedAmount).to.be.a('number');",
                   "  pm.expect(body.data.settlement.refundedAmount).to.be.a('number');",
+                  "  if (body.data.facilityTransferId) pm.environment.set('facility_transfer_id', body.data.facilityTransferId);",
                   "});"
                 ]
               }
@@ -1885,6 +1887,49 @@
                   "  pm.expect(body.data.settlement.paidAmount).to.be.a('number');",
                   "  pm.expect(body.data.settlement.refundedAmount).to.be.a('number');",
                   "  pm.expect(body.data.student).to.be.an('object');",
+                  "  if (body.data.facilityTransferId) pm.environment.set('facility_transfer_id', body.data.facilityTransferId);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get Facility Transfer Record",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/studentFacility/transfer/{{facility_transfer_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "studentFacility",
+                "transfer",
+                "{{facility_transfer_id}}"
+              ]
+            },
+            "description": "Fetches one student facility transfer/audit record by MongoDB ID."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Facility transfer record fetched', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.success).to.equal(true);",
+                  "  pm.expect(body.data).to.be.an('object');",
+                  "  pm.expect(body.data._id).to.equal(pm.environment.get('facility_transfer_id'));",
                   "});"
                 ]
               }
@@ -2369,6 +2414,73 @@
             }
           },
           "response": []
+        }
+      ]
+    },
+    {
+      "name": "Fee Payments",
+      "item": [
+        {
+          "name": "Create Acknowledgement",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rollNo\": \"22CSE001\",\n  \"paymentType\": \"DD\",\n  \"bankName\": \"SBI\",\n  \"breakdowns\": [\n    {\n      \"academicYear\": \"2023-2024\",\n      \"academic\": {\n        \"semesterNumber\": 3,\n        \"tuition\": 1000\n      }\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/feePayment/ack",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "feePayment",
+                "ack"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Acknowledgement (Approve/Reject)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rollNo\": \"22CSE001\",\n  \"receiptNo\": \"REC-2026...\",\n  \"status\": \"SUCCESSFUL\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/feePayment/ack",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "feePayment",
+                "ack"
+              ]
+            }
+          }
         }
       ]
     }

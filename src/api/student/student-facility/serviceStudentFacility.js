@@ -1,7 +1,9 @@
 const Student = require("../students-management/modelStudent");
+const mongoose = require("mongoose");
 const { Transport } = require("../../fee-structure/transport/modelTransport");
 const { Hostel } = require("../../fee-structure/hostel/modelHostel");
 const StudentFeeTracking = require("../../fee-payment/student-fee-tracking/modelStudentFeeTracking");
+const StudentFacilityTransfer = require("./modelStudentFacilityTransfer");
 const feePaymentsService = require("../../fee-payment/payments/serviceFeePayments");
 const refundService = require("../../fee-payment/refund/service.refund");
 const AppError = require("../../../utils/appError");
@@ -38,9 +40,93 @@ function hasActiveFacilityInTracking(tracking, facilityType) {
   );
 }
 
-const assignFacility = async (rollNo, { transport, hostel, applyFromAcademicYear, effectiveDate, reduction }, session = null) => {
+function toPlain(value) {
+  if (!value) return null;
+  if (typeof value.toObject === "function") return value.toObject();
+  return JSON.parse(JSON.stringify(value));
+}
+
+function buildFacilitySnapshot(studentDoc, trackingDoc, academicYear) {
+  const yearRecord = trackingDoc?.academicYearWiseRecord?.find(
+    (record) => record.academicYear === academicYear
+  );
+
+  return {
+    student: {
+      transport: toPlain(studentDoc?.transport),
+      hostel: toPlain(studentDoc?.hostel),
+    },
+    tracking: {
+      academicYear: academicYear || null,
+      transport: toPlain(yearRecord?.transport),
+      hostel: toPlain(yearRecord?.hostel),
+      totals: yearRecord
+        ? {
+            academic: toPlain(yearRecord.academic?.total),
+            transport: toPlain(yearRecord.transport?.total),
+            hostel: toPlain(yearRecord.hostel?.total),
+            year: toPlain(yearRecord.total),
+          }
+        : null,
+    },
+  };
+}
+
+async function createTransferDraft({
+  studentId,
+  rollNo,
+  action,
+  applyFromAcademicYear,
+  requestPayload,
+  previousSnapshot,
+  assignment,
+  cancellation,
+  session,
+}) {
+  const draft = await StudentFacilityTransfer.create(
+    [{
+      student: studentId,
+      rollNo,
+      action,
+      applyFromAcademicYear: applyFromAcademicYear || null,
+      requestPayload,
+      message: "Facility operation processed",
+      previousSnapshot,
+      assignment: assignment || null,
+      cancellation: cancellation || null,
+    }],
+    { session }
+  );
+  return draft[0];
+}
+
+async function finalizeTransferDraft(transferDoc, {
+  message,
+  settlement,
+  assignment,
+  reduction,
+  currentSnapshot,
+}) {
+  if (!transferDoc) return;
+  transferDoc.message = message;
+  if (settlement !== undefined) transferDoc.settlement = settlement;
+  if (assignment !== undefined) transferDoc.assignment = assignment;
+  if (reduction !== undefined) transferDoc.reduction = reduction;
+  if (currentSnapshot !== undefined) transferDoc.currentSnapshot = currentSnapshot;
+  await transferDoc.save({ session: transferDoc.$session() });
+}
+
+const assignFacility = async (
+  rollNo,
+  { transport, hostel, applyFromAcademicYear, effectiveDate, reduction },
+  session = null,
+  options = {}
+) => {
+  const { skipTransferLog = false, transferIdForReduction = null } = options;
+
   /* ─── Phase 1: Fetch student ─── */
-  const student = await Student.findOne({ "personal.rollNo": rollNo.toUpperCase() }).session(session);
+  const normalizedRollNo = rollNo.toUpperCase();
+  const student = await Student.findOne({ "personal.rollNo": normalizedRollNo }).session(session);
   if (!student) throw new AppError("Student not found", 404);
 
   /* ─── Phase 2: Validate applyFromAcademicYear range ─── */
@@ -63,8 +149,46 @@ const assignFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
   }
 
   /* ─── Phase 3: Fetch Tracking & Master Docs & Active Checks ─── */
-  const tracking = await StudentFeeTracking.findOne({ rollNo: rollNo.toUpperCase() }).session(session);
+  const tracking = await StudentFeeTracking.findOne({ rollNo: normalizedRollNo }).session(session);
   const resolvedEffectiveDate = effectiveDate ? new Date(effectiveDate) : new Date();
+  const previousSnapshot = buildFacilitySnapshot(student, tracking, applyFromAcademicYear);
+
+  const assignmentContext = {
+    transport: transport
+      ? {
+          isApplicable: Boolean(transport.isApplicable),
+          id: transport.id || null,
+        }
+      : null,
+    hostel: hostel
+      ? {
+          isApplicable: Boolean(hostel.isApplicable),
+          id: hostel.id || null,
+        }
+      : null,
+    effectiveDate: resolvedEffectiveDate,
+    reductionAmount: normalizeMoney(reduction || 0),
+  };
+
+  let transferDoc = null;
+  if (!skipTransferLog) {
+    transferDoc = await createTransferDraft({
+      studentId: student._id,
+      rollNo: normalizedRollNo,
+      action: "assign",
+      applyFromAcademicYear,
+      requestPayload: {
+        transport,
+        hostel,
+        applyFromAcademicYear,
+        effectiveDate,
+        reduction,
+      },
+      previousSnapshot,
+      assignment: assignmentContext,
+      session,
+    });
+  }
 
   const assignTransport = transport?.isApplicable === true;
   const assignHostel = hostel?.isApplicable === true;
@@ -243,6 +367,7 @@ const assignFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
   const isTransportAssigned = transport?.isApplicable === true;
   const isHostelAssigned = hostel?.isApplicable === true;
 
+  let reductionReceiptNo = null;
   if (normalizedReduction > 0) {
     if (isTransportAssigned && isHostelAssigned) {
       throw new AppError(
@@ -273,13 +398,13 @@ const assignFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
       );
     }
 
-    const ledgerTotal = isTransportAssigned
-      ? normalizeMoney(applyFromRecord.transport?.total?.total || 0)
-      : normalizeMoney(applyFromRecord.hostel?.total?.total || 0);
+    const applyFromRecordForReduction = tracking.academicYearWiseRecord.find(
+      (r) => r.academicYear === applyFromAcademicYear
+    );
 
-    const facilityLabel = isTransportAssigned ? "transport" : "hostel";
-    const effectiveDateText = resolvedEffectiveDate.toISOString().slice(0, 10);
-    const reason = `Student partially added ${facilityLabel} facility from ${effectiveDateText}. Reduction amount Rs ${normalizedReduction} adjusted against total Rs ${ledgerTotal} for ${applyFromAcademicYear}.`;
+    const ledgerTotal = isTransportAssigned
+      ? normalizeMoney(applyFromRecordForReduction.transport?.total?.total || 0)
+      : normalizeMoney(applyFromRecordForReduction.hostel?.total?.total || 0);
 
     const reductionBreakdown = {
       academicYear: applyFromAcademicYear,
@@ -287,22 +412,46 @@ const assignFacility = async (rollNo, { transport, hostel, applyFromAcademicYear
       transport: isTransportAssigned ? normalizedReduction : 0,
     };
 
-    await feePaymentsService.createPayment({
-      rollNo: rollNo.toUpperCase(),
+    const reductionTransferId = transferIdForReduction || transferDoc?._id;
+    reductionReceiptNo = await feePaymentsService.createPayment({
+      rollNo: normalizedRollNo,
       paymentType: "reduction",
-      reason,
+      reductionId: reductionTransferId ? String(reductionTransferId) : undefined,
       breakdowns: [reductionBreakdown],
     }, { session });
+
+    assignmentContext.reductionAmount = normalizedReduction;
+    assignmentContext.reductionAgainstTotal = ledgerTotal;
+    assignmentContext.reductionFacility = isTransportAssigned ? "transport" : "hostel";
   }
 
   const message = trackingTouched
     ? "Facility updated successfully"
     : "Student profile updated; no matching fee tracking records found for the target year range";
 
-  return { student, message };
+  if (transferDoc) {
+    const refreshedTracking = await StudentFeeTracking.findOne({ rollNo: normalizedRollNo }).session(session);
+    await finalizeTransferDraft(transferDoc, {
+      message,
+      assignment: assignmentContext,
+      reduction: {
+        amount: normalizedReduction,
+        paymentReceiptNo: reductionReceiptNo,
+      },
+      currentSnapshot: buildFacilitySnapshot(student, refreshedTracking, applyFromAcademicYear),
+    });
+  }
+
+  return {
+    student,
+    message,
+    reductionReceiptNo,
+    facilityTransferId: transferDoc?._id ? String(transferDoc._id) : null,
+  };
 };
 
-const cancelFacility = async (rollNo, payload, userId, session = null) => {
+const cancelFacility = async (rollNo, payload, userId, session = null, options = {}) => {
+  const { skipTransferLog = false } = options;
   const {
     facilityType,
     applyFromAcademicYear,
@@ -330,6 +479,24 @@ const cancelFacility = async (rollNo, payload, userId, session = null) => {
 
   if (!yearRecord) {
     throw new AppError(`Academic year ${applyFromAcademicYear} not found in tracking`, 404);
+  }
+
+  const previousSnapshot = buildFacilitySnapshot(student, tracking, applyFromAcademicYear);
+  let transferDoc = null;
+  if (!skipTransferLog) {
+    transferDoc = await createTransferDraft({
+      studentId: student._id,
+      rollNo: normalizedRollNo,
+      action: "cancel",
+      applyFromAcademicYear,
+      requestPayload: payload,
+      previousSnapshot,
+      cancellation: {
+        facilityType,
+        endDate,
+      },
+      session,
+    });
   }
 
   const ledger = facilityType === 'transport' ? yearRecord.transport : yearRecord.hostel;
@@ -467,17 +634,35 @@ const cancelFacility = async (rollNo, payload, userId, session = null) => {
 
   await student.save({ session });
 
+  const settlement = {
+    facilityType,
+    paidAmount: currentPaid,
+    consumedAmount: normalizedConsumedAmount,
+    refundedAmount: computedRefundAmount,
+    refundMode: refundMode || (hasSettlementInput ? null : "not-required-paid-zero"),
+    refundReceiptNo: refundRecord?.refundReceiptNo || null,
+  };
+
+  if (transferDoc) {
+    const refreshedStudent = await Student.findOne({ "personal.rollNo": normalizedRollNo }).session(session);
+    const refreshedTrackingForLog = await StudentFeeTracking.findOne({ rollNo: normalizedRollNo }).session(session);
+    const message = `${facilityType} cancelled. Paid ${currentPaid}, consumed ${normalizedConsumedAmount}, refund ${computedRefundAmount}.`;
+    await finalizeTransferDraft(transferDoc, {
+      message,
+      settlement,
+      currentSnapshot: buildFacilitySnapshot(
+        refreshedStudent || student,
+        refreshedTrackingForLog || refreshedTracking,
+        applyFromAcademicYear
+      ),
+    });
+  }
+
   return {
     student,
     tracking: refreshedTracking,
-    settlement: {
-      facilityType,
-      paidAmount: currentPaid,
-      consumedAmount: normalizedConsumedAmount,
-      refundedAmount: computedRefundAmount,
-      refundMode: refundMode || (hasSettlementInput ? null : "not-required-paid-zero"),
-      refundReceiptNo: refundRecord?.refundReceiptNo || null,
-    }
+    settlement,
+    facilityTransferId: transferDoc?._id ? String(transferDoc._id) : null,
   };
 };
 
@@ -495,6 +680,29 @@ const cancelAndAssign = async (rollNo, payload, userId, session = null) => {
   const normalizedRollNo = rollNo.toUpperCase();
   const student = await Student.findOne({ "personal.rollNo": normalizedRollNo }).session(session);
   if (!student) throw new AppError("Student not found", 404);
+
+  const tracking = await StudentFeeTracking.findOne({ rollNo: normalizedRollNo }).session(session);
+  const previousSnapshot = buildFacilitySnapshot(student, tracking, cancel.applyFromAcademicYear);
+
+  const transferDoc = await createTransferDraft({
+    studentId: student._id,
+    rollNo: normalizedRollNo,
+    action: "cancel-assign",
+    applyFromAcademicYear: cancel.applyFromAcademicYear,
+    requestPayload: payload,
+    previousSnapshot,
+    cancellation: {
+      facilityType: cancel.facilityType,
+      endDate: cancel.endDate,
+    },
+    assignment: {
+      transport: assign.transport || null,
+      hostel: assign.hostel || null,
+      effectiveDate: assign.effectiveDate,
+      reductionAmount: normalizeMoney(assign.reduction || 0),
+    },
+    session,
+  });
 
   const assignFacilityType = assign.transport ? "transport" : "hostel";
 
@@ -520,7 +728,8 @@ const cancelAndAssign = async (rollNo, payload, userId, session = null) => {
       idempotencyKey,
     },
     userId,
-    session
+    session,
+    { skipTransferLog: true }
   );
 
   const assignPayload = {
@@ -531,14 +740,52 @@ const cancelAndAssign = async (rollNo, payload, userId, session = null) => {
     reduction: assign.reduction,
   };
 
-  const assignResult = await assignFacility(normalizedRollNo, assignPayload, session);
+  const assignResult = await assignFacility(normalizedRollNo, assignPayload, session, {
+    skipTransferLog: true,
+    transferIdForReduction: transferDoc._id,
+  });
+
+  const refreshedStudent = await Student.findOne({ "personal.rollNo": normalizedRollNo }).session(session);
+  const refreshedTracking = await StudentFeeTracking.findOne({ rollNo: normalizedRollNo }).session(session);
+
+  const finalMessage = `Cancelled ${cancel.facilityType} and assigned ${assign.transport ? "transport" : "hostel"} successfully.`;
+  await finalizeTransferDraft(transferDoc, {
+    message: finalMessage,
+    settlement: cancelResult.settlement,
+    assignment: {
+      transport: assign.transport || null,
+      hostel: assign.hostel || null,
+      effectiveDate: assign.effectiveDate,
+      reductionAmount: normalizeMoney(assign.reduction || 0),
+      reductionReceiptNo: assignResult.reductionReceiptNo || null,
+    },
+    reduction: {
+      amount: normalizeMoney(assign.reduction || 0),
+      paymentReceiptNo: assignResult.reductionReceiptNo || null,
+    },
+    currentSnapshot: buildFacilitySnapshot(
+      refreshedStudent || assignResult.student,
+      refreshedTracking,
+      assign.applyFromAcademicYear
+    ),
+  });
 
   return {
     student: assignResult.student,
     settlement: cancelResult.settlement,
     message: assignResult.message,
+    facilityTransferId: String(transferDoc._id),
   };
 };
 
+const getFacilityTransferById = async (transferId) => {
+  if (!transferId || !mongoose.Types.ObjectId.isValid(transferId)) {
+    throw new AppError("Invalid facility transfer ID", 400);
+  }
+  const record = await StudentFacilityTransfer.findById(transferId).lean();
+  if (!record) throw new AppError("Facility transfer record not found", 404);
+  return record;
+};
 
-module.exports = { assignFacility, cancelFacility, cancelAndAssign };
+
+module.exports = { assignFacility, cancelFacility, cancelAndAssign, getFacilityTransferById };

@@ -8,11 +8,13 @@ All routes require `Authorization: Bearer <token>` (admin role).
 ## Table of Contents
 
 1. [POST /pay — Record a Payment](#1-post-pay--record-a-payment)
-2. [GET / — Get All Transactions](#2-get---get-all-transactions)
-3. [GET /:rollNo — Get Student Transactions](#3-get-rollno--get-student-transactions)
-4. [GET /recent — Get Recent Transactions](#4-get-recent--get-recent-transactions)
-5. [GET /bill/:receiptNo — Get Bill by Receipt Number](#5-get-billreceiptno--get-bill-by-receipt-number)
-6. [Error Reference](#6-error-reference)
+2. [POST /ack — Create Acknowledgement](#2-post-ack--create-acknowledgement)
+3. [PUT /ack — Update Acknowledgement](#3-put-ack--update-acknowledgement)
+4. [GET / — Get All Transactions](#4-get---get-all-transactions)
+5. [GET /:rollNo — Get Student Transactions](#5-get-rollno--get-student-transactions)
+6. [GET /recent — Get Recent Transactions](#6-get-recent--get-recent-transactions)
+7. [GET /bill/:receiptNo — Get Bill by Receipt Number](#7-get-billreceiptno--get-bill-by-receipt-number)
+8. [Error Reference](#8-error-reference)
 
 ---
 
@@ -138,7 +140,73 @@ Records a fee payment for a student across one or more academic years and fee ca
 
 ---
 
-## 2. GET / — Get All Transactions
+## 2. POST /ack — Create Acknowledgement
+
+Creates an acknowledgement record for a fee payment (such as Cheque or DD) without actually modifying the student's fee balance. The initial status is `RECEIVED`.
+
+**`POST /api/feePayment/ack`**
+
+The request headers, request body, and validations are exactly the same as `POST /pay`. However, this endpoint specifically generates an acknowledgement receipt instead of an actual student transaction.
+
+### Success Response — `201 Created`
+
+```json
+{
+  "success": true,
+  "message": "Acknowledgment recorded successfully",
+  "data": "REC-20260304-002"
+}
+```
+
+---
+
+## 3. PUT /ack — Update Acknowledgement
+
+Updates the status of an existing acknowledgement. If updated to `SUCCESSFUL`, the payment amounts are securely processed into the student's actual tracked fee balances. 
+
+**`PUT /api/feePayment/ack`**
+
+### Headers
+
+| Key             | Value                  | Required |
+|-----------------|------------------------|----------|
+| Authorization   | `Bearer <token>`        | Yes      |
+| Content-Type    | `application/json`      | Yes      |
+
+### Request Body
+
+```json
+{
+  "rollNo": "22CSE001",
+  "receiptNo": "REC-20260304-002",
+  "status": "SUCCESSFUL"
+}
+```
+
+### Field Validation Rules
+
+| Field | Rules |
+|---|---|
+| `rollNo` | Required string |
+| `receiptNo` | Required string — The acknowledgment ID returned when created |
+| `status` | Required string — Must be either `SUCCESSFUL` or `REJECTED` |
+
+### Success Response — `200 OK`
+
+```json
+{
+  "success": true,
+  "message": "Acknowledgment updated successfully",
+  "data": {
+    "receiptNo": "REC-20260304-002",
+    "status": "SUCCESSFUL"
+  }
+}
+```
+
+---
+
+## 4. GET / — Get All Transactions
 
 Returns all transactions across all students, with optional filters. Can be paginated.
 
@@ -263,7 +331,7 @@ GET /api/feePayment?department=CSE&paymentMode=UPI&fromDate=2026-01-01&toDate=20
 
 ---
 
-## 3. GET /:rollNo — Get Student Transactions
+## 5. GET /:rollNo — Get Student Transactions
 
 Returns all transactions for a specific student.
 
@@ -404,7 +472,7 @@ GET /api/feePayment/22CSE001?fromDate=2026-01-01&limit=5&page=1
 
 ---
 
-## 4. GET /recent — Get Recent feePayment
+## 6. GET /recent — Get Recent feePayment
 
 Returns an unpacked list of individual fee head feePayment across all students. This restructures the root feePayment so each individual fee component (e.g., tuition, lab, hostel) appears as its own transaction row. Useful for dashboards and generating granular reports. Can be paginated and filtered.
 
@@ -506,7 +574,7 @@ GET /api/feePayment/recent?rollNo=22CSE001&limit=10
 
 ---
 
-## 5. GET /bill/:receiptNo — Get Bill by Receipt Number
+## 7. GET /bill/:receiptNo — Get Bill by Receipt Number
 
 Returns a formatted bill for a given receipt number.
 
@@ -599,7 +667,7 @@ GET /api/feePayment/bill/REC-20260312-001
 
 ---
 
-## 6. Error Reference
+## 8. Error Reference
 
 All error responses follow the structure:
 

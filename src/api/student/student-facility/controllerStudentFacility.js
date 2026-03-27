@@ -19,8 +19,12 @@ const assignFacility = asyncHandler(async (req, res) => {
     session.endSession();
   }
 
-  const { student, message } = result;
-  res.status(200).json({ success: true, data: { student }, message });
+  const { student, message, facilityTransferId } = result;
+  res.status(200).json({
+    success: true,
+    data: { student, facilityTransferId },
+    message,
+  });
 });
 
 const cancelFacility = asyncHandler(async (req, res) => {
@@ -87,4 +91,15 @@ const cancelAndAssign = asyncHandler(async (req, res) => {
   });
 });
 
-module.exports = { assignFacility, cancelFacility, cancelAndAssign };
+const getFacilityTransferById = asyncHandler(async (req, res) => {
+  const { transferId } = req.params;
+  const data = await facilityService.getFacilityTransferById(transferId);
+
+  res.status(200).json({
+    success: true,
+    data,
+    message: "Facility transfer record fetched successfully",
+  });
+});
+
+module.exports = { assignFacility, cancelFacility, cancelAndAssign, getFacilityTransferById };

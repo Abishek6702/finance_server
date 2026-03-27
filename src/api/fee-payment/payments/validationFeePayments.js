@@ -1,4 +1,5 @@
 const AppError = require("../../../utils/appError");
+const mongoose = require("mongoose");
 
 const MONEY_MAX = 1e12;
 
@@ -15,7 +16,7 @@ const toMoney = (value) => Math.round(value * 100) / 100;
 const validatePayment = (req, res, next) => {
   const { rollNo, receiptNo, paymentType, breakdowns } = req.body;
   const excessAmount = req.body.excessAmount;
-  const reason = req.body.reason;
+  const reductionId = req.body.reductionId;
 
   if (!rollNo) return next(new AppError("rollNo is required", 400)); 
 
@@ -25,8 +26,8 @@ const validatePayment = (req, res, next) => {
   }
 
   if (paymentType === "reduction") {
-    if (!reason || typeof reason !== "string" || !reason.trim()) {
-      return next(new AppError("reason is required when paymentType is reduction", 400));
+    if (!reductionId || typeof reductionId !== "string" || !mongoose.Types.ObjectId.isValid(reductionId)) {
+      return next(new AppError("reductionId is required as a valid MongoDB ObjectId when paymentType is reduction", 400));
     }
   }
 
@@ -104,7 +105,7 @@ const validatePayment = (req, res, next) => {
     paymentType,
     bankName: req.body.bankName,
     bankLocation: req.body.bankLocation,
-    reason: typeof reason === "string" ? reason.trim() : undefined,
+    reductionId: typeof reductionId === "string" ? reductionId.trim() : undefined,
     billingDate: req.body.billingDate,
     breakdowns: sanitizedBreakdowns,
     excessAmount: sanitizedExcessAmount

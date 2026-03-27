@@ -6,6 +6,7 @@ const {
   superadminAuth, adminAuth,
   Student, StudentFeeTracking, StudentTransaction, FeeStructureMaster,
 } = require("./setup");
+const mongoose = require("mongoose");
 
 describe("Fee Payment / Transaction API", () => {
 
@@ -268,7 +269,7 @@ describe("Fee Payment / Transaction API", () => {
     ]);
   });
 
-  it("rejects reduction payment without reason", async () => {
+  it("rejects reduction payment without reductionId", async () => {
     const rollNo = `33CS${testCtx.TS.slice(-3)}`;
 
     const stuRes = await createStudent(rollNo, {
@@ -290,7 +291,7 @@ describe("Fee Payment / Transaction API", () => {
       });
 
     expect(payRes.status).toBe(400);
-    expect(payRes.body.message).toMatch(/reason is required/i);
+    expect(payRes.body.message).toMatch(/reductionid is required/i);
 
     await Promise.all([
       StudentTransaction.deleteMany({ rollNo }),
@@ -299,7 +300,7 @@ describe("Fee Payment / Transaction API", () => {
     ]);
   });
 
-  it("accepts reduction payment with reason and stores it", async () => {
+  it("accepts reduction payment with reductionId and stores it", async () => {
     const rollNo = `34CS${testCtx.TS.slice(-3)}`;
 
     const stuRes = await createStudent(rollNo, {
@@ -308,7 +309,7 @@ describe("Fee Payment / Transaction API", () => {
     });
     expect([200, 201]).toContain(stuRes.status);
 
-    const reductionReason = "Student partially added hostel facility from 2025-07-01. Reduction amount Rs 1500 adjusted against total Rs 20000.";
+    const reductionId = new mongoose.Types.ObjectId().toString();
 
     const payRes = await request(app)
       .post("/api/feePayment/pay")
@@ -316,7 +317,7 @@ describe("Fee Payment / Transaction API", () => {
       .send({
         rollNo,
         paymentType: "reduction",
-        reason: reductionReason,
+        reductionId,
         breakdowns: [{
           academicYear: testCtx.academicYearPrimary,
           hostel: 1500,
@@ -328,7 +329,7 @@ describe("Fee Payment / Transaction API", () => {
     const txDoc = await StudentTransaction.findOne({ rollNo }).lean();
     const latestTx = txDoc.transactions[txDoc.transactions.length - 1];
     expect(latestTx.paymentType).toBe("reduction");
-    expect(latestTx.reason).toBe(reductionReason);
+    expect(String(latestTx.reductionId)).toBe(reductionId);
 
     await Promise.all([
       StudentTransaction.deleteMany({ rollNo }),
@@ -356,6 +357,7 @@ describe("Fee Payment / Transaction API", () => {
         expect(row).toHaveProperty("paidOn");
         expect(row).toHaveProperty("receiptNo");
         expect(row).toHaveProperty("breakdownId");
+        expect(row).toHaveProperty("reductionReasonId");
       }
     });
 
@@ -440,6 +442,7 @@ describe("Fee Payment / Transaction API", () => {
       expect(d.date).toMatch(/^\d{2}-\d{2}-\d{4}$/);
       expect(d.studentName).toBeTruthy();
       expect(d.rollNo).toBe(testCtx.studentRollFinance.toUpperCase());
+      expect(d).toHaveProperty("reductionReasonId");
       expect(d.breakdowns).toBeDefined();
       expect(typeof d.breakdowns).toBe("object");
       expect(d.totalAmount).toBeGreaterThan(0);

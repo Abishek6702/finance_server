@@ -33,7 +33,11 @@ const paymentRecordSchema=new mongoose.Schema({
   },
   bankName:{type:String,trim:true,default:null},
   bankLocation:{type:String,trim:true,default:null},
-  reason:{type:String,trim:true,default:null},
+  reductionId:{
+    type:mongoose.Schema.Types.ObjectId,
+    ref:"StudentFacilityTransfer",
+    default:null
+  },
   billingDate:{type:Date,default:Date.now},
   paidOn:{type:Date,default:Date.now},
   breakdowns:{type:[paymentBreakdownSchema],default:[]},
