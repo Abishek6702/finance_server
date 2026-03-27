@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const StudentTransaction = require("../payments/modelStudentFeePayments");
+const StudentTransaction = require("../payments/model/modelStudentFeePayments");
 const StudentFeeTracking = require("../student-fee-tracking/modelStudentFeeTracking");
 const Student = require("../../student/students-management/modelStudent");
 

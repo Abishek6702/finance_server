@@ -6,7 +6,7 @@ require("dotenv").config();
 const request = require("supertest");
 const Student = require("../api/student/students-management/modelStudent");
 const FeeStructureMaster = require("../api/fee-structure/acadamic/modelAcadamic");
-const StudentTransaction = require("../api/fee-payment/payments/modelStudentFeePayments");
+const StudentTransaction = require("../api/fee-payment/payments/model/modelStudentFeePayments");
 const StudentFeeTracking = require("../api/fee-payment/student-fee-tracking/modelStudentFeeTracking");
 const ReceiptRecallRequest = require("../api/fee-payment/receipt-recall/modelReceiptRecall");
 const FeeRefund = require("../api/fee-payment/refund/model.refund");
