@@ -557,6 +557,7 @@ exports.generateClasswiseReport = async (query) => {
     rows.push({
       studentDetails: student.personal?.studentName || "",
       studentName: student.personal?.studentName || "",
+      profile: student.personal?.studentPhoto || "",
       rollNo,
       oddSemTotal,
       evenSemTotal,
