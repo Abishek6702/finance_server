@@ -233,6 +233,12 @@ describe("Reports API", () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(Array.isArray(res.body.data.rows)).toBe(true);
+      expect(res.body.data.overall).toBeDefined();
+      expect(res.body.data.overall).toHaveProperty("oddSemTotal");
+      expect(res.body.data.overall).toHaveProperty("evenSemTotal");
+      expect(res.body.data.overall).toHaveProperty("yearTotal");
+      expect(res.body.data.overall).toHaveProperty("paidAmount");
+      expect(res.body.data.overall).toHaveProperty("pendingTotal");
       
       if (res.body.data.rows.length > 0) {
         const row = res.body.data.rows[0];
@@ -243,13 +249,12 @@ describe("Reports API", () => {
         expect(row).toHaveProperty("year");
         expect(row).toHaveProperty("academicYear");
         expect(row).toHaveProperty("semNo");
-        expect(row).toHaveProperty("feeHead");
-        expect(row).toHaveProperty("subHead");
+        expect(row).toHaveProperty("oddSemTotal");
+        expect(row).toHaveProperty("evenSemTotal");
+        expect(row).toHaveProperty("yearTotal");
+        expect(row).toHaveProperty("paidAmount");
+        expect(row).toHaveProperty("pending");
         expect(row).toHaveProperty("status");
-        expect(row).toHaveProperty("total");
-        expect(row).toHaveProperty("paid");
-        expect(row).toHaveProperty("concession");
-        expect(row).toHaveProperty("unpaid");
       }
     });
 

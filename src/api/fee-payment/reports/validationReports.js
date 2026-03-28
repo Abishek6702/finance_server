@@ -72,19 +72,14 @@ exports.validateDatewiseReportQuery = (req, res, next) => {
 };
 
 exports.validateClasswiseReportQuery = (req, res, next) => {
-  const { studeingyear, semNo, status } = req.query;
+  const { yearOfStudying, studeingyear, status } = req.query;
 
-  if (studeingyear) {
-    const yearNum = parseInt(studeingyear, 10);
+  const targetYearOfStudying = yearOfStudying || studeingyear;
+
+  if (targetYearOfStudying) {
+    const yearNum = parseInt(targetYearOfStudying, 10);
     if (isNaN(yearNum) || yearNum < 1) {
-      return next(new AppError("studeingyear must be a positive integer", 400));
-    }
-  }
-
-  if (semNo) {
-    const semNum = parseInt(semNo, 10);
-    if (isNaN(semNum) || semNum < 1) {
-      return next(new AppError("semNo must be a positive integer", 400));
+      return next(new AppError("yearOfStudying must be a positive integer", 400));
     }
   }
 

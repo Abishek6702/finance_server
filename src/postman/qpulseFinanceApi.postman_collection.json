@@ -1348,12 +1348,7 @@
                   "disabled": true
                 },
                 {
-                  "key": "studeingyear",
-                  "value": "1",
-                  "disabled": true
-                },
-                {
-                  "key": "semNo",
+                  "key": "yearOfStudying",
                   "value": "1",
                   "disabled": true
                 },

@@ -429,8 +429,8 @@ exports.generateClasswiseReport = async (query) => {
   const {
     academicYear,
     department,
+    yearOfStudying,
     studeingyear,
-    semNo,
     section,
     status
   } = query;
@@ -440,7 +440,10 @@ exports.generateClasswiseReport = async (query) => {
   ──────────────────────────────────────────────── */
   const studentQuery = {};
   if (department) studentQuery["academic.departmentName"] = department;
-  if (studeingyear) studentQuery["academic.yearStudying"] = parseInt(studeingyear, 10);
+  const targetYearOfStudying = yearOfStudying || studeingyear;
+  if (targetYearOfStudying) {
+    studentQuery["academic.yearStudying"] = parseInt(targetYearOfStudying, 10);
+  }
   if (section) studentQuery["academic.section"] = section;
 
   const students = await Student.find(studentQuery).lean();
@@ -450,126 +453,73 @@ exports.generateClasswiseReport = async (query) => {
 
   const rollNos = students.map((s) => s.personal.rollNo);
 
-  const studentsMap = students.reduce((acc, s) => {
-    acc[s.personal.rollNo] = s;
-    return acc;
-  }, {});
-
   /* ────────────────────────────────────────────────
      2. Fetch Fee Trackings
   ──────────────────────────────────────────────── */
   const trackings = await StudentFeeTracking.find({ rollNo: { $in: rollNos } }).lean();
+  const trackingByRollNo = trackings.reduce((acc, t) => {
+    acc[t.rollNo] = t;
+    return acc;
+  }, {});
 
   const statusFilter = status ? status.toLowerCase() : null;
-  const targetSemNo = semNo ? parseInt(semNo, 10) : null;
-
   const rows = [];
-
-  const ACADEMIC_FIELDS = ["tuition", "exam", "erp", "book", "lab"];
+  const overall = {
+    oddSemTotal: 0,
+    evenSemTotal: 0,
+    yearTotal: 0,
+    paidAmount: 0,
+    pendingTotal: 0
+  };
 
   /* ────────────────────────────────────────────────
      3. Extract Rows
   ──────────────────────────────────────────────── */
-  for (const tracking of trackings) {
-    if (!tracking.academicYearWiseRecord) continue;
-    const student = studentsMap[tracking.rollNo];
-    if (!student) continue;
+  for (const student of students) {
+    const rollNo = student.personal?.rollNo;
+    if (!rollNo) continue;
 
-    for (const yr of tracking.academicYearWiseRecord) {
-      if (academicYear && yr.academicYear !== academicYear) continue;
+    const tracking = trackingByRollNo[rollNo];
+    const targetAcademicYear = academicYear || student.academic?.currentAcademicYear;
 
-      const baseRow = {
-        studentName: student.personal.studentName || "",
-        rollNo: tracking.rollNo,
-        section: student.academic?.section || "",
-        department: student.academic?.departmentName || "",
-        year: student.academic?.yearStudying || "",
-        academicYear: yr.academicYear,
-      };
+    const yearRecord = tracking?.academicYearWiseRecord?.find(
+      (yr) => yr.academicYear === targetAcademicYear
+    );
 
-      // Academic Process
-      if (yr.academic) {
-        ["odd", "even"].forEach((semKey) => {
-          const sem = yr.academic[semKey];
-          if (!sem) return;
+    const oddSemTotal = normalizeMoney(yearRecord?.academic?.odd?.total?.total || 0);
+    const evenSemTotal = normalizeMoney(yearRecord?.academic?.even?.total?.total || 0);
+    const yearTotal = normalizeMoney(oddSemTotal + evenSemTotal);
+    const paidAmount = normalizeMoney(yearRecord?.academic?.total?.paid || 0);
+    const pending = normalizeMoney(Math.max(0, yearTotal - paidAmount));
 
-          const semNumber = sem.semesterNumber || "-";
+    let derivedStatus = "unpaid";
+    if (pending <= 0) derivedStatus = "paid";
+    else if (paidAmount > 0) derivedStatus = "partial";
 
-          if (targetSemNo && sem.semesterNumber !== targetSemNo) return;
+    if (statusFilter && derivedStatus !== statusFilter) continue;
 
-          ACADEMIC_FIELDS.forEach((fType) => {
-            const comp = sem[fType];
-            if (!comp) return;
+    rows.push({
+      studentName: student.personal?.studentName || "",
+      rollNo,
+      section: student.academic?.section || "",
+      department: student.academic?.departmentName || "",
+      year: student.academic?.yearStudying || "",
+      academicYear: targetAcademicYear || "",
+      semNo: student.academic?.currentSemesterNumber || "-",
+      oddSemTotal,
+      evenSemTotal,
+      yearTotal,
+      paidAmount,
+      pending,
+      status: derivedStatus
+    });
 
-            // Include if subTotal > 0 or if there is any history
-            if (comp.subTotal > 0 || comp.total > 0 || comp.paid > 0) {
-              const compStatus = (comp.status || "Unpaid").toLowerCase();
-              if (statusFilter && compStatus !== statusFilter) return;
-
-              const feeInfo = formatFeeHeadInfo(fType);
-              rows.push({
-                ...baseRow,
-                semNo: semNumber,
-                feeHead: feeInfo.feeHead,
-                subHead: feeInfo.subHead,
-                status: compStatus,
-                total: normalizeMoney(comp.total),
-                paid: normalizeMoney(comp.paid),
-                concession: normalizeMoney(comp.concession),
-                unpaid: normalizeMoney(comp.total - comp.paid)
-              });
-            }
-          });
-        });
-      }
-
-      // Hostel Process
-      if (!targetSemNo && yr.hostel && (yr.hostel.subTotal > 0 || yr.hostel.total?.total > 0)) {
-        const h = yr.hostel;
-        const total = normalizeMoney(h.total?.total || 0);
-        const paid = normalizeMoney(h.total?.paid || 0);
-        let hStatus = (h.total?.status || "Unpaid").toLowerCase();
-        
-        if (!statusFilter || hStatus === statusFilter) {
-          const feeInfo = formatFeeHeadInfo("hostel");
-          rows.push({
-            ...baseRow,
-            semNo: "-",
-            feeHead: feeInfo.feeHead,
-            subHead: feeInfo.subHead,
-            status: hStatus,
-            total,
-            paid,
-            concession: normalizeMoney((tracking.concessions?.hostel || 0) + (h.hostelSpecialConcession || 0)),
-            unpaid: normalizeMoney(total - paid)
-          });
-        }
-      }
-
-      // Transport Process
-      if (!targetSemNo && yr.transport && (yr.transport.subTotal > 0 || yr.transport.total?.total > 0)) {
-        const t = yr.transport;
-        const total = normalizeMoney(t.total?.total || 0);
-        const paid = normalizeMoney(t.total?.paid || 0);
-        let tStatus = (t.total?.status || "Unpaid").toLowerCase();
-
-        if (!statusFilter || tStatus === statusFilter) {
-          const feeInfo = formatFeeHeadInfo("transport");
-          rows.push({
-            ...baseRow,
-            semNo: "-",
-            feeHead: feeInfo.feeHead,
-            subHead: feeInfo.subHead,
-            status: tStatus,
-            total,
-            paid,
-            concession: normalizeMoney(tracking.concessions?.transport || 0),
-            unpaid: normalizeMoney(total - paid)
-          });
-        }
-      }
-    }
+    overall.oddSemTotal = normalizeMoney(overall.oddSemTotal + oddSemTotal);
+    overall.evenSemTotal = normalizeMoney(overall.evenSemTotal + evenSemTotal);
+    overall.yearTotal = normalizeMoney(overall.yearTotal + yearTotal);
+    overall.paidAmount = normalizeMoney(overall.paidAmount + paidAmount);
+    overall.pendingTotal = normalizeMoney(overall.pendingTotal + pending);
   }
 
-  return { rows };
+  return { rows, overall };
 };
