@@ -435,6 +435,14 @@ exports.generateClasswiseReport = async (query) => {
     status
   } = query;
 
+  const emptyOverall = {
+    oddSemTotal: 0,
+    evenSemTotal: 0,
+    yearTotal: 0,
+    paidAmount: 0,
+    pendingTotal: 0
+  };
+
   /* ────────────────────────────────────────────────
      1. Build Match Conditions for Students
   ──────────────────────────────────────────────── */
@@ -448,7 +456,7 @@ exports.generateClasswiseReport = async (query) => {
 
   const students = await Student.find(studentQuery).lean();
   if (!students.length) {
-    return { rows: [] };
+    return { rows: [], overall: emptyOverall };
   }
 
   const rollNos = students.map((s) => s.personal.rollNo);
@@ -463,14 +471,9 @@ exports.generateClasswiseReport = async (query) => {
   }, {});
 
   const statusFilter = status ? status.toLowerCase() : null;
+  const ACADEMIC_FIELDS = ["tuition", "exam", "erp", "book", "lab"];
   const rows = [];
-  const overall = {
-    oddSemTotal: 0,
-    evenSemTotal: 0,
-    yearTotal: 0,
-    paidAmount: 0,
-    pendingTotal: 0
-  };
+  const overall = { ...emptyOverall };
 
   /* ────────────────────────────────────────────────
      3. Extract Rows
@@ -486,6 +489,8 @@ exports.generateClasswiseReport = async (query) => {
       (yr) => yr.academicYear === targetAcademicYear
     );
 
+    if (!yearRecord) continue;
+
     const oddSemTotal = normalizeMoney(yearRecord?.academic?.odd?.total?.total || 0);
     const evenSemTotal = normalizeMoney(yearRecord?.academic?.even?.total?.total || 0);
     const yearTotal = normalizeMoney(oddSemTotal + evenSemTotal);
@@ -496,29 +501,96 @@ exports.generateClasswiseReport = async (query) => {
     if (pending <= 0) derivedStatus = "paid";
     else if (paidAmount > 0) derivedStatus = "partial";
 
-    if (statusFilter && derivedStatus !== statusFilter) continue;
+    overall.oddSemTotal = normalizeMoney(overall.oddSemTotal + oddSemTotal);
+    overall.evenSemTotal = normalizeMoney(overall.evenSemTotal + evenSemTotal);
+    overall.yearTotal = normalizeMoney(overall.yearTotal + yearTotal);
+    overall.paidAmount = normalizeMoney(overall.paidAmount + paidAmount);
+    overall.pendingTotal = normalizeMoney(overall.pendingTotal + pending);
 
-    rows.push({
+    const baseRow = {
       studentName: student.personal?.studentName || "",
       rollNo,
       section: student.academic?.section || "",
       department: student.academic?.departmentName || "",
       year: student.academic?.yearStudying || "",
       academicYear: targetAcademicYear || "",
-      semNo: student.academic?.currentSemesterNumber || "-",
-      oddSemTotal,
-      evenSemTotal,
-      yearTotal,
-      paidAmount,
-      pending,
-      status: derivedStatus
-    });
+    };
 
-    overall.oddSemTotal = normalizeMoney(overall.oddSemTotal + oddSemTotal);
-    overall.evenSemTotal = normalizeMoney(overall.evenSemTotal + evenSemTotal);
-    overall.yearTotal = normalizeMoney(overall.yearTotal + yearTotal);
-    overall.paidAmount = normalizeMoney(overall.paidAmount + paidAmount);
-    overall.pendingTotal = normalizeMoney(overall.pendingTotal + pending);
+    if (yearRecord.academic) {
+      ["odd", "even"].forEach((semKey) => {
+        const sem = yearRecord.academic[semKey];
+        if (!sem) return;
+
+        const semNumber = sem.semesterNumber || "-";
+
+        ACADEMIC_FIELDS.forEach((fType) => {
+          const comp = sem[fType];
+          if (!comp) return;
+
+          if (comp.subTotal > 0 || comp.total > 0 || comp.paid > 0) {
+            const compStatus = (comp.status || "Unpaid").toLowerCase();
+            if (statusFilter && compStatus !== statusFilter) return;
+
+            const feeInfo = formatFeeHeadInfo(fType);
+            rows.push({
+              ...baseRow,
+              semNo: semNumber,
+              feeHead: feeInfo.feeHead,
+              subHead: feeInfo.subHead,
+              status: compStatus,
+              total: normalizeMoney(comp.total),
+              paid: normalizeMoney(comp.paid),
+              concession: normalizeMoney(comp.concession),
+              unpaid: normalizeMoney(comp.total - comp.paid)
+            });
+          }
+        });
+      });
+    }
+
+    if (yearRecord.hostel && (yearRecord.hostel.subTotal > 0 || yearRecord.hostel.total?.total > 0)) {
+      const h = yearRecord.hostel;
+      const total = normalizeMoney(h.total?.total || 0);
+      const paid = normalizeMoney(h.total?.paid || 0);
+      const hStatus = (h.total?.status || "Unpaid").toLowerCase();
+
+      if (!statusFilter || hStatus === statusFilter) {
+        const feeInfo = formatFeeHeadInfo("hostel");
+        rows.push({
+          ...baseRow,
+          semNo: "-",
+          feeHead: feeInfo.feeHead,
+          subHead: feeInfo.subHead,
+          status: hStatus, 
+          total,
+          paid,
+          concession: normalizeMoney((yearRecord.concessions?.hostel || 0) + (h.hostelSpecialConcession || 0)),
+          unpaid: normalizeMoney(total - paid)
+        });
+      }
+    }
+
+    if (yearRecord.transport && (yearRecord.transport.subTotal > 0 || yearRecord.transport.total?.total > 0)) {
+      const t = yearRecord.transport;
+      const total = normalizeMoney(t.total?.total || 0);
+      const paid = normalizeMoney(t.total?.paid || 0);
+      const tStatus = (t.total?.status || "Unpaid").toLowerCase();
+
+      if (!statusFilter || tStatus === statusFilter) {
+        const feeInfo = formatFeeHeadInfo("transport");
+        rows.push({
+          ...baseRow,
+          semNo: "-",
+          feeHead: feeInfo.feeHead,
+          subHead: feeInfo.subHead,
+          status: tStatus,
+          total,
+          paid,
+          concession: normalizeMoney(yearRecord.concessions?.transport || 0),
+          unpaid: normalizeMoney(total - paid)
+        });
+      }
+    }
   }
 
   return { rows, overall };
