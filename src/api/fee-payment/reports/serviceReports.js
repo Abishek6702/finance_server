@@ -511,7 +511,6 @@ exports.generateClasswiseReport = async (query) => {
   }, {});
 
   const statusFilter = status ? status.toLowerCase() : null;
-  const ACADEMIC_FIELDS = ["tuition", "exam", "erp", "book", "lab"];
   const rows = [];
   const overall = { ...emptyOverall };
 
@@ -531,10 +530,16 @@ exports.generateClasswiseReport = async (query) => {
 
     if (!yearRecord) continue;
 
-    const oddSemTotal = normalizeMoney(yearRecord?.academic?.odd?.total?.total || 0);
-    const evenSemTotal = normalizeMoney(yearRecord?.academic?.even?.total?.total || 0);
-    const yearTotal = normalizeMoney(oddSemTotal + evenSemTotal);
-    const paidAmount = normalizeMoney(yearRecord?.academic?.total?.paid || 0);
+    const oddAcademic = normalizeMoney(yearRecord?.academic?.odd?.total?.total || 0);
+    const evenAcademic = normalizeMoney(yearRecord?.academic?.even?.total?.total || 0);
+    const transportTotal = normalizeMoney(yearRecord?.transport?.total?.total || 0);
+    const hostelTotal = normalizeMoney(yearRecord?.hostel?.total?.total || 0);
+    const facilityTotal = normalizeMoney(transportTotal + hostelTotal);
+    const yearTotal = normalizeMoney(oddAcademic + evenAcademic + facilityTotal);
+    const oddSemTotal = normalizeMoney(oddAcademic + (facilityTotal / 2));
+    const evenSemTotal = normalizeMoney(Math.max(0, yearTotal - oddSemTotal));
+
+    const paidAmount = normalizeMoney(yearRecord?.total?.paid || 0);
     const pending = normalizeMoney(Math.max(0, yearTotal - paidAmount));
 
     let derivedStatus = "unpaid";
@@ -547,90 +552,23 @@ exports.generateClasswiseReport = async (query) => {
     overall.paidAmount = normalizeMoney(overall.paidAmount + paidAmount);
     overall.pendingTotal = normalizeMoney(overall.pendingTotal + pending);
 
-    const baseRow = {
+    if (statusFilter && derivedStatus !== statusFilter) continue;
+
+    rows.push({
+      studentDetails: student.personal?.studentName || "",
       studentName: student.personal?.studentName || "",
       rollNo,
+      oddSemTotal,
+      evenSemTotal,
+      yearTotal,
+      paidAmount,
+      pending,
+      status: derivedStatus,
       section: student.academic?.section || "",
       department: student.academic?.departmentName || "",
       year: student.academic?.yearStudying || "",
       academicYear: targetAcademicYear || "",
-    };
-
-    if (yearRecord.academic) {
-      ["odd", "even"].forEach((semKey) => {
-        const sem = yearRecord.academic[semKey];
-        if (!sem) return;
-
-        const semNumber = sem.semesterNumber || "-";
-
-        ACADEMIC_FIELDS.forEach((fType) => {
-          const comp = sem[fType];
-          if (!comp) return;
-
-          if (comp.subTotal > 0 || comp.total > 0 || comp.paid > 0) {
-            const compStatus = (comp.status || "Unpaid").toLowerCase();
-            if (statusFilter && compStatus !== statusFilter) return;
-
-            const feeInfo = formatFeeHeadInfo(fType);
-            rows.push({
-              ...baseRow,
-              semNo: semNumber,
-              feeHead: feeInfo.feeHead,
-              subHead: feeInfo.subHead,
-              status: compStatus,
-              total: normalizeMoney(comp.total),
-              paid: normalizeMoney(comp.paid),
-              concession: normalizeMoney(comp.concession),
-              unpaid: normalizeMoney(comp.total - comp.paid)
-            });
-          }
-        });
-      });
-    }
-
-    if (yearRecord.hostel && (yearRecord.hostel.subTotal > 0 || yearRecord.hostel.total?.total > 0)) {
-      const h = yearRecord.hostel;
-      const total = normalizeMoney(h.total?.total || 0);
-      const paid = normalizeMoney(h.total?.paid || 0);
-      const hStatus = (h.total?.status || "Unpaid").toLowerCase();
-
-      if (!statusFilter || hStatus === statusFilter) {
-        const feeInfo = formatFeeHeadInfo("hostel");
-        rows.push({
-          ...baseRow,
-          semNo: "-",
-          feeHead: feeInfo.feeHead,
-          subHead: feeInfo.subHead,
-          status: hStatus, 
-          total,
-          paid,
-          concession: normalizeMoney((yearRecord.concessions?.hostel || 0) + (h.hostelSpecialConcession || 0)),
-          unpaid: normalizeMoney(total - paid)
-        });
-      }
-    }
-
-    if (yearRecord.transport && (yearRecord.transport.subTotal > 0 || yearRecord.transport.total?.total > 0)) {
-      const t = yearRecord.transport;
-      const total = normalizeMoney(t.total?.total || 0);
-      const paid = normalizeMoney(t.total?.paid || 0);
-      const tStatus = (t.total?.status || "Unpaid").toLowerCase();
-
-      if (!statusFilter || tStatus === statusFilter) {
-        const feeInfo = formatFeeHeadInfo("transport");
-        rows.push({
-          ...baseRow,
-          semNo: "-",
-          feeHead: feeInfo.feeHead,
-          subHead: feeInfo.subHead,
-          status: tStatus,
-          total,
-          paid,
-          concession: normalizeMoney(yearRecord.concessions?.transport || 0),
-          unpaid: normalizeMoney(total - paid)
-        });
-      }
-    }
+    });
   }
 
   const totalRows = rows.length;
