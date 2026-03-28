@@ -67,6 +67,78 @@ Retrieves a detailed, row-by-row fee payment history for a specific student. It 
 
 ---
 
+## 4. Cummulative Balance History Api
+
+Retrieves cumulative balance history for a class and current-year fee-head pending split (odd/even) for PDF-style export.
+
+**Endpoint:** `GET /classwise/pdf`  
+**Authentication & Testing Header:** `Authorization: Bearer <token>` (Admin/Superadmin only)
+
+### Query Parameters
+
+| Parameter         | Type    | Required | Description                                                                  | Default |
+| :---------------- | :------ | :------- | :--------------------------------------------------------------------------- | :------ |
+| `academicYear`    | String  | **Yes**  | Academic year in `YYYY-YYYY` format.                                         | -       |
+| `yearOfStudying`  | Integer | **Yes**  | Current studying year (e.g., `1`, `2`, `3`, `4`).                           | -       |
+| `department`      | String  | No       | Department filter (e.g., `CSE`).                                            | -       |
+| `section`         | String  | No       | Section filter (e.g., `A`).                                                 | -       |
+| `status`          | String  | No       | Student status filter: `paid`, `partial`, `unpaid`.                         | -       |
+| `page`            | Integer | No       | Page number.                                                                  | `1`     |
+| `limit`           | Integer | No       | Students per page.                                                            | `20`    |
+
+### Example Response Body
+
+```json
+{
+  "success": true,
+  "data": {
+    "academicYear": "2025-2026",
+    "department": "CSE",
+    "section": "A",
+    "generatedOn": "28-03-2026",
+    "students": [
+      {
+        "slNo": 1,
+        "rollNo": "22CS126",
+        "studentName": "Student 26",
+        "balances": {
+          "year1": 2000,
+          "year2": 0,
+          "year3": 0
+        },
+        "year4Fees": [
+          {
+            "feeHead": "Exam Fees",
+            "oddSem": 1200,
+            "evenSem": 1000,
+            "total": 2200
+          }
+        ],
+        "total": {
+          "oddSem": 1200,
+          "evenSem": 1000,
+          "grandTotal": 2200
+        }
+      }
+    ],
+    "grandTotal": {
+      "oddSem": 1200,
+      "evenSem": 1000,
+      "total": 2200
+    },
+    "pagination": {
+      "total": 1,
+      "page": 1,
+      "limit": 20,
+      "totalPages": 1
+    }
+  },
+  "message": "Cumulative balance history report fetched successfully"
+}
+```
+
+---
+
 ## 2. Datewise Fee Report
 
 Retrieves a paginated, system-wide list of every individual fee transaction across all students that occurred within a defined date range. This is designed for auditing daily or monthly fiscal intake collections.

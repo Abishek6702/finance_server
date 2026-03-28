@@ -1324,11 +1324,12 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/reports/classwise?academicYear={{academic_year}}",
+              "raw": "{{base_url}}/api/reports/classwise?academicYear={{academic_year}}",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
+                "api",
                 "reports",
                 "classwise"
               ],
@@ -1373,16 +1374,72 @@
           "response": []
         },
         {
+          "name": "Cummulative Balance History Api",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/reports/classwise/pdf?academicYear={{academic_year}}&yearOfStudying=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "classwise",
+                "pdf"
+              ],
+              "query": [
+                {
+                  "key": "academicYear",
+                  "value": "{{academic_year}}"
+                },
+                {
+                  "key": "yearOfStudying",
+                  "value": "1"
+                },
+                {
+                  "key": "department",
+                  "value": "CSE",
+                  "disabled": true
+                },
+                {
+                  "key": "section",
+                  "value": "A",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "partial",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "Individual Fee Report",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/reports/individual?rollNo={{student_roll_no}}",
+              "raw": "{{base_url}}/api/reports/individual?rollNo={{student_roll_no}}",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
+                "api",
                 "reports",
                 "individual"
               ],
@@ -1426,11 +1483,12 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/reports/datewise",
+              "raw": "{{base_url}}/api/reports/datewise",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
+                "api",
                 "reports",
                 "datewise"
               ],

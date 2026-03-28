@@ -103,3 +103,41 @@ exports.validateClasswiseReportQuery = (req, res, next) => {
 
   next();
 };
+
+exports.validateCumulativeBalanceHistoryQuery = (req, res, next) => {
+  const { academicYear, yearOfStudying, studeingyear, status, page, limit } = req.query;
+
+  if (!academicYear) {
+    return next(new AppError("academicYear is required", 400));
+  }
+
+  const targetYearOfStudying = yearOfStudying || studeingyear;
+  if (!targetYearOfStudying) {
+    return next(new AppError("yearOfStudying is required", 400));
+  }
+
+  const yearNum = parseInt(targetYearOfStudying, 10);
+  if (isNaN(yearNum) || yearNum < 1) {
+    return next(new AppError("yearOfStudying must be a positive integer", 400));
+  }
+
+  if (status && !["paid", "unpaid", "partial"].includes(status.toLowerCase())) {
+    return next(new AppError("status must be 'paid', 'unpaid', or 'partial'", 400));
+  }
+
+  if (page) {
+    const pageNum = parseInt(page, 10);
+    if (isNaN(pageNum) || pageNum < 1) {
+      return next(new AppError("page must be a positive integer", 400));
+    }
+  }
+
+  if (limit) {
+    const limitNum = parseInt(limit, 10);
+    if (isNaN(limitNum) || limitNum < 1) {
+      return next(new AppError("limit must be a positive integer", 400));
+    }
+  }
+
+  next();
+};

@@ -5,6 +5,7 @@ const {
   validateIndividualReportQuery,
   validateDatewiseReportQuery,
   validateClasswiseReportQuery,
+  validateCumulativeBalanceHistoryQuery,
 } = require("./validationReports");
 const { protect, admin } = require("../../../middleware/authMiddleware");
 
@@ -14,5 +15,6 @@ router.use(protect, admin);
 router.get("/individual", validateIndividualReportQuery, controller.getIndividualReport);
 router.get("/datewise", validateDatewiseReportQuery, controller.getDatewiseReport);
 router.get("/classwise", validateClasswiseReportQuery, controller.getClasswiseReport);
+router.get("/classwise/pdf", validateCumulativeBalanceHistoryQuery, controller.getCumulativeBalanceHistoryReport);
 
 module.exports = router;

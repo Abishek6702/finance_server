@@ -30,3 +30,13 @@ exports.getClasswiseReport = asyncHandler(async (req, res, next) => {
     message: "Class wise fee report fetched successfully",
   });
 });
+
+exports.getCumulativeBalanceHistoryReport = asyncHandler(async (req, res, next) => {
+  const result = await reportService.generateCumulativeBalanceHistoryReport(req.query);
+
+  res.status(200).json({
+    success: true,
+    data: result,
+    message: "Cumulative balance history report fetched successfully",
+  });
+});

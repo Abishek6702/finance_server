@@ -5,6 +5,31 @@ const Student = require("../../student/students-management/modelStudent");
 
 const normalizeMoney = (val) => Math.round((Number(val) || 0) * 100) / 100;
 const normalizeReductionReasonId = (value) => (value ? String(value) : null);
+const ACADEMIC_FEE_TYPES = ["tuition", "exam", "erp", "book", "lab"];
+
+const formatDdMmYyyy = (date = new Date()) => {
+  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const yyyy = String(date.getFullYear());
+  return `${dd}-${mm}-${yyyy}`;
+};
+
+const getAcademicYearStart = (year) => {
+  const start = parseInt(String(year || "").split("-")[0], 10);
+  return Number.isNaN(start) ? Number.MAX_SAFE_INTEGER : start;
+};
+
+const getPendingFromAmountNode = (amountNode) => {
+  const total = normalizeMoney(amountNode?.total || 0);
+  const paid = normalizeMoney(amountNode?.paid || 0);
+  return normalizeMoney(Math.max(0, total - paid));
+};
+
+const getPendingFromAcademicComponent = (componentNode) => {
+  const total = normalizeMoney(componentNode?.total || 0);
+  const paid = normalizeMoney(componentNode?.paid || 0);
+  return normalizeMoney(Math.max(0, total - paid));
+};
 
 const formatFeeHeadInfo = (type) => {
   const map = {
@@ -619,6 +644,181 @@ exports.generateClasswiseReport = async (query) => {
       page: pageNum,
       limit: limitNum,
       totalPages: Math.ceil(totalRows / limitNum)
+    }
+  };
+};
+
+exports.generateCumulativeBalanceHistoryReport = async (query) => {
+  const {
+    academicYear,
+    department,
+    section,
+    yearOfStudying,
+    studeingyear,
+    status,
+    page = 1,
+    limit = 20
+  } = query;
+
+  const targetYearOfStudying = parseInt(yearOfStudying || studeingyear, 10);
+  const pageNum = parseInt(page, 10);
+  const limitNum = parseInt(limit, 10);
+  const skip = (pageNum - 1) * limitNum;
+
+  const studentQuery = {
+    "academic.currentAcademicYear": academicYear,
+    "academic.yearStudying": targetYearOfStudying
+  };
+
+  if (department) studentQuery["academic.departmentName"] = department;
+  if (section) studentQuery["academic.section"] = section;
+
+  const students = await Student.find(studentQuery).lean();
+  if (!students.length) {
+    return {
+      academicYear,
+      department: department || "",
+      section: section || "",
+      generatedOn: formatDdMmYyyy(),
+      students: [],
+      grandTotal: { oddSem: 0, evenSem: 0, total: 0 },
+      pagination: {
+        total: 0,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: 0
+      }
+    };
+  }
+
+  const rollNos = students.map((s) => s.personal?.rollNo).filter(Boolean);
+  const trackings = await StudentFeeTracking.find({ rollNo: { $in: rollNos } }).lean();
+  const trackingByRollNo = trackings.reduce((acc, item) => {
+    acc[item.rollNo] = item;
+    return acc;
+  }, {});
+
+  const statusFilter = status ? status.toLowerCase() : null;
+
+  const reportStudents = [];
+  let grandOddSem = 0;
+  let grandEvenSem = 0;
+
+  for (const student of students) {
+    const rollNo = student.personal?.rollNo;
+    if (!rollNo) continue;
+
+    const tracking = trackingByRollNo[rollNo];
+    if (!tracking?.academicYearWiseRecord?.length) continue;
+
+    const sortedYearRecords = [...tracking.academicYearWiseRecord].sort(
+      (a, b) => getAcademicYearStart(a.academicYear) - getAcademicYearStart(b.academicYear)
+    );
+
+    const currentYearRecord = sortedYearRecords.find((yr) => yr.academicYear === academicYear);
+    if (!currentYearRecord) continue;
+
+    const currentYearIndex = sortedYearRecords.findIndex((yr) => yr.academicYear === academicYear);
+
+    const balances = {};
+    for (let yr = 1; yr < targetYearOfStudying; yr += 1) {
+      const historyIndex = currentYearIndex - (targetYearOfStudying - yr);
+      const historyRecord = historyIndex >= 0 ? sortedYearRecords[historyIndex] : null;
+      balances[`year${yr}`] = historyRecord
+        ? getPendingFromAmountNode(historyRecord.total)
+        : 0;
+    }
+
+    const oddSem = currentYearRecord.academic?.odd || {};
+    const evenSem = currentYearRecord.academic?.even || {};
+    const yearFeeKey = `year${targetYearOfStudying}Fees`;
+
+    const yearFees = ACADEMIC_FEE_TYPES.map((feeType) => {
+      const oddPending = getPendingFromAcademicComponent(oddSem[feeType]);
+      const evenPending = getPendingFromAcademicComponent(evenSem[feeType]);
+      const totalPending = normalizeMoney(oddPending + evenPending);
+
+      return {
+        feeHead: feeType,
+        oddSem: oddPending,
+        evenSem: evenPending,
+        total: totalPending
+      };
+    }).filter((item) => item.total > 0);
+
+    const transportPending = getPendingFromAmountNode(currentYearRecord.transport?.total);
+    if (transportPending > 0) {
+      yearFees.push({
+        feeHead: "transport",
+        oddSem: transportPending,
+        evenSem: 0,
+        total: transportPending
+      });
+    }
+
+    const hostelPending = getPendingFromAmountNode(currentYearRecord.hostel?.total);
+    if (hostelPending > 0) {
+      yearFees.push({
+        feeHead: "hostel",
+        oddSem: hostelPending,
+        evenSem: 0,
+        total: hostelPending
+      });
+    }
+
+    const totalOddSem = normalizeMoney(yearFees.reduce((sum, item) => sum + item.oddSem, 0));
+    const totalEvenSem = normalizeMoney(yearFees.reduce((sum, item) => sum + item.evenSem, 0));
+    const totalGrand = normalizeMoney(totalOddSem + totalEvenSem);
+
+    const yearPaid = normalizeMoney(currentYearRecord.total?.paid || 0);
+    const yearPending = getPendingFromAmountNode(currentYearRecord.total);
+    let derivedStatus = "unpaid";
+    if (yearPending <= 0) derivedStatus = "paid";
+    else if (yearPaid > 0) derivedStatus = "partial";
+
+    if (statusFilter && derivedStatus !== statusFilter) continue;
+
+    grandOddSem = normalizeMoney(grandOddSem + totalOddSem);
+    grandEvenSem = normalizeMoney(grandEvenSem + totalEvenSem);
+
+    reportStudents.push({
+      rollNo,
+      studentName: student.personal?.studentName || "",
+      balances,
+      [yearFeeKey]: yearFees,
+      total: {
+        oddSem: totalOddSem,
+        evenSem: totalEvenSem,
+        grandTotal: totalGrand
+      }
+    });
+  }
+
+  const totalStudents = reportStudents.length;
+  const pageStudents = reportStudents.slice(skip, skip + limitNum).map((item, index) => ({
+    slNo: skip + index + 1,
+    ...item
+  }));
+
+  const resolvedDepartment = department || (students[0]?.academic?.departmentName || "");
+  const resolvedSection = section || (students[0]?.academic?.section || "");
+
+  return {
+    academicYear,
+    department: resolvedDepartment,
+    section: resolvedSection,
+    generatedOn: formatDdMmYyyy(),
+    students: pageStudents,
+    grandTotal: {
+      oddSem: grandOddSem,
+      evenSem: grandEvenSem,
+      total: normalizeMoney(grandOddSem + grandEvenSem)
+    },
+    pagination: {
+      total: totalStudents,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(totalStudents / limitNum)
     }
   };
 };

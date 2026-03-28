@@ -234,6 +234,7 @@ describe("Reports API", () => {
       expect(res.body.success).toBe(true);
       expect(Array.isArray(res.body.data.rows)).toBe(true);
       expect(res.body.data.overall).toBeDefined();
+      expect(res.body.data.pagination).toBeDefined();
       expect(res.body.data.overall).toHaveProperty("oddSemTotal");
       expect(res.body.data.overall).toHaveProperty("evenSemTotal");
       expect(res.body.data.overall).toHaveProperty("yearTotal");
@@ -249,12 +250,13 @@ describe("Reports API", () => {
         expect(row).toHaveProperty("year");
         expect(row).toHaveProperty("academicYear");
         expect(row).toHaveProperty("semNo");
-        expect(row).toHaveProperty("oddSemTotal");
-        expect(row).toHaveProperty("evenSemTotal");
-        expect(row).toHaveProperty("yearTotal");
-        expect(row).toHaveProperty("paidAmount");
-        expect(row).toHaveProperty("pending");
+        expect(row).toHaveProperty("feeHead");
+        expect(row).toHaveProperty("subHead");
         expect(row).toHaveProperty("status");
+        expect(row).toHaveProperty("total");
+        expect(row).toHaveProperty("paid");
+        expect(row).toHaveProperty("concession");
+        expect(row).toHaveProperty("unpaid");
       }
     });
 
@@ -270,6 +272,65 @@ describe("Reports API", () => {
         res.body.data.rows.forEach(r => {
           expect(r.status.toLowerCase()).toBe("paid");
         });
+      }
+    });
+  });
+
+  describe("GET /api/reports/classwise/pdf", () => {
+    it("fails when academicYear is missing", async () => {
+      const res = await request(app)
+        .get("/api/reports/classwise/pdf")
+        .set(adminAuth())
+        .query({ yearOfStudying: 1 });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/academicYear is required/i);
+    });
+
+    it("fails when yearOfStudying is missing", async () => {
+      const res = await request(app)
+        .get("/api/reports/classwise/pdf")
+        .set(adminAuth())
+        .query({ academicYear: testCtx.academicYearPrimary });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/yearOfStudying is required/i);
+    });
+
+    it("fetches cumulative balance history with pagination", async () => {
+      const res = await request(app)
+        .get("/api/reports/classwise/pdf")
+        .set(adminAuth())
+        .query({
+          academicYear: testCtx.academicYearPrimary,
+          yearOfStudying: 1,
+          page: 1,
+          limit: 10
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty("academicYear", testCtx.academicYearPrimary);
+      expect(res.body.data).toHaveProperty("generatedOn");
+      expect(res.body.data).toHaveProperty("students");
+      expect(Array.isArray(res.body.data.students)).toBe(true);
+      expect(res.body.data).toHaveProperty("grandTotal");
+      expect(res.body.data.grandTotal).toHaveProperty("oddSem");
+      expect(res.body.data.grandTotal).toHaveProperty("evenSem");
+      expect(res.body.data.grandTotal).toHaveProperty("total");
+      expect(res.body.data).toHaveProperty("pagination");
+
+      if (res.body.data.students.length > 0) {
+        const first = res.body.data.students[0];
+        expect(first).toHaveProperty("slNo");
+        expect(first).toHaveProperty("rollNo");
+        expect(first).toHaveProperty("studentName");
+        expect(first).toHaveProperty("balances");
+        expect(first).toHaveProperty("year1Fees");
+        expect(first).toHaveProperty("total");
+        expect(first.total).toHaveProperty("oddSem");
+        expect(first.total).toHaveProperty("evenSem");
+        expect(first.total).toHaveProperty("grandTotal");
       }
     });
   });
