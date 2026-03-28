@@ -72,7 +72,7 @@ exports.validateDatewiseReportQuery = (req, res, next) => {
 };
 
 exports.validateClasswiseReportQuery = (req, res, next) => {
-  const { yearOfStudying, studeingyear, status } = req.query;
+  const { yearOfStudying, studeingyear, status, page, limit } = req.query;
 
   const targetYearOfStudying = yearOfStudying || studeingyear;
 
@@ -85,6 +85,20 @@ exports.validateClasswiseReportQuery = (req, res, next) => {
 
   if (status && !["paid", "unpaid", "partial"].includes(status.toLowerCase())) {
     return next(new AppError("status must be 'paid', 'unpaid', or 'partial'", 400));
+  }
+
+  if (page) {
+    const pageNum = parseInt(page, 10);
+    if (isNaN(pageNum) || pageNum < 1) {
+      return next(new AppError("page must be a positive integer", 400));
+    }
+  }
+
+  if (limit) {
+    const limitNum = parseInt(limit, 10);
+    if (isNaN(limitNum) || limitNum < 1) {
+      return next(new AppError("limit must be a positive integer", 400));
+    }
   }
 
   next();

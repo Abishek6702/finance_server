@@ -432,8 +432,14 @@ exports.generateClasswiseReport = async (query) => {
     yearOfStudying,
     studeingyear,
     section,
-    status
+    status,
+    page = 1,
+    limit = 20
   } = query;
+
+  const pageNum = parseInt(page, 10);
+  const limitNum = parseInt(limit, 10);
+  const skip = (pageNum - 1) * limitNum;
 
   const emptyOverall = {
     oddSemTotal: 0,
@@ -456,7 +462,16 @@ exports.generateClasswiseReport = async (query) => {
 
   const students = await Student.find(studentQuery).lean();
   if (!students.length) {
-    return { rows: [], overall: emptyOverall };
+    return {
+      rows: [],
+      overall: emptyOverall,
+      pagination: {
+        total: 0,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: 0
+      }
+    };
   }
 
   const rollNos = students.map((s) => s.personal.rollNo);
@@ -593,5 +608,17 @@ exports.generateClasswiseReport = async (query) => {
     }
   }
 
-  return { rows, overall };
+  const totalRows = rows.length;
+  const paginatedRows = rows.slice(skip, skip + limitNum);
+
+  return {
+    rows: paginatedRows,
+    overall,
+    pagination: {
+      total: totalRows,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(totalRows / limitNum)
+    }
+  };
 };
