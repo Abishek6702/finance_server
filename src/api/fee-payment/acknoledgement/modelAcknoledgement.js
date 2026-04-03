@@ -45,11 +45,12 @@ const paymentRecordSchema=new mongoose.Schema({
   },
   billingDate:{type:Date,default:Date.now},
   paidOn:{type:Date,default:Date.now},
+  excessAmount:{type:Number,default:0},
   breakdowns:{type:[paymentBreakdownSchema],default:[]},
   totalAmount:{type:Number,default:0}
 },{timestamps:true});
 
-const studentAcknoledgementSchema=new mongoose.Schema({
+const studentacknoledgementSchema=new mongoose.Schema({
   student:{
     type:mongoose.Schema.Types.ObjectId,
     ref:"Student",
@@ -61,8 +62,62 @@ const studentAcknoledgementSchema=new mongoose.Schema({
   acknoledgements:{type:[paymentRecordSchema],default:[]}
 },{timestamps:true});
 
+const acknoledgementV2Schema = new mongoose.Schema(
+  {
+    ackId: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+      trim: true,
+    },
+    rollNo: {
+      type: String,
+      required: true,
+      index: true,
+      trim: true,
+    },
+    paymentType: {
+      type: String,
+      enum: ["Cash", "Card", "UPI", "NetBanking", "Cheque", "DD", "excessAmount", "reduction"],
+      required: true,
+    },
+    bankName: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    totalAmount: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    status: {
+      type: String,
+      enum: ["RECEIVED", "SUCCESSFUL", "REJECTED"],
+      default: "RECEIVED",
+    },
+    date: {
+      type: Date,
+      default: Date.now,
+    },
+    message: {
+      type: String,
+      trim: true,
+      default: "Acknowledgment received",
+    },
+  },
+  { timestamps: true }
+);
+
 paymentRecordSchema.pre("validate",async function(){
-  this.totalAmount=this.breakdowns.reduce((sum,b)=>sum+(b.total||0),0);
+  if (this.totalAmount === undefined || this.totalAmount === null || this.totalAmount === 0) {
+    this.totalAmount=this.breakdowns.reduce((sum,b)=>sum+(b.total||0),0);
+  }
 });
 
-module.exports=mongoose.model("StudentAcknoledgement",studentAcknoledgementSchema);
+const Studentacknoledgement = mongoose.model("Studentacknoledgement", studentacknoledgementSchema);
+const StudentacknoledgementV2 = mongoose.model("StudentacknoledgementV2", acknoledgementV2Schema);
+
+module.exports = Studentacknoledgement;
+module.exports.StudentacknoledgementV2 = StudentacknoledgementV2;

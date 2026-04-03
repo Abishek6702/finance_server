@@ -518,8 +518,8 @@ describe("Fee Payment / Transaction API", () => {
         StudentTransaction.deleteMany({ rollNo: testAckRollNo }),
         StudentFeeTracking.deleteMany({ rollNo: testAckRollNo }),
         Student.deleteMany({ "personal.rollNo": testAckRollNo }),
-        // We must also delete StudentAcknoledgement but we might need to import it. Let's just rely on teardown or clean it via mongoose directly.
-        require("../api/fee-payment/payments/model/modelAcknoledgement").deleteMany({ rollNo: testAckRollNo })
+        // We must also delete Studentacknoledgement but we might need to import it. Let's just rely on teardown or clean it via mongoose directly.
+        require("../api/fee-payment/acknoledgement/modelacknoledgement").deleteMany({ rollNo: testAckRollNo })
       ]);
     });
 
@@ -546,7 +546,7 @@ describe("Fee Payment / Transaction API", () => {
       expect(txDoc).toBeNull();
       
       // Verify ack record exists
-      const AckModel = require("../api/fee-payment/payments/model/modelAcknoledgement");
+      const AckModel = require("../api/fee-payment/acknoledgement/modelacknoledgement");
       const ackDoc = await AckModel.findOne({ rollNo: testAckRollNo });
       expect(ackDoc).not.toBeNull();
       expect(ackDoc.acknoledgements.length).toBe(1);
@@ -566,7 +566,7 @@ describe("Fee Payment / Transaction API", () => {
       expect(putRes.status).toBe(200);
 
       // Verify ack record updated
-      const AckModel = require("../api/fee-payment/payments/model/modelAcknoledgement");
+      const AckModel = require("../api/fee-payment/acknoledgement/modelacknoledgement");
       const ackDoc = await AckModel.findOne({ rollNo: testAckRollNo });
       expect(ackDoc.acknoledgements[0].status).toBe("REJECTED");
     });
@@ -612,6 +612,131 @@ describe("Fee Payment / Transaction API", () => {
       const yearEntry = tracking.academicYearWiseRecord.find(r => r.academicYear === testCtx.academicYearPrimary);
       expect(yearEntry.academic.total.paid).toBe(500);
       expect(yearEntry.academic.odd.tuition.paid).toBe(500);
+    });
+
+    it("POST+PUT /api/feePayment/ack handles excessAmount and totalAmount on SUCCESSFUL", async () => {
+      const createRes = await request(app)
+        .post("/api/feePayment/ack")
+        .set(adminAuth())
+        .send({
+          rollNo: testAckRollNo,
+          paymentType: "excessAmount",
+          excessAmount: 2000,
+          totalAmount: 500,
+          breakdowns: [{
+            academicYear: testCtx.academicYearPrimary,
+            academic: { semesterNumber: 1, tuition: 500 },
+          }],
+        });
+
+      expect(createRes.status).toBe(201);
+      const excessAckReceiptNo = createRes.body.data;
+
+      const AckModel = require("../api/fee-payment/acknoledgement/modelacknoledgement");
+      const ackDoc = await AckModel.findOne({ rollNo: testAckRollNo });
+      const createdAck = ackDoc.acknoledgements.find(a => a.receiptNo === excessAckReceiptNo);
+      expect(createdAck).toBeDefined();
+      expect(createdAck.excessAmount).toBe(2000);
+      expect(createdAck.totalAmount).toBe(500);
+
+      const approveRes = await request(app)
+        .put("/api/feePayment/ack")
+        .set(adminAuth())
+        .send({
+          rollNo: testAckRollNo,
+          receiptNo: excessAckReceiptNo,
+          status: "SUCCESSFUL"
+        });
+
+      expect(approveRes.status).toBe(200);
+
+      const student = await Student.findOne({ "personal.rollNo": testAckRollNo });
+      expect(student.enrollment.excessAmount).toBe(1500);
+      expect(student.enrollment.isExcessAmountTrue).toBe(true);
+
+      const txDoc = await StudentTransaction.findOne({ rollNo: testAckRollNo });
+      const postedTx = txDoc.transactions.find(t => t.receiptNo === excessAckReceiptNo);
+      expect(postedTx).toBeDefined();
+      expect(postedTx.excessAmount).toBe(2000);
+      expect(postedTx.totalAmount).toBe(500);
+    });
+  });
+
+  describe("Acknowledgement API V2", () => {
+    const { StudentacknoledgementV2: AckModelV2 } = require("../api/fee-payment/acknoledgement/modelacknoledgement");
+    const testAckV2RollNo = `36CS${testCtx.TS.slice(-3)}`;
+    let ackV2Id;
+
+    beforeAll(async () => {
+      const stuRes = await createStudent(testAckV2RollNo, { academicYear: testCtx.academicYearPrimary });
+      expect([200, 201, 409]).toContain(stuRes.status);
+    });
+
+    afterAll(async () => {
+      await Promise.all([
+        AckModelV2.deleteMany({ rollNo: testAckV2RollNo }),
+        StudentTransaction.deleteMany({ rollNo: testAckV2RollNo }),
+        StudentFeeTracking.deleteMany({ rollNo: testAckV2RollNo }),
+        Student.deleteMany({ "personal.rollNo": testAckV2RollNo }),
+      ]);
+    });
+
+    it("POST /api/feePayment/ack/v2 creates a V2 acknowledgement only", async () => {
+      const res = await request(app)
+        .post("/api/feePayment/ack/v2")
+        .set(adminAuth())
+        .send({
+          rollNo: testAckV2RollNo,
+          paymentType: "DD",
+          bankName: "SBI",
+          totalAmount: 1200,
+          message: "Collected at desk",
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.ackId).toMatch(/^ACKV2-/);
+      expect(res.body.data.status).toBe("RECEIVED");
+      ackV2Id = res.body.data.ackId;
+
+      const txDoc = await StudentTransaction.findOne({ rollNo: testAckV2RollNo });
+      expect(txDoc).toBeNull();
+    });
+
+    it("GET /api/feePayment/ack/v2/:ackId fetches acknowledgement by ackId", async () => {
+      const res = await request(app)
+        .get(`/api/feePayment/ack/v2/${ackV2Id}`)
+        .set(adminAuth());
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.ackId).toBe(ackV2Id);
+      expect(res.body.data.rollNo).toBe(testAckV2RollNo);
+      expect(res.body.data.totalAmount).toBe(1200);
+    });
+
+    it("PUT /api/feePayment/ack/v2 updates status/message and still does not create payment", async () => {
+      const res = await request(app)
+        .put("/api/feePayment/ack/v2")
+        .set(adminAuth())
+        .send({
+          rollNo: testAckV2RollNo,
+          ackId: ackV2Id,
+          status: "approved",
+          message: "Approved by finance admin",
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.status).toBe("SUCCESSFUL");
+      expect(res.body.data.message).toBe("Approved by finance admin");
+
+      const ackDoc = await AckModelV2.findOne({ ackId: ackV2Id, rollNo: testAckV2RollNo });
+      expect(ackDoc).not.toBeNull();
+      expect(ackDoc.status).toBe("SUCCESSFUL");
+
+      const txDoc = await StudentTransaction.findOne({ rollNo: testAckV2RollNo });
+      expect(txDoc).toBeNull();
     });
   });
 

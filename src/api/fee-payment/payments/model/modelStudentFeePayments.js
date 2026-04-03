@@ -40,6 +40,7 @@ const paymentRecordSchema=new mongoose.Schema({
   },
   billingDate:{type:Date,default:Date.now},
   paidOn:{type:Date,default:Date.now},
+  excessAmount:{type:Number,default:0},
   breakdowns:{type:[paymentBreakdownSchema],default:[]},
   totalAmount:{type:Number,default:0}
 },{timestamps:true});
@@ -57,7 +58,9 @@ const studentTransactionSchema=new mongoose.Schema({
 },{timestamps:true});
 
 paymentRecordSchema.pre("validate",async function(){
-  this.totalAmount=this.breakdowns.reduce((sum,b)=>sum+(b.total||0),0);
+  if (this.totalAmount === undefined || this.totalAmount === null || this.totalAmount === 0) {
+    this.totalAmount=this.breakdowns.reduce((sum,b)=>sum+(b.total||0),0);
+  }
 });
 
 module.exports=mongoose.model("StudentTransaction",studentTransactionSchema);

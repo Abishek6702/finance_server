@@ -16,6 +16,7 @@ const toMoney = (value) => Math.round(value * 100) / 100;
 const validatePayment = (req, res, next) => {
   const { rollNo, receiptNo, paymentType, breakdowns } = req.body;
   const excessAmount = req.body.excessAmount;
+  const totalAmount = req.body.totalAmount;
   const reductionId = req.body.reductionId;
 
   if (!rollNo) return next(new AppError("rollNo is required", 400)); 
@@ -37,6 +38,7 @@ const validatePayment = (req, res, next) => {
 
   const sanitizedBreakdowns = [];
   let sanitizedExcessAmount;
+  let sanitizedTotalAmount;
 
   for (const bd of breakdowns) {
     if (!bd || typeof bd !== "object") {
@@ -99,6 +101,13 @@ const validatePayment = (req, res, next) => {
     sanitizedExcessAmount = toMoney(excessAmount);
   }
 
+  if (totalAmount !== undefined) {
+    if (!isValidMoney(totalAmount)) {
+      return next(new AppError("totalAmount must be a non-negative number with up to 2 decimals", 400));
+    }
+    sanitizedTotalAmount = toMoney(totalAmount);
+  }
+
   req.body = {
     rollNo,
     receiptNo,
@@ -108,7 +117,8 @@ const validatePayment = (req, res, next) => {
     reductionId: typeof reductionId === "string" ? reductionId.trim() : undefined,
     billingDate: req.body.billingDate,
     breakdowns: sanitizedBreakdowns,
-    excessAmount: sanitizedExcessAmount
+    excessAmount: sanitizedExcessAmount,
+    totalAmount: sanitizedTotalAmount
   };
 
   next();
@@ -225,18 +235,4 @@ const validateRecentTransactionsQuery = (req, res, next) => {
   next();
 };
 
-const validateUpdateAcknowledgment = (req, res, next) => {
-  const { rollNo, receiptNo, status } = req.body;
-  if (!rollNo || typeof rollNo !== "string" || !rollNo.trim()) {
-    return next(new AppError("rollNo is required", 400));
-  }
-  if (!receiptNo || typeof receiptNo !== "string" || !receiptNo.trim()) {
-    return next(new AppError("receiptNo is required", 400));
-  }
-  if (!status || !["SUCCESSFUL", "REJECTED"].includes(status)) {
-    return next(new AppError("status must be either SUCCESSFUL or REJECTED", 400));
-  }
-  next();
-};
-
-module.exports = { validatePayment, validateAllTransactionsQuery, validateStudentTransactionsQuery, validateRecentTransactionsQuery, validateBillReceiptParam, validateUpdateAcknowledgment };
+module.exports = { validatePayment, validateAllTransactionsQuery, validateStudentTransactionsQuery, validateRecentTransactionsQuery, validateBillReceiptParam };

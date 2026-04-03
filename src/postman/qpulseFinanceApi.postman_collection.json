@@ -2499,7 +2499,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"rollNo\": \"22CSE001\",\n  \"paymentType\": \"DD\",\n  \"bankName\": \"SBI\",\n  \"breakdowns\": [\n    {\n      \"academicYear\": \"2023-2024\",\n      \"academic\": {\n        \"semesterNumber\": 3,\n        \"tuition\": 1000\n      }\n    }\n  ]\n}"
+              "raw": "{\n  \"rollNo\": \"22CSE001\",\n  \"paymentType\": \"DD\",\n  \"bankName\": \"SBI\",\n  \"excessAmount\": 0,\n  \"totalAmount\": 1000,\n  \"breakdowns\": [\n    {\n      \"academicYear\": \"2023-2024\",\n      \"academic\": {\n        \"semesterNumber\": 3,\n        \"tuition\": 1000\n      }\n    }\n  ]\n}"
             },
             "url": {
               "raw": "{{base_url}}/api/feePayment/ack",
@@ -2541,6 +2541,95 @@
                 "api",
                 "feePayment",
                 "ack"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Acknowledgement V2",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rollNo\": \"22CSE001\",\n  \"paymentType\": \"DD\",\n  \"bankName\": \"SBI\",\n  \"totalAmount\": 1200,\n  \"message\": \"Collected at desk\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/feePayment/ack/v2",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "feePayment",
+                "ack",
+                "v2"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Acknowledgement V2 By AckId",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/feePayment/ack/v2/{{ack_v2_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "feePayment",
+                "ack",
+                "v2",
+                "{{ack_v2_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Acknowledgement V2 (Approve/Reject)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rollNo\": \"22CSE001\",\n  \"ackId\": \"{{ack_v2_id}}\",\n  \"status\": \"approved\",\n  \"message\": \"Approved by finance admin\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/feePayment/ack/v2",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "feePayment",
+                "ack",
+                "v2"
               ]
             }
           }

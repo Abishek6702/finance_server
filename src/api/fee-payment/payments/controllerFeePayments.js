@@ -6,16 +6,6 @@ const createPayment = asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, data, message: "Payment recorded successfully" });
 });
 
-const createAcknowledgment = asyncHandler(async (req, res) => {
-  const data = await feePaymentsService.createAcknowledgment(req.body);
-  res.status(201).json({ success: true, data, message: "Acknowledgment recorded successfully" });
-});
-
-const updateAcknowledgment = asyncHandler(async (req, res) => {
-  const data = await feePaymentsService.updateAcknowledgment(req.body);
-  res.status(200).json({ success: true, data, message: "Acknowledgment updated successfully" });
-});
-
 const getAllTransactions = asyncHandler(async (req, res) => {
   const data = await feePaymentsService.getAllTransactions(req.query);
   res.status(200).json({ success: true, data, message: "Transactions fetched successfully" });
@@ -41,7 +31,5 @@ module.exports = {
   getAllTransactions,
   getStudentTransactions,
   getRecentTransactions,
-  getBillByReceiptNo,
-  createAcknowledgment,
-  updateAcknowledgment
+  getBillByReceiptNo
 };
