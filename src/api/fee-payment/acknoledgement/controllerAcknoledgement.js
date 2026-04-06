@@ -26,10 +26,28 @@ const updateAcknowledgmentV2 = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, data, message: "Acknowledgment V2 updated successfully" });
 });
 
+const getAcknowledgments = asyncHandler(async (req, res) => {
+  const data = await acknoledgementService.getAcknowledgments(req.query);
+  res.status(200).json({ success: true, data, message: "Acknowledgments fetched successfully" });
+});
+
+const getAcknowledgmentById = asyncHandler(async (req, res) => {
+  const data = await acknoledgementService.getAcknowledgmentById(req.params.id);
+  res.status(200).json({ success: true, data, message: "Acknowledgment fetched successfully" });
+});
+
+const getAcknowledgmentV2 = asyncHandler(async (req, res) => {
+  const data = await acknoledgementService.getAcknowledgmentV2(req.query);
+  res.status(200).json({ success: true, data, message: "Acknowledgments V2 fetched successfully" });
+});
+
 module.exports = {
   createAcknowledgment,
   updateAcknowledgment,
   createAcknowledgmentV2,
   getAcknowledgmentV2ByAckId,
-  updateAcknowledgmentV2
+  updateAcknowledgmentV2,
+  getAcknowledgments,
+  getAcknowledgmentById,
+  getAcknowledgmentV2
 };

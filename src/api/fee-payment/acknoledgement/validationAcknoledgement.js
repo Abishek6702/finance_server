@@ -213,13 +213,19 @@ const validateUpdateAcknowledgmentV2 = (req, res, next) => {
 };
 
 const validateAckIdParamV2 = (req, res, next) => {
-  const { ackId } = req.params;
+  const ackId = req.params.ackId || req.params.id;
 
   if (!ackId || typeof ackId !== "string" || !ackId.trim()) {
-    return next(new AppError("ackId path parameter is required", 400));
+    return next(new AppError("ackId or id path parameter is required", 400));
   }
 
   req.params.ackId = ackId.trim();
+  req.params.id = ackId.trim();
+  next();
+};
+
+const validateGetAcknowledgment = (req, res, next) => {
+  // basic validation for optional query params if needed
   next();
 };
 
@@ -228,5 +234,6 @@ module.exports = {
   validateUpdateAcknowledgment,
   validateCreateAcknowledgmentV2,
   validateUpdateAcknowledgmentV2,
-  validateAckIdParamV2
+  validateAckIdParamV2,
+  validateGetAcknowledgment
 };

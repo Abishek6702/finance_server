@@ -377,9 +377,9 @@ describe("Fee Structure API", () => {
     expect(res.status).toBe(404);
   });
 
-  /* ─── FEE STRUCTURE UPDATE PROPAGATION ──────────────── */
+  /* ─── FEE STRUCTURE UPDATE NON-PROPAGATION ──────────── */
 
-  it("propagates fee structure update to student tracking", async () => {
+  it("does not propagate fee structure update to student tracking", async () => {
     // Create a student linked to primary fee structure
     const studentPayload = buildStudentPayload(testCtx.studentRollCrud, {
       academicYear: testCtx.academicYearPrimary,
@@ -407,12 +407,12 @@ describe("Fee Structure API", () => {
       .set(superadminAuth())
       .send(updatedPayload);
     expect(updateRes.status).toBe(200);
-    expect(updateRes.body.data.trackingRecordsUpdated).toBeGreaterThanOrEqual(1);
+    expect(updateRes.body.data.feeStructure).toBeTruthy();
 
-    // Verify tracking was updated
+    // Verify tracking was NOT updated
     const afterTracking = await StudentFeeTracking.findOne({ rollNo: testCtx.studentRollCrud });
     const afterYear = afterTracking.academicYearWiseRecord.find(r => r.academicYear === testCtx.academicYearPrimary);
-    expect(afterYear.academic.odd.tuition.total).toBe(50000);
+    expect(afterYear.academic.odd.tuition.total).toBe(40000);
 
     // Restore original fee structure
     const restorePayload = buildFeeStructurePayload(testCtx.academicYearPrimary);

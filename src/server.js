@@ -35,7 +35,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/feeStructureMaster", feeStructureRoutes);
 app.use("/api/studentsManagement", studentsManagementRoutes);
 app.use("/api/feePayment", paymentTransactionRoutes);
-app.use("/api/feePayment", acknoledgementRoutes);
+app.use("/api/feeAcknowledgement", acknoledgementRoutes);
 app.use("/api/studentFeeTracking", studentFeeTrackingRoutes);
 app.use("/api/feedetails", feeDetailsRoutes);
 app.use("/api/feedemands", feeDemandRoutes);
@@ -93,7 +93,10 @@ const stopServer = async () => {
 };
 
 if (require.main === module) {
-  startServer();
+  startServer().catch((err) => {
+    console.error("Startup failed:", err.message);
+    process.exit(1);
+  });
 }
 
 module.exports = { app, startServer, stopServer };

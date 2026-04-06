@@ -24,6 +24,11 @@ const connectDB = async () => {
 
     await mongoose.connect(process.env.MONGO_URI, {
       autoIndex: false,
+      // Fail fast on unreachable Atlas nodes instead of hanging.
+      serverSelectionTimeoutMS: 15000,
+      connectTimeoutMS: 15000,
+      socketTimeoutMS: 45000,
+      family: 4,
     });
   }
 

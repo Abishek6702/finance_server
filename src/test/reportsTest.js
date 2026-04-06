@@ -249,14 +249,12 @@ describe("Reports API", () => {
         expect(row).toHaveProperty("department");
         expect(row).toHaveProperty("year");
         expect(row).toHaveProperty("academicYear");
-        expect(row).toHaveProperty("semNo");
-        expect(row).toHaveProperty("feeHead");
-        expect(row).toHaveProperty("subHead");
+        expect(row).toHaveProperty("oddSemTotal");
+        expect(row).toHaveProperty("evenSemTotal");
+        expect(row).toHaveProperty("yearTotal");
+        expect(row).toHaveProperty("paidAmount");
+        expect(row).toHaveProperty("pending");
         expect(row).toHaveProperty("status");
-        expect(row).toHaveProperty("total");
-        expect(row).toHaveProperty("paid");
-        expect(row).toHaveProperty("concession");
-        expect(row).toHaveProperty("unpaid");
       }
     });
 

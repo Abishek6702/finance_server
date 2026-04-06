@@ -464,7 +464,28 @@ const updateAcknowledgmentV2 = async (data) => {
   };
 };
 
+const getAcknowledgments = async (query = {}) => {
+  const acks = await Studentacknoledgement.find(query).sort({ createdAt: -1 });
+  return acks;
+};
+
+const getAcknowledgmentById = async (id) => {
+  const ack = await Studentacknoledgement.findById(id);
+  if (!ack) {
+    throw new AppError("Acknowledgment not found", 404);
+  }
+  return ack;
+};
+
+const getAcknowledgmentV2 = async (query = {}) => {
+  const acks = await StudentacknoledgementV2.find(query).sort({ createdAt: -1 });
+  return acks;
+};
+
 module.exports = {
+  getAcknowledgments,
+  getAcknowledgmentById,
+  getAcknowledgmentV2,
   createAcknowledgment,
   updateAcknowledgment,
   createAcknowledgmentV2,

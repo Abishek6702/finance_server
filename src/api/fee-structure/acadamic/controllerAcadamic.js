@@ -44,7 +44,7 @@ const updateFeeStructure = asyncHandler(async (req, res) => {
   const result = await feeStructureService.updateFeeStructure(req.params.academicYear, req.body);
   res.status(200).json({
     success: true,
-    data: { feeStructure: result.feeStructure, trackingRecordsUpdated: result.trackingRecordsUpdated },
+    data: { feeStructure: result.feeStructure },
     message: "Fee structure updated successfully"
   });
 });

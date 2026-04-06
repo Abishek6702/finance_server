@@ -1,410 +1,299 @@
-# Student Fee Tracking Module — API Documentation
+# Student Fee Tracking API Documentation
 
-## 1. Module Overview
+## Overview
 
-The **Student Fee Tracking** module provides a read-only view of per-student fee ledgers, combined with their full student profile. Records are created automatically when a student is added and updated whenever a payment is recorded.
+The Student Fee Tracking module provides ledger-focused API responses that combine student profile data and year-wise fee tracking details.
 
-**Dependencies / Coupling**
-- **Students module** — tracking records are created by the students service on `POST /studentsManagement`.
-- **Transaction module** — payment recording updates `paid` amounts and `status` fields inside tracking records.
-- **Fee Structure module** — initial `total` demand values are populated from `FeeStructureMaster` at student creation.
+Base route:
 
-**Database Collections**
+- /api/studentFeeTracking
 
-| Collection | Model | Purpose |
-|---|---|---|
-| `students` | `Student` | Source of student profile data |
-| `studentfeetrackings` | `StudentFeeTracking` | Per-student, per-year fee ledger |
+Primary use cases:
 
----
+- view tracking records by filters (batch, department, rollNo)
+- use v2 response for frontend summary cards and academic-year detailed views
+- run controlled backfill to append missing year rows
 
-## 2. API Documentation
+Access control:
 
-> **All endpoints require `Admin` authentication** (admin or superadmin).  
-> Include `Authorization: Bearer <token>` header.
+- GET endpoints require admin role.
+- backfill endpoint requires superadmin role.
 
----
+## Ledger Semantics
 
-### GET `/api/studentFeeTracking`
+Core schema model: StudentFeeTracking
 
-**Auth required:** Yes — Admin (`admin` or `superadmin`)
+- one document per student (unique student reference)
+- academicYearWiseRecord array holds yearly rows
+- each year row has:
+  - academic block (odd and even semesters)
+  - transport block (optional)
+  - hostel block (optional)
+  - concessions summary
+  - subTotal and total
 
-**Description:** Returns a list of students with their fee summary and academic-year/semester breakdown. Supports filtering by `batch`, `department`, and `rollNo`.
+Important money semantics:
 
-#### Request
+- subTotal = gross amount before concessions
+- total.total = net payable amount after concessions
+- total.paid is capped to total.total
+- status is auto-computed as:
+  - Paid
+  - Partial
+  - Unpaid
+  - Refunded (facility inactive scenarios)
 
-##### Query Parameters
+## Validation Rules
 
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `batch` | string | No | Format `YYYY-YYYY` (e.g. `2025-2029`) |
-| `department` | string | No | One of: `CSE`, `IT`, `AIML`, `AIDS`, `ECE`, `EEE`, `MECH`, `CIVIL` (case-insensitive) |
-| `rollNo` | string | No | Exact roll number (e.g. `25CS101`) |
+Query validator: validateGetQuery
 
-##### Example Request
+- department must be one of:
+  - CSE, IT, AIML, AIDS, ECE, EEE, MECH, CIVIL
+- batch must match YYYY-YYYY
+- rollNo must be alphanumeric
 
-```
-GET /api/studentFeeTracking?batch=2025-2029&department=CSE
-```
+Backfill validator: validateBackfillRequest
 
----
+- request body must be empty
+- query params must be empty
 
+## Endpoints
 
+### 1) Get Student Fee Tracking Data
 
-### GET `/api/studentFeeTracking/v2/`
+- Method: GET
+- Path: /
+- Full route: /api/studentFeeTracking
+- Auth: admin
 
-**Auth required:** Yes — Admin (`admin` or `superadmin`)
+Query params:
 
-**Description:** Returns a list of students with their fee summary and academic-year/semester breakdown. Supports filtering by `batch`, `department`, and `rollNo`.
+- batch (optional): exact match on academic.batch
+- department (optional): case-insensitive exact match on academic.departmentName
+- rollNo (optional): exact uppercase match on personal.rollNo
 
-#### Request
+Response behavior:
 
-##### Query Parameters
+- returns list of student and feeTracking objects
+- feeTracking excludes internal fields
+- each academicYearWiseRecord row includes derived facility array with transport and hostel summaries
+- if no students match, returns empty list with success true
 
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `batch` | string | No | Format `YYYY-YYYY` (e.g. `2025-2029`) |
-| `department` | string | No | One of: `CSE`, `IT`, `AIML`, `AIDS`, `ECE`, `EEE`, `MECH`, `CIVIL` (case-insensitive) |
-| `rollNo` | string | No | Exact roll number (e.g. `25CS101`) |
+Success response:
 
-##### Example Request
+- Status: 200
 
-```
-GET /api/studentFeeTracking/v2/?batch=2025-2029&department=CSE
-```
-
----
-
-
-### POST `/api/studentFeeTracking/backfill`
-
-**Auth required:** Yes — Superadmin
-
-**Description:** One-time administrative backfill that scans all students and appends missing `academicYearWiseRecord` rows up to each student's `currentAcademicYear` (bounded by valid semester mapping). Existing year rows are never replaced or duplicated.
-
-#### Request
-
-No request body or query params.
-
-#### Validation
-
-| Rule | Error |
-|---|---|
-| Request body is provided | 400 |
-| Query params are provided | 400 |
-
-#### Response
-
-**200 — Success**
-```json
-{
-  "success": true,
-  "data": {
-    "studentsScanned": 120,
-    "trackingDocsCreated": 3,
-    "studentsUpdated": 42,
-    "rowsAppended": 58,
-    "rowsAlreadyPresent": 180,
-    "skippedNoFeeStructure": 9,
-    "skippedNoMatchingAcademicStructure": 11
-  },
-  "message": "Student fee tracking backfill completed successfully"
-}
-```
-
-**400 — Bad request**
-```json
-{
-  "success": false,
-  "data": null,
-  "message": "Request body is not allowed for this endpoint"
-}
-```
-
-**401 — Unauthorized**
-```json
-{
-  "success": false,
-  "data": null,
-  "message": "Not authorized as a superadmin"
-}
-```
-
-#### Validation
-
-| Rule | Error |
-|---|---|
-| `department` is not in the allowed list | 400 |
-| `batch` not in `YYYY-YYYY` format | 400 |
-| `rollNo` contains non-alphanumeric characters | 400 |
-
-#### Response
-
-**200 — Success**
-```json
 {
   "success": true,
   "data": [
     {
-      "studentCurrentAcademicYear": "2026-2027",
-      "feeAcademicYears": ["2025-2026", "2026-2027"],
+      "student": {
+        "personal": {
+          "rollNo": "24CS101",
+          "studentName": "Student A",
+          "gender": "Male",
+          "studentPhoto": "..."
+        },
+        "academic": { "...": "..." },
+        "contact": { "...": "..." },
+        "enrollment": { "...": "..." },
+        "transport": { "...": "..." },
+        "hostel": { "...": "..." }
+      },
+      "feeTracking": {
+        "academicYearWiseRecord": [
+          {
+            "academicYear": "2024-2025",
+            "academic": { "...": "..." },
+            "transport": { "...": "..." },
+            "hostel": { "...": "..." },
+            "concessions": { "...": "..." },
+            "subTotal": 100000,
+            "total": { "total": 90000, "paid": 30000, "status": "Partial" },
+            "facility": [
+              {
+                "name": "Transport Fees",
+                "total": 12000,
+                "paid": 4000,
+                "overdue": 8000,
+                "status": "Partial"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "message": "Student fee tracking data fetched successfully"
+}
+
+No data response:
+
+- Status: 200
+
+{
+  "success": true,
+  "data": [],
+  "message": "No student fee tracking data found"
+}
+
+### 2) Get Student Fee Tracking Data V2
+
+- Method: GET
+- Path: /v2
+- Full route: /api/studentFeeTracking/v2
+- Auth: admin
+
+Purpose:
+
+- frontend-friendly consolidated response with yearly summaries and per-semester fee heads
+
+Query params:
+
+- same as GET /
+
+Response structure highlights per student item:
+
+- studentCurrentAcademicYear
+- feeAcademicYears array
+- feeSummary array by academic year
+- overall summary
+- student profile block
+- contact block
+- academicYears detailed odd and even semester fee heads
+
+Success response:
+
+- Status: 200
+
+{
+  "success": true,
+  "data": [
+    {
+      "studentCurrentAcademicYear": "2025-2026",
+      "feeAcademicYears": ["2024-2025", "2025-2026"],
       "feeSummary": [
         {
           "academicYear": "2025-2026",
           "community": "BC",
-          "demand": 90000,
-          "concession": 0,
-          "paid": 0,
-          "overdue": 90000,
-          "status": "Unpaid",
-          "total": 90000,
-          "studentType": { "transport": false, "hostel": false }
+          "demand": 95000,
+          "concession": 5000,
+          "paid": 40000,
+          "overdue": 55000,
+          "status": "Partial",
+          "total": 100000,
+          "studentType": { "transport": true, "hostel": false }
         }
       ],
       "overall": {
-        "demand": 184000,
-        "concession": 0,
-        "paid": 10000,
-        "overdue": 174000,
+        "demand": 180000,
+        "concession": 10000,
+        "paid": 70000,
+        "overdue": 110000,
         "status": "Partial",
-        "total": 184000
+        "total": 190000
       },
       "student": {
-        "rollNo": "25ME144",
-        "name": "Student 44",
-        "photo": "https://res.cloudinary.com/dmini3yl9/image/upload/v1773126200/women_nxpvy7.png",
-        "department": "MECH",
+        "rollNo": "24CS101",
+        "name": "Student A",
+        "photo": "...",
+        "department": "CSE",
         "section": "A",
-        "batch": "2025-2029",
-        "currentAcademicYear": "2026-2027"
+        "batch": "2024-2028",
+        "currentAcademicYear": "2025-2026"
       },
       "contact": {
-        "student": { "mobile": "9876541044", "email": "student44@gmail.com" },
-        "father": { "name": "Father 44", "phoneNumber": "9876551044" },
-        "mother": { "name": "Mother 44", "phoneNumber": "9876561044" },
+        "student": { "mobile": "9876543210", "email": "a@example.com" },
+        "father": { "name": "Parent", "phoneNumber": "9876500000" },
+        "mother": {},
         "guardian": {}
       },
       "academicYears": [
         {
-          "academicYear": "2026-2027",
+          "academicYear": "2025-2026",
           "odd": {
             "semesterNumber": 3,
             "feeHeads": [
-              { "name": "Tuition Fees", "total": 42000, "concession": 0, "paid": 0, "overdue": 42000, "status": "Unpaid" }
+              { "name": "Tuition Fees", "total": 42000, "concession": 2000, "paid": 20000, "overdue": 22000, "status": "Partial" }
             ],
-            "overall": {
-              "demand": 47000,
-              "concession": 0,
-              "paid": 0,
-              "overdue": 47000,
-              "status": "Unpaid",
-              "total": 47000,
-              "studentType": { "transport": false, "hostel": false }
-            }
+            "overall": { "demand": 47000, "concession": 2500, "paid": 22000, "overdue": 25000, "status": "Partial", "total": 49500, "studentType": { "transport": true, "hostel": false } }
           },
-          "even": { "...": "..." },
-          "overall": {
-            "demand": 94000,
-            "concession": 0,
-            "paid": 10000,
-            "overdue": 84000,
-            "status": "Partial",
-            "total": 94000,
-            "studentType": { "transport": false, "hostel": false }
-          }
+          "even": {
+            "semesterNumber": 4,
+            "feeHeads": [],
+            "overall": { "demand": 0, "concession": 0, "paid": 0, "overdue": 0, "status": "Paid", "total": 0, "studentType": { "transport": true, "hostel": false } }
+          },
+          "overall": { "demand": 95000, "concession": 5000, "paid": 40000, "overdue": 55000, "status": "Partial", "total": 100000, "studentType": { "transport": true, "hostel": false } }
         }
       ]
     }
   ],
   "message": "Student fee tracking data fetched successfully"
 }
-```
 
-**200 — No results** (filters match zero students)
-```json
+### 3) Backfill Missing Tracking Rows
+
+- Method: POST
+- Path: /backfill
+- Full route: /api/studentFeeTracking/backfill
+- Auth: superadmin
+
+Request constraints:
+
+- no request body
+- no query params
+
+Behavior:
+
+- scans all students
+- creates StudentFeeTracking document if missing
+- computes expected academic years from student batch to currentAcademicYear
+- appends only missing academicYear rows
+- skips rows when fee structure or matching department mapping is unavailable
+- never duplicates existing rows
+
+Success response:
+
+- Status: 200
+
 {
   "success": true,
-  "data": [],
-  "message": "Student fee tracking data fetched successfully"
+  "data": {
+    "studentsScanned": 250,
+    "trackingDocsCreated": 12,
+    "studentsUpdated": 80,
+    "rowsAppended": 140,
+    "rowsAlreadyPresent": 400,
+    "skippedNoFeeStructure": 15,
+    "skippedNoMatchingAcademicStructure": 9
+  },
+  "message": "Student fee tracking backfill completed successfully"
 }
-```
 
-**400 — Invalid department**
-```json
-{
-  "success": false,
-  "data": null,
-  "message": "department must be one of: CSE, IT, AIML, AIDS, ECE, EEE, MECH, CIVIL"
-}
-```
+Common errors:
 
-**400 — Invalid batch format**
-```json
-{
-  "success": false,
-  "data": null,
-  "message": "batch must be in YYYY-YYYY format"
-}
-```
+- 400: body or query sent for backfill
+- 400: invalid filter query for GET routes
 
-**401 — Not authenticated**
-```json
-{
-  "success": false,
-  "data": null,
-  "message": "Not authorized, no token"
-}
-```
+## Derived and Cleaned Response Details
 
-**403 — Insufficient role**
-```json
-{
-  "success": false,
-  "data": null,
-  "message": "Not authorized as admin"
-}
-```
+The service applies output cleanup and derivations:
 
-**500 — Internal server error**
-```json
-{
-  "success": false,
-  "data": null,
-  "message": "Internal server error"
-}
-```
+- enrollment concession scheme blocks with isApplicable false are reduced to only:
+  - { isApplicable: false }
+- transport and hostel blocks are similarly cleaned when not applicable
+- v1 response adds facility array for active facility charges
+- v2 response computes demand, concession, paid, overdue, status at:
+  - semester level
+  - academic year level
+  - overall student level
 
----
+## Suggested Test Checklist
 
-## 3. Edge Cases
-
-- **Combined response:** Each result item contains `feeSummary` and `academicYears`. If a tracking record does not exist for a student, `feeSummary` and `academicYears` will be empty.
-- **Filter behaviour:** All filters are ANDed together. Providing no filters returns every student with their tracking record.
-- **`department` is case-insensitive** in the query parameter but is matched case-insensitively against the stored department name.
-- **`rollNo` filter** is an exact match; partial roll number queries are not supported via this endpoint.
-- **Status values** for each fee component: `Unpaid` (paid = 0), `Partial` (0 < paid < total), `Paid` (paid ≥ total). These are computed by the transaction service on payment.
-- **Backfill mutation endpoint:** `POST /api/studentFeeTracking/backfill` is intentionally provided for superadmin-only one-time correction. It is idempotent and append-only.
-
----
-
-## 4. Fee Tracking Record Structure Reference
-
-```
-academicYearWiseRecord[]
-├── academicYear: "YYYY-YYYY"
-├── academic
-│   ├── odd  (semesters 1, 3, 5, 7)
-│   │   ├── tuition / exam / erp / book / lab
-│   │   │     └── { total (NET), paid, status }
-│   │   ├── subTotal (NET sum of component totals)
-│   │   └── total: { total (NET), paid, status }
-│   ├── even (semesters 2, 4, 6, 8)
-│   │   └── (same structure as odd)
-│   ├── subTotal (GROSS sum before concessions)
-│   └── total: { total (NET), paid, status }
-├── hostel
-│   ├── block, sharing, isAttached, fee
-│   ├── subTotal (GROSS)
-│   ├── hostelSpecialConcession
-│   └── total: { total (NET), paid, status }
-├── transport
-│   ├── route, busNo, stop, fee
-│   ├── subTotal (GROSS)
-│   ├── transportSpecialConcession
-│   └── total: { total (NET), paid, status }
-├── concessions  ← auto-derived from enrollment schemes
-│   ├── tuition, exam, erp, book, lab, transport, hostel
-│   └── totalConcession
-└── total: { total (NET), paid, status }
-```
-
-### Concession Application Rules
-
-1. **Source of truth:** `concessions` is automatically computed from the student's `enrollment` schemes (firstGraduate, scheme7point5, pmssScheme, sakthiScheme, specialConcession). Multiple applicable schemes are summed per-category.
-
-2. **Academic categories** (tuition, exam, erp, book, lab) are reduced at the component level and distributed proportionally across odd/even semesters based on each semester's gross `subTotal` ratio.
-
-3. **Transport/Hostel:** Enrollment concession (`concessions.transport`/`concessions.hostel`) is combined with `transportSpecialConcession`/`hostelSpecialConcession` when computing net totals.
-
-4. **No negative totals:** `net = max(0, gross - concession)` is enforced everywhere.
-
-5. **Payment validation** operates on **NET** totals. Error messages explicitly state "concession-adjusted due".
-
-
-
-
-
-
-
-**Subject: Clarification on Batch, Academic Year, and Semester Mapping in Fee Ledger System**
-
-This is to formally clarify the definitions and relationships between *Batch*, *Academic Year*, and *Semester* as implemented in the student fee ledger system to avoid confusion and ensure consistency across departments.
-
----
-
-### 1. Batch
-
-**Batch** represents the total duration of a student’s program.
-
-Example:
-Batch **2024–2028** indicates:
-
-* Admission Year: 2024
-* Completion Year: 2028
-* Duration: 4 Academic Years
-* Total Semesters: 8 (for UG programs)
-
-Batch remains constant for the entire course duration and defines the overall academic lifecycle of the student.
-
----
-
-### 2. Academic Year
-
-An **Academic Year** represents one study year within the batch duration.
-
-For Batch 2024–2028, the valid academic years are:
-
-* 2024–2025 (1st Year)
-* 2025–2026 (2nd Year)
-* 2026–2027 (3rd Year)
-* 2027–2028 (4th Year)
-
-There are only 4 academic years for a 4-year UG program.
-Academic Year 2028–2029 does **not** belong to Batch 2024–2028.
-
----
-
-### 3. Semester
-
-Each Academic Year consists of **two semesters**:
-
-| Study Year | Academic Year | Odd Semester | Even Semester |
-| ---------- | ------------- | ------------ | ------------- |
-| 1st Year   | 2024–2025     | Semester 1   | Semester 2    |
-| 2nd Year   | 2025–2026     | Semester 3   | Semester 4    |
-| 3rd Year   | 2026–2027     | Semester 5   | Semester 6    |
-| 4th Year   | 2027–2028     | Semester 7   | Semester 8    |
-
-For a standard UG program:
-
-* Maximum Semesters = 8
-* No Semester 9 or 10 exists.
-
----
-
-### Structural Relationship
-
-The hierarchy is:
-
-Batch
-→ Academic Year
-→ Semester
-
-Ledger generation and fee calculation strictly follow this structure.
-Academic years and semesters beyond the batch duration will not be generated in the system.
-
----
-
-This clarification is issued to ensure uniform understanding across departments and prevent inconsistencies in academic and financial records.
-
-If any further clarification is required, it can be addressed through the system documentation or technical review meeting.
+- GET with no filters
+- GET with batch only
+- GET with department case variants
+- GET with rollNo exact match
+- GET invalid batch, department, rollNo
+- GET /v2 response shape validation
+- POST /backfill idempotency by running twice

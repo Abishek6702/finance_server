@@ -1,572 +1,383 @@
-# Students Module — API Documentation
+# Students Management API Documentation
 
-## 1. Module Overview
+## Overview
 
-The **Students** module manages full student lifecycle: creation, retrieval, update, deletion, and bulk import via CSV/Excel. On student creation, a corresponding `StudentFeeTracking` and `StudentTransaction` record are automatically generated.
+The Students Management module handles student lifecycle operations:
 
-**Dependencies / Coupling**
-- **Fee Structure module** — fee amounts are read from `FeeStructureMaster` at creation time to populate the fee ledger.
-- **Student Fee Tracking module** — a tracking record is auto-created for every new student.
-- **Transaction module** — a transaction shell document is auto-created for every new student.
-- **Hostel / Transport modules** — hostel and transport fees are resolved from their respective collections if the student is enrolled in either.
+- create single student
+- read students
+- search students
+- update student
+- delete student
+- bulk create and bulk update from CSV or Excel
 
-**Database Collections**
+Base route:
 
-| Collection | Model | Purpose |
-|---|---|---|
-| `students` | `Student` | Core student profile |
-| `studentfeetrackings` | `StudentFeeTracking` | Auto-created fee ledger per student |
-| `studenttransactions` | `StudentTransaction` | Auto-created transaction shell per student |
+- /api/studentsManagement
 
----
+Access control:
 
-## 2. API Documentation
+- All routes require authentication.
+- GET and search routes: admin role.
+- create, update, delete, bulk routes: superadmin role.
 
-> **All endpoints require `Superadmin` authentication.**  
-> Include `Authorization: Bearer <token>` header.
+Core side effects:
 
----
+- Student creation generates and updates student fee tracking ledger.
+- If transport or hostel is applicable, route and block mappings are resolved against master collections.
 
-### POST `/api/studentsManagement`
+## Query and Payload Validation
 
-**Auth required:** Yes — Superadmin
+Validation middleware source: validationStudents.js
 
-**Description:** Creates a single student record and auto-generates their fee tracking and transaction documents.
+### Key enums
 
-#### Request
+- Gender: Male, Female, Other
+- Blood group: A+, A-, B+, B-, AB+, AB-, O+, O-
+- Department: CSE, IT, AIML, AIDS, ECE, EEE, MECH, CIVIL
+- Education type: UG, PG
+- Academic type: REG, PART_TIME
+- Degree program: BE, BTech, ME, MTech
+- Section: A, B, C, D, E, F
+- Quota: Management Quota, Government Quota
+- Hostel sharing: 2, 3, 4, 5
 
-##### Body Schema
+### Important format rules
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `personal` | object | Yes | Personal details (see below) |
-| `academic` | object | Yes | Academic details (see below) |
-| `contact` | object | No | Contact details |
-| `family` | object | No | Family details |
-| `address` | object | No | Address details |
-| `enrollment` | object | Yes | Quota and concession details |
-| `transport` | object | No | Transport enrollment |
-| `hostel` | object | No | Hostel enrollment |
+- personal.rollNo: must match DDLLNNN pattern, example 12CS101
+- personal.aadharNo: exactly 12 digits
+- academic.batch: YYYY-YYYY
+- academic.currentAcademicYear: YYYY-YYYY
+- contact.selfMobileNo: Indian 10-digit number starting with 6-9
+- contact.selfEmail: valid email
+- contact.officialEmail: must end with @sece.ac.in
 
-**`personal` object**
+### Semester consistency rule
 
-| Field | Type | Required | Constraints |
-|---|---|---|---|
-| `rollNo` | string | Yes | Format `DDLLNNN` (e.g. `25CS101`) — unique |
-| `registerNumber` | string | No | — |
-| `studentName` | string | No | — |
-| `gender` | string | No | `Male`, `Female`, `Other` |
-| `dob` | date | No | ISO date string |
-| `bloodGroup` | string | No | `A+`, `A-`, `B+`, `B-`, `AB+`, `AB-`, `O+`, `O-` |
-| `aadharNo` | string | No | Exactly 12 digits |
-| `emisNo` | string | No | — |
-| `religion` | string | No | — |
-| `community` | string | No | max 50 characters |
-| `casteName` | string | No | max 50 characters |
-| `nationality` | string | No | — |
+If batch, currentAcademicYear, and currentSemesterNumber are provided:
 
-**`academic` object**
+- studyYear = start(currentAcademicYear) - start(batch) + 1
+- valid semester numbers are only:
+  - odd = studyYear * 2 - 1
+  - even = studyYear * 2
 
-| Field | Type | Required | Constraints |
-|---|---|---|---|
-| `degreeProgram` | string | Yes | `BE`, `BTech`, `ME`, `MTech` |
-| `batch` | string | Yes | Format `YYYY-YYYY` |
-| `currentAcademicYear` | string | Yes | Format `YYYY-YYYY` |
-| `departmentName` | string | Yes | `CSE`, `IT`, `AIML`, `AIDS`, `ECE`, `EEE`, `MECH`, `CIVIL` |
-| `yearStudying` | number | Yes | `1`–`4` |
-| `currentSemesterNumber` | number | Yes | `1`–`8`; **must match `batch` + `currentAcademicYear`**: derived study year = `parseInt(currentAcademicYear) − parseInt(batch) + 1`; valid values are `studyYear×2−1` (odd) or `studyYear×2` (even). E.g. batch `2022-2026`, academicYear `2024-2025` → studyYear 3 → only `5` or `6` accepted |
-| `educationType` | string | No | `UG`, `PG` |
-| `academicType` | string | No | `REG`, `PART_TIME` |
-| `isLateralEntry` | boolean | No | — |
-| `section` | string | No | `A`–`F` |
+Example:
 
-**`contact` object**
+- batch: 2024-2028
+- currentAcademicYear: 2025-2026
+- studyYear: 2
+- allowed currentSemesterNumber: 3 or 4
 
-| Field | Type | Constraints |
-|---|---|---|
-| `selfMobileNo` | string | Valid 10-digit Indian number (starts `6`–`9`) |
-| `selfEmail` | string | Valid email |
-| `officialEmail` | string | Must end with `@sece.ac.in` |
+## Endpoints
 
-**`enrollment` object**
+### 1) Search Students
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `quota` | string | Yes | `Management Quota`, `Government Quota` |
-| `firstGraduate` | object | No | `isApplicable` + yearly concession amounts |
-| `scheme7point5` | object | No | `isApplicable` + yearly concession amounts |
-| `pmssScheme` | object | No | `isApplicable` + yearly concession amounts |
-| `sakthiScheme` | object | No | `isApplicable` + yearly concession amounts |
-| `specialConcession` | object | No | `isApplicable` + yearly concession amounts |
-| `excessAmount` | number | No | Non-negative excess balance that can be used for `excessAmount` payments |
-| `isExcessAmountTrue` | boolean | No | Enables usage of `excessAmount` as a payment method |
+- Method: GET
+- Path: /search
+- Full route: /api/studentsManagement/search
+- Auth: admin
 
-**Concession sub-object fields** (all `number`, non-negative):
-`yearlyLabConcessionAmount`, `yearlyBookConcessionAmount`, `yearlyErpConcessionAmount`, `yearlyExamConcessionAmount`, `yearlyTransportConcessionAmount`, `yearlyHostelConcessionAmount`, `yearlyTuitionConcessionAmount`
+Query params:
 
-**`transport` object**
+- q (required): non-empty string
 
-| Field | Type | Description |
-|---|---|---|
-| `isApplicable` | boolean | Whether student uses college transport |
-| `route` | string | Route name |
-| `busNo` | string | Bus number |
-| `stop` | string | Boarding stop |
-| `fee` | number | Transport fee |
+Behavior:
 
-**`hostel` object**
+- Prefix search on personal.rollNo, case-insensitive
+- Returns up to 20 students with compact fields for UI search
 
-| Field | Type | Description |
-|---|---|---|
-| `isApplicable` | boolean | Whether student resides in hostel |
-| `block` | string | Hostel block (e.g. `A`) |
-| `sharing` | number | `2`, `3`, `4`, or `5` |
-| `isAttached` | boolean | Attached bathroom |
-| `fee` | number | Hostel fee |
+Success response:
 
-##### Example Request Body
-```json
-{
-  "personal": {
-    "rollNo": "25CS101",
-    "registerNumber": "713521104001",
-    "studentName": "Arun Kumar",
-    "gender": "Male",
-    "dob": "2006-07-15",
-    "bloodGroup": "O+",
-    "aadharNo": "123456789012",
-    "religion": "Hindu",
-    "community": "OBC",
-    "nationality": "Indian"
-  },
-  "academic": {
-    "educationType": "UG",
-    "academicType": "REG",
-    "isLateralEntry": false,
-    "departmentName": "CSE",
-    "degreeProgram": "BE",
-    "yearStudying": 1,
-    "currentSemesterNumber": 1,
-    "section": "A",
-    "batch": "2025-2029",
-    "currentAcademicYear": "2025-2026"
-  },
-  "contact": {
-    "selfMobileNo": "9876543210",
-    "selfEmail": "arun@gmail.com",
-    "officialEmail": "arun.25cs101@sece.ac.in"
-  },
-  "family": {
-    "father": { "name": "Kumar S", "mobile": "9876500001", "workType": "Business", "qualification": "HSC" }
-  },
-  "enrollment": {
-    "quota": "Government Quota",
-    "firstGraduate": {
-      "isApplicable": true,
-      "yearlyTuitionConcessionAmount": 5000
-    }
-  },
-  "transport": {
-    "isApplicable": true,
-    "route": "Route 1",
-    "busNo": "TN-01-AB-1234",
-    "stop": "Erode",
-    "fee": 12000
-  },
-  "hostel": {
-    "isApplicable": false
-  }
-}
-```
+- Status: 200
 
-#### Validation
-
-| Rule | Error |
-|---|---|
-| `personal` or `academic` missing | 400 |
-| `personal.rollNo` missing or wrong format | 400 |
-| `academic.degreeProgram`, `batch`, or `currentAcademicYear` missing | 400 |
-| Invalid enums (gender, bloodGroup, department, etc.) | 400 |
-| `aadharNo` not 12 digits | 400 |
-| `selfMobileNo` not a valid 10-digit Indian number | 400 |
-| `officialEmail` not `@sece.ac.in` | 400 |
-| Duplicate `rollNo` | 400 |
-
-#### Response
-
-**201 — Created**
-```json
-{
-  "success": true,
-  "data": {
-    "personal": { "rollNo": "25CS101", "studentName": "Arun Kumar", "..." : "..." },
-    "academic": { "departmentName": "CSE", "..." : "..." },
-    "contact": { "..." : "..." },
-    "enrollment": { "..." : "..." },
-    "transport": { "..." : "..." },
-    "hostel": { "..." : "..." },
-    "_id": "665f1a2b3c4d5e6f7a8b9c20",
-    "createdAt": "2025-06-01T10:00:00.000Z"
-  },
-  "message": "Student created successfully"
-}
-```
-
-**400 — Validation error**
-```json
-{
-  "success": false,
-  "data": null,
-  "message": "personal.rollNo format is invalid (expected 12CS101)"
-}
-```
-
----
-
-### POST `/api/studentsManagement/bulk`
-
-**Auth required:** Yes — Superadmin
-
-**Description:** Bulk-creates students from an uploaded CSV or Excel file. Returns a `201` if all rows succeed, or `207 Multi-Status` if any rows fail.
-
-#### Request
-
-**Content-Type:** `multipart/form-data`
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `file` | file | Yes | `.csv`, `.xls`, or `.xlsx` file (max 10 MB) |
-
-Each row in the file must match the student field structure (column headers correspond to field paths).
-
-#### Response
-
-**201 — All created**
-```json
-{
-  "success": true,
-  "data": {
-    "summary": { "total": 3, "created": 3, "failed": 0 },
-    "created": ["25CS101", "25CS102", "25CS103"],
-    "failed": []
-  },
-  "message": "All students created successfully"
-}
-```
-
-**207 — Partial success**
-```json
-{
-  "success": false,
-  "data": {
-    "summary": { "total": 3, "created": 2, "failed": 1 },
-    "created": ["25CS101", "25CS102"],
-    "failed": [
-      { "row": 3, "rollNo": "25CS103", "error": "Duplicate rollNo" }
-    ]
-  },
-  "message": "2 created, 1 failed"
-}
-```
-
-**400 — No file**
-```json
-{
-  "success": false,
-  "data": null,
-  "message": "No file uploaded – send a CSV or Excel file in the 'file' field"
-}
-```
-
----
-
-### PUT `/api/studentsManagement/bulk`
-
-**Auth required:** Yes — Superadmin
-
-**Description:** Bulk-updates students from a CSV or Excel file. Rows are matched by `rollNo`; only provided fields are updated.
-
-#### Request
-
-Same as `POST /bulk` — `multipart/form-data` with a `file` field.
-
-#### Response
-
-**200 — All updated**
-```json
-{
-  "success": true,
-  "data": {
-    "summary": { "total": 2, "updated": 2, "failed": 0 },
-    "updated": ["25CS101", "25CS102"],
-    "failed": []
-  },
-  "message": "All students updated successfully"
-}
-```
-
----
-
-### GET `/api/studentsManagement/search`
-
-**Auth required:** Yes — Admin or Superadmin
-
-**Description:** Performs a fast, indexed, regex lookup on the student `rollNo`. This acts as an autocomplete endpoint. Matches records where the `rollNo` exactly starts with the query provided. Returns 10-20 projected student records quickly instead of heavy objects.
-
-#### Request
-
-##### Query Parameters
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `q` | string | Yes | The roll number or prefix query (e.g., `23C`). |
-
-#### Response
-
-**200 — Success**
-```json
 {
   "success": true,
   "data": [
     {
-      "rollNo": "23CS101",
-      "name": "Surya Chandran",
-      "profile": "https://example.com/student-photo.jpg",
-      "registerNumber": "713521104001",
+      "rollNo": "24CS101",
+      "name": "Student Name",
+      "profile": "...",
+      "registerNumber": "...",
       "currentYear": 2,
       "section": "A",
       "department": "CSE",
-      "batch": "2023-2027",
+      "batch": "2024-2028",
       "currentSemester": 3,
-      "excessAmount": 1500,
-      "isExcessAmountTrue": true
+      "excessAmount": 0,
+      "isExcessAmountTrue": false
     }
   ],
   "message": "Students searched successfully"
 }
-```
 
-**400 — Validation error**
-```json
-{
-  "success": false,
-  "data": null,
-  "message": "Search query 'q' is required"
-}
-```
+Common errors:
 
----
+- 400: Search query q is required
 
-### GET `/api/studentsManagement/basic`
+### 2) Get Students
 
-**Auth required:** Yes — Admin or Superadmin
+- Method: GET
+- Path: /
+- Full route: /api/studentsManagement
+- Auth: admin
 
-**Description:** Returns basic student records intended for dropdowns, quick listings, and lightweight lookup. Supports filtering by academic year, department, and studying year, as well as a fast search by name or roll number.
+Query params:
 
-#### Request
+- rollNo (optional): fetch one student
+- fields (optional): comma-separated top-level projections
 
-##### Query Parameters
+Allowed fields values:
 
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `academicYear` | string | No | Filter by academic year (e.g. `2024-2025`) |
-| `department` | string | No | Filter by department (e.g. `CSE`, `IT`) |
-| `yearStudying` | number | No | Filter by the current year of study (`1`–`4`) |
-| `search` | string | No | Regex search across `rollNo` or `studentName` |
+- personal, academic, contact, family, address, enrollment, transport, hostel
 
-#### Response
+Behavior:
 
-**200 — Success**
-```json
+- Without rollNo: returns all students sorted newest first
+- With rollNo: returns single student or 404
+- With fields: projection applied on allowed fields
+
+Success response:
+
+- Status: 200
+
 {
   "success": true,
-  "data": [
-    {
-      "_id": "665f1a2b3c4d5e6f7a8b9c20",
-      "name": "Surya Chandran",
-      "rollNo": "23CS101",
-      "profile": "https://example.com/student-photo.jpg",
-      "department": "CSE",
-      "currentYear": 2,
-      "section": "A"
-    }
-  ],
+  "data": ["...studentsOrSingleStudent"],
   "message": "Students fetched successfully"
 }
-```
 
----
+Common errors:
 
-### GET `/api/studentsManagement`
+- 400: rollNo format invalid
+- 400: invalid fields list
+- 404: student not found for rollNo
 
-**Auth required:** Yes — Admin or Superadmin
+### 3) Get Basic Students
 
-**Description:** Returns student records. Without `rollNo`, returns all students. With `rollNo`, returns a single student. The optional `fields` param trims the response to only the requested top-level sections.
+- Method: GET
+- Path: /basic
+- Full route: /api/studentsManagement/basic
+- Auth: admin
 
-#### Request
+Query params:
 
-##### Query Parameters
+- academicYear (optional)
+- department (optional)
+- yearStudying (optional)
+- search (optional, applied to rollNo and studentName)
 
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `rollNo` | string | No | Roll number (e.g. `25CS101`). When provided, returns one student; otherwise returns the list. |
-| `fields` | string | No | Comma-separated list of top-level sections to include in the response. Valid values: `personal`, `academic`, `contact`, `family`, `address`, `enrollment`, `transport`, `hostel`. Omitting this param returns all sections. |
+Response fields per item:
 
-#### Response shapes
+- _id
+- name
+- rollNo
+- profile
+- department
+- currentYear
+- section
+- currentAcademicYear
 
-**200 — All students (no `rollNo`)**
-```json
+### 4) Create Student
+
+- Method: POST
+- Path: /
+- Full route: /api/studentsManagement
+- Auth: superadmin
+
+Minimum required body blocks:
+
+- personal
+- academic
+
+Within academic, required in create:
+
+- degreeProgram
+- batch
+- currentAcademicYear
+- departmentName
+- yearStudying
+- currentSemesterNumber
+
+Within enrollment, required when enrollment object is sent:
+
+- quota
+
+Transport mapping behavior:
+
+- if transport.isApplicable is true and route plus stopName are provided,
+  transport is resolved from Transport master and embedded as:
+  - transport id
+  - route
+  - busNo
+  - stop
+  - fee
+
+Hostel mapping behavior:
+
+- if hostel.isApplicable is true and block plus sharing plus isAttached are provided,
+  hostel is resolved from Hostel master and embedded as:
+  - hostel id
+  - block
+  - sharing
+  - isAttached
+  - fee
+
+Success response:
+
+- Status: 201
+
 {
   "success": true,
-  "data": [
-    { "personal": { "rollNo": "25CS101" }, "academic": { "departmentName": "CSE" }, "..." : "..." }
-  ],
-  "message": "Students fetched successfully"
+  "data": { "...createdStudent" },
+  "message": "Student created successfully"
 }
-```
 
-**200 — Single student (`rollNo` given)**
-```json
+Common errors:
+
+- 400: validation failures
+- 404: transport or hostel mapping not found
+- 409: duplicate student rollNo
+
+### 5) Update Student
+
+- Method: PUT
+- Path: /:rollNo
+- Full route: /api/studentsManagement/:rollNo
+- Auth: superadmin
+
+Behavior:
+
+- Partial updates supported.
+- Nested payload is flattened into dot-notation for MongoDB $set updates.
+- rollNo path param identifies the student.
+- If transport or hostel applicable blocks are provided, master mapping is reapplied.
+- After update, ledger regeneration is triggered.
+
+Success response:
+
+- Status: 200
+
 {
   "success": true,
-  "data": {
-    "personal": { "rollNo": "25CS101", "studentName": "Arun Kumar" },
-    "academic": { "departmentName": "CSE", "batch": "2025-2029" },
-    "contact": { "selfMobileNo": "9876543210" },
-    "transport": { "isApplicable": true },
-    "hostel": { "isApplicable": false }
-  },
-  "message": "Student fetched successfully"
-}
-```
-
-**200 — With `fields=personal,academic`** (only requested sections returned)
-```json
-{
-  "success": true,
-  "data": [
-    { "personal": { "rollNo": "25CS101" }, "academic": { "departmentName": "CSE" } }
-  ],
-  "message": "Students fetched successfully"
-}
-```
-
-**400 — Invalid `rollNo` format**
-```json
-{ "success": false, "data": null, "message": "rollNo format is invalid (expected 12CS101)" }
-```
-
-**400 — Invalid `fields` value**
-```json
-{ "success": false, "data": null, "message": "Invalid fields: xyz. Valid: personal, academic, contact, family, address, enrollment, transport, hostel" }
-```
-
-**404 — Not found**
-```json
-{ "success": false, "data": null, "message": "Student not found" }
-```
-
----
-
-### PUT `/api/studentsManagement/:rollNo`
-
-**Auth required:** Yes — Superadmin
-
-**Description:** Updates a student's fields. Only provided fields are updated (partial update).
-
-#### Request
-
-##### Path Parameters
-
-| Parameter | Type | Required |
-|---|---|---|
-| `rollNo` | string | Yes |
-
-##### Body Schema
-
-Same nested structure as `POST`. All fields are optional. Same enum and format validations apply.
-
-##### Example Request Body
-```json
-{
-  "academic": {
-    "yearStudying": 2,
-    "currentSemesterNumber": 3
-  },
-  "contact": {
-    "selfMobileNo": "9123456789"
-  }
-}
-```
-
-#### Response
-
-**200 — Success**
-```json
-{
-  "success": true,
-  "data": { "personal": { "rollNo": "25CS101" }, "..." : "..." },
+  "data": { "...updatedStudent" },
   "message": "Student updated successfully"
 }
-```
 
-**404 — Not found**
-```json
-{
-  "success": false,
-  "data": null,
-  "message": "Student not found"
-}
-```
+Common errors:
 
----
+- 404: student not found
+- 404: transport or hostel master mapping not found
 
-### DELETE `/api/studentsManagement/:rollNo`
+### 6) Delete Student
 
-**Auth required:** Yes — Superadmin
+- Method: DELETE
+- Path: /:rollNo
+- Full route: /api/studentsManagement/:rollNo
+- Auth: superadmin
 
-**Description:** Permanently deletes a student and their associated `StudentFeeTracking` record.
+Behavior:
 
-#### Request
+- Deletes student record by rollNo.
+- Deletes corresponding StudentFeeTracking record.
 
-##### Path Parameters
+Success response:
 
-| Parameter | Type | Required |
-|---|---|---|
-| `rollNo` | string | Yes |
+- Status: 200
 
-#### Response
-
-**200 — Success**
-```json
 {
   "success": true,
   "data": null,
   "message": "Student and fee tracking deleted successfully"
 }
-```
 
-**404 — Not found**
-```json
+### 7) Bulk Create Students
+
+- Method: POST
+- Path: /bulk
+- Full route: /api/studentsManagement/bulk
+- Auth: superadmin
+- Content type: multipart/form-data
+
+Form-data:
+
+- file: required
+
+Allowed file types:
+
+- csv, xls, xlsx
+- max size: 10 MB
+
+Behavior:
+
+- Each row is validated independently.
+- One failing row does not fail the entire batch.
+- Returns status 201 when all succeed.
+- Returns status 207 when partial failures occur.
+
+Response shape:
+
 {
   "success": false,
-  "data": null,
-  "message": "Student not found"
+  "data": {
+    "summary": { "total": 50, "created": 47, "failed": 3 },
+    "created": [{ "rollNo": "24CS101", "id": "..." }],
+    "failed": [{ "row": 12, "rollNo": "24CS155", "reason": "..." }]
+  },
+  "message": "47 created, 3 failed"
 }
-```
 
----
+### 8) Bulk Update Students
 
-## 3. Edge Cases
+- Method: PUT
+- Path: /bulk
+- Full route: /api/studentsManagement/bulk
+- Auth: superadmin
+- Content type: multipart/form-data
 
-- **Auto fee ledger creation:** When a student is created, the service looks up the `FeeStructureMaster` for `currentAcademicYear`, resolves the correct quota/department/semester fees, and writes them into a `StudentFeeTracking` document. If no fee structure is found for the year, the tracking record is created with zero totals.
-- **Hostel/transport fee resolution:** If `hostel.isApplicable` or `transport.isApplicable` is `true`, the service looks up the matching `Hostel` or `Transport` document to populate the fee. Mismatched configurations (e.g., unknown block + sharing combination) are recorded as zero.
-- **Bulk file format:** Accepted MIME types: `text/csv`, `application/vnd.ms-excel`, `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`. Files with unknown extensions but matching one of these MIME types are also accepted.
-- **Bulk partial failure (207):** Failing rows do not roll back successfully created rows. Each row is processed independently.
-- **Delete cascade:** Deleting a student removes both the `Student` document and the linked `StudentFeeTracking` document. The `StudentTransaction` document is **not** deleted to preserve payment history.
-- **`rollNo` uniqueness:** Roll number is validated against the regex `^\d{2}[A-Z]{2}\d{3}$` (e.g. `25CS101`) and must be globally unique.
+Behavior:
 
+- Row matching key is personal.rollNo.
+- rollNo is used as lookup key and excluded from update mutation.
+- Only supplied fields are updated per row.
+- Returns status 200 for full success, 207 for partial updates.
 
+Response shape:
 
+{
+  "success": false,
+  "data": {
+    "summary": { "total": 30, "updated": 28, "failed": 2 },
+    "updated": [{ "rollNo": "24IT001", "id": "..." }],
+    "failed": [{ "row": 8, "rollNo": "24IT099", "reason": "..." }]
+  },
+  "message": "28 updated, 2 failed"
+}
 
+## Concession Field Contract
 
+For each applicable concession scheme object (firstGraduate, scheme7point5, pmssScheme, sakthiScheme, specialConcession), supported yearly fields are:
+
+- yearlyLabConcessionAmount
+- yearlyBookConcessionAmount
+- yearlyErpConcessionAmount
+- yearlyExamConcessionAmount
+- yearlyTransportConcessionAmount
+- yearlyHostelConcessionAmount
+- yearlyTuitionConcessionAmount
+
+All concession values must be non-negative numbers.
+
+## Role Matrix
+
+- admin: search, get students, get basic students
+- superadmin: create, update, delete, bulk create, bulk update
+
+## Suggested Test Checklist
+
+- create with valid payload
+- create with mismatched semester and academicYear
+- create with duplicate rollNo
+- update partial nested fields
+- delete existing and missing rollNo
+- bulk create with mixed valid and invalid rows
+- bulk update with missing rollNo rows

@@ -463,10 +463,9 @@ const updateFeeStructure = async (academicYear, data) => {
   existing.markModified('academicStructures');
   await existing.save();
 
-  // Propagate fee changes to all student tracking records for this academic year
-  const trackingUpdated = await propagateFeeStructureUpdate(academicYear, existing);
-  
-  return { feeStructure: existing, trackingRecordsUpdated: trackingUpdated };
+  // Intentionally do not propagate updates to existing StudentFeeTracking rows.
+  // Tracking rows are append/backfill driven and should remain immutable for historical accuracy.
+  return { feeStructure: existing };
 };
 
 const deleteFeeStructure = async (academicYear) => {
