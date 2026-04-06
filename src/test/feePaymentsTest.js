@@ -523,9 +523,9 @@ describe("Fee Payment / Transaction API", () => {
       ]);
     });
 
-    it("POST /api/feePayment/ack creates an acknowledgement without altering balance", async () => {
+    it("POST /api/feeAcknowledgement creates an acknowledgement without altering balance", async () => {
       const payRes = await request(app)
-        .post("/api/feePayment/ack")
+        .post("/api/feeAcknowledgement")
         .set(adminAuth())
         .send({
           rollNo: testAckRollNo,
@@ -553,9 +553,9 @@ describe("Fee Payment / Transaction API", () => {
       expect(ackDoc.acknoledgements[0].status).toBe("RECEIVED");
     });
 
-    it("PUT /api/feePayment/ack rejects acknowledgement with REJECTED status", async () => {
+    it("PUT /api/feeAcknowledgement rejects acknowledgement with REJECTED status", async () => {
       const putRes = await request(app)
-        .put("/api/feePayment/ack")
+        .put("/api/feeAcknowledgement")
         .set(adminAuth())
         .send({
           rollNo: testAckRollNo,
@@ -571,10 +571,10 @@ describe("Fee Payment / Transaction API", () => {
       expect(ackDoc.acknoledgements[0].status).toBe("REJECTED");
     });
 
-    it("PUT /api/feePayment/ack accepts acknowledgement with SUCCESSFUL status when re-created", async () => {
+    it("PUT /api/feeAcknowledgement accepts acknowledgement with SUCCESSFUL status when re-created", async () => {
       // Create another ack
       const payRes = await request(app)
-        .post("/api/feePayment/ack")
+        .post("/api/feeAcknowledgement")
         .set(adminAuth())
         .send({
           rollNo: testAckRollNo,
@@ -591,7 +591,7 @@ describe("Fee Payment / Transaction API", () => {
       const newAckReceiptNo = payRes.body.data;
 
       const putRes = await request(app)
-        .put("/api/feePayment/ack")
+        .put("/api/feeAcknowledgement")
         .set(adminAuth())
         .send({
           rollNo: testAckRollNo,
@@ -614,9 +614,9 @@ describe("Fee Payment / Transaction API", () => {
       expect(yearEntry.academic.odd.tuition.paid).toBe(500);
     });
 
-    it("POST+PUT /api/feePayment/ack handles excessAmount and totalAmount on SUCCESSFUL", async () => {
+    it("POST+PUT /api/feeAcknowledgement handles excessAmount and totalAmount on SUCCESSFUL", async () => {
       const createRes = await request(app)
-        .post("/api/feePayment/ack")
+        .post("/api/feeAcknowledgement")
         .set(adminAuth())
         .send({
           rollNo: testAckRollNo,
@@ -640,7 +640,7 @@ describe("Fee Payment / Transaction API", () => {
       expect(createdAck.totalAmount).toBe(500);
 
       const approveRes = await request(app)
-        .put("/api/feePayment/ack")
+        .put("/api/feeAcknowledgement")
         .set(adminAuth())
         .send({
           rollNo: testAckRollNo,
@@ -681,9 +681,9 @@ describe("Fee Payment / Transaction API", () => {
       ]);
     });
 
-    it("POST /api/feePayment/ack/v2 creates a V2 acknowledgement only", async () => {
+    it("POST /api/feeAcknowledgement/v2 creates a V2 acknowledgement only", async () => {
       const res = await request(app)
-        .post("/api/feePayment/ack/v2")
+        .post("/api/feeAcknowledgement/v2")
         .set(adminAuth())
         .send({
           rollNo: testAckV2RollNo,
@@ -703,9 +703,9 @@ describe("Fee Payment / Transaction API", () => {
       expect(txDoc).toBeNull();
     });
 
-    it("GET /api/feePayment/ack/v2/:ackId fetches acknowledgement by ackId", async () => {
+    it("GET /api/feeAcknowledgement/v2/:ackId fetches acknowledgement by ackId", async () => {
       const res = await request(app)
-        .get(`/api/feePayment/ack/v2/${ackV2Id}`)
+        .get(`/api/feeAcknowledgement/v2/${ackV2Id}`)
         .set(adminAuth());
 
       expect(res.status).toBe(200);
@@ -715,9 +715,9 @@ describe("Fee Payment / Transaction API", () => {
       expect(res.body.data.totalAmount).toBe(1200);
     });
 
-    it("PUT /api/feePayment/ack/v2 updates status/message and still does not create payment", async () => {
+    it("PUT /api/feeAcknowledgement/v2 updates status/message and still does not create payment", async () => {
       const res = await request(app)
-        .put("/api/feePayment/ack/v2")
+        .put("/api/feeAcknowledgement/v2")
         .set(adminAuth())
         .send({
           rollNo: testAckV2RollNo,

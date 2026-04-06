@@ -13,6 +13,12 @@ const validateFeeStructure = (req, res, next) => {
     return next(new AppError("Valid academicYear (YYYY-YYYY) is required.", 400));
   }
 
+  if (req.method === "POST") {
+    if (!academicStructures || !Array.isArray(academicStructures) || academicStructures.length === 0) {
+      return next(new AppError("At least one academic structure is required on creation.", 400));
+    }
+  }
+
   if (academicStructures !== undefined) {
     if (!Array.isArray(academicStructures)) {
       return next(new AppError("academicStructures must be an array.", 400));

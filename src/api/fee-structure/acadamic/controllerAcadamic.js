@@ -31,12 +31,12 @@ const createFeeStructure = asyncHandler(async (req, res) => {
 });
 
 const getFeeStructures = asyncHandler(async (req, res) => {
-  const data = await feeStructureService.getFeeStructures();
+  const data = await feeStructureService.getFeeStructures(req.query);
   res.status(200).json({ success: true, data, message: "Fee structures fetched successfully" });
 });
 
 const getFeeStructureByYear = asyncHandler(async (req, res) => {
-  const data = await feeStructureService.getFeeStructureByYear(req.params.academicYear);
+  const data = await feeStructureService.getFeeStructureByYear(req.params.academicYear, req.query);
   res.status(200).json({ success: true, data, message: "Fee structure fetched successfully" });
 });
 
@@ -50,7 +50,7 @@ const updateFeeStructure = asyncHandler(async (req, res) => {
 });
 
 const deleteFeeStructure = asyncHandler(async (req, res) => {
-  await feeStructureService.deleteFeeStructure(req.params.academicYear);
+  await feeStructureService.deleteFeeStructure(req.params.academicYear, req.query);
   res.status(200).json({ success: true, data: null, message: "Fee structure deleted successfully" });
 });
  
