@@ -1,4 +1,10 @@
 const AppError = require("../../../utils/appError");
+const {
+  BULK_VALID_QUOTAS,
+  BULK_VALID_EDUCATION_TYPES,
+  BULK_VALID_DEGREE_PROGRAMS,
+  BULK_VALID_DEPARTMENTS,
+} = require("./serviceTrackingSyncInternal");
 
 const VALID_DEPARTMENTS = ["CSE", "IT", "AIML", "AIDS", "ECE", "EEE", "MECH", "CIVIL"];
 
@@ -32,7 +38,75 @@ const validateBackfillRequest = (req, res, next) => {
   next();
 };
 
+const ensureAcademicYear = (value, fieldName) => {
+  if (!value || typeof value !== "string" || !/^\d{4}-\d{4}$/.test(value)) {
+    throw new AppError(`${fieldName} must be in YYYY-YYYY format`, 400);
+  }
+};
+
+const validateTriggerFeeUpdate = (req, res, next) => {
+  try {
+    const {
+      academicYear,
+      quota,
+      educationType,
+      degreeProgram,
+      departmentName,
+      semesterNumber,
+    } = req.body || {};
+
+    ensureAcademicYear(academicYear, "academicYear");
+
+    if (quota && !BULK_VALID_QUOTAS.includes(quota)) {
+      throw new AppError(`quota must be one of: ${BULK_VALID_QUOTAS.join(", ")}`, 400);
+    }
+
+    if (educationType && !BULK_VALID_EDUCATION_TYPES.includes(educationType)) {
+      throw new AppError(`educationType must be one of: ${BULK_VALID_EDUCATION_TYPES.join(", ")}`, 400);
+    }
+
+    if (degreeProgram && !BULK_VALID_DEGREE_PROGRAMS.includes(degreeProgram)) {
+      throw new AppError(`degreeProgram must be one of: ${BULK_VALID_DEGREE_PROGRAMS.join(", ")}`, 400);
+    }
+
+    if (departmentName && !BULK_VALID_DEPARTMENTS.includes(departmentName)) {
+      throw new AppError(`departmentName must be one of: ${BULK_VALID_DEPARTMENTS.join(", ")}`, 400);
+    }
+
+    if (semesterNumber !== undefined && (!Number.isInteger(semesterNumber) || semesterNumber < 1 || semesterNumber > 8)) {
+      throw new AppError("semesterNumber must be an integer between 1 and 8", 400);
+    }
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+const validatePromotionRequest = (req, res, next) => {
+  try {
+    const { currentAcademicYear } = req.body || {};
+    ensureAcademicYear(currentAcademicYear, "currentAcademicYear");
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+const validateDepromotionRequest = (req, res, next) => {
+  try {
+    const { currentAcademicYear } = req.body || {};
+    ensureAcademicYear(currentAcademicYear, "currentAcademicYear");
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   validateGetQuery,
   validateBackfillRequest,
+  validateTriggerFeeUpdate,
+  validatePromotionRequest,
+  validateDepromotionRequest,
 };

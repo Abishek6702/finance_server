@@ -10,20 +10,42 @@
             "script": {
                 "type": "text/javascript",
                 "exec": [
+                    "const now = new Date();",
+                    "const yyyy = now.getFullYear();",
+                    "const fallbackAcademicYear = `${yyyy}-${yyyy + 1}`;",
+                    "const existingAcademicYear = pm.environment.get('academic_year') || fallbackAcademicYear;",
+                    "pm.environment.set('academic_year', existingAcademicYear);",
                     "",
-                    "const yyyy = new Date().getFullYear();",
-                    "if (!pm.environment.get('academic_year')) pm.environment.set('academic_year', `${yyyy}-${yyyy + 1}`);",
-                    "if (!pm.environment.get('batch_year')) pm.environment.set('batch_year', `${yyyy}-${yyyy + 4}`);",
-                    "",
-                    "if (!pm.environment.get('student_roll_no') || pm.environment.get('student_roll_no').length !== 7) {",
-                    "  const suffix = String(Date.now()).slice(-3);",
-                    "  pm.environment.set('student_roll_no', `25CS${suffix}`);",
+                    "const yearStart = parseInt(String(existingAcademicYear).split('-')[0], 10);",
+                    "if (Number.isFinite(yearStart)) {",
+                    "  pm.environment.set('batch_year', `${yearStart}-${yearStart + 4}`);",
+                    "} else if (!pm.environment.get('batch_year')) {",
+                    "  pm.environment.set('batch_year', `${yyyy}-${yyyy + 4}`);",
                     "}",
                     "",
-                    "if (!pm.environment.get('receipt_no')) {",
-                    "  const rs = String(Date.now()).slice(-6);",
-                    "  pm.environment.set('receipt_no', `REC${rs}`);",
-                    "}"
+                    "let run_id = pm.environment.get('run_id');",
+                    "if (!run_id) {",
+                    "  run_id = String(Date.now());",
+                    "  pm.environment.set('run_id', run_id);",
+                    "}",
+                    "const suffix3 = run_id.slice(-3);",
+                    "const suffix6 = run_id.slice(-6);",
+                    "",
+                    "if (!pm.environment.get('student_roll_no') || pm.environment.get('student_roll_no').length !== 7) {",
+                    "  pm.environment.set('student_roll_no', `25CS${suffix3}`);",
+                    "}",
+                    "",
+                    "pm.environment.set('student_register_no', `71352110${suffix3}`);",
+                    "pm.environment.set('student_self_email', `student.${suffix6}@example.com`);",
+                    "pm.environment.set('student_official_email', `student.${suffix6}@sece.ac.in`);",
+                    "",
+                    "if (!pm.environment.get('receipt_no') || String(pm.environment.get('receipt_no')).startsWith('REC-')) {",
+                    "  pm.environment.set('receipt_no', `REC${suffix6}`);",
+                    "}",
+                    "",
+                    "if (!pm.environment.get('refund_receipt_no')) pm.environment.set('refund_receipt_no', '');",
+                    "if (!pm.environment.get('recall_id')) pm.environment.set('recall_id', '');",
+                    "if (!pm.environment.get('facility_transfer_id')) pm.environment.set('facility_transfer_id', '');"
                 ]
             }
         },
@@ -32,11 +54,10 @@
             "script": {
                 "type": "text/javascript",
                 "exec": [
-                    "// Auto-capture token from any response that returns one (e.g. login)",
                     "try {",
                     "  const res = pm.response.json();",
                     "  const tok = (res && res.data && res.data.token) || (res && res.token);",
-                    "  if (tok) pm.environment.set('token', tok);",
+                    "  if (tok && !pm.environment.get('token')) pm.environment.set('token', tok);",
                     "} catch (e) {}"
                 ]
             }
@@ -88,6 +109,7 @@
                                     "const data = pm.response.json();",
                                     "const tok = data && data.data && data.data.token;",
                                     "pm.expect(tok).to.be.a('string');",
+                                    "pm.environment.set('superadmin_token', tok);",
                                     "pm.environment.set('token', tok);"
                                 ]
                             }
@@ -136,7 +158,8 @@
                                     "});",
                                     "const data = pm.response.json();",
                                     "const tok = data && data.data && data.data.token;",
-                                    "if (tok) pm.environment.set('token', tok);"
+                                    "pm.expect(tok).to.be.a('string');",
+                                    "pm.environment.set('admin_token', tok);"
                                 ]
                             }
                         }
@@ -187,7 +210,7 @@
                         },
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"academicYear\": \"{{academic_year}}\",\n  \"academicStructures\": [\n    {\n      \"quota\": \"Government Quota\",\n      \"educationType\": \"UG\",\n      \"degreeProgram\": \"BE\",\n      \"departments\": [\n        {\n          \"departmentName\": \"CSE\",\n          \"semesters\": [\n            {\n              \"semesterNumber\": 1,\n              \"tuition\": {\n                \"fee\": 40000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 45000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 2,\n              \"tuition\": {\n                \"fee\": 40000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 45000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 3,\n              \"tuition\": {\n                \"fee\": 42000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 47000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 4,\n              \"tuition\": {\n                \"fee\": 42000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 47000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 5,\n              \"tuition\": {\n                \"fee\": 44000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 49000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 6,\n              \"tuition\": {\n                \"fee\": 44000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 49000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 7,\n              \"tuition\": {\n                \"fee\": 46000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 51000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 8,\n              \"tuition\": {\n                \"fee\": 46000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 51000\n              },\n              \"isActive\": true\n            }\n          ],\n          \"total\": {\n            \"fee\": 388000\n          },\n          \"isActive\": true\n        }\n      ],\n      \"total\": {\n        \"fee\": 388000\n      },\n      \"isActive\": true\n    }\n  ],\n  \"total\": {\n    \"fee\": 388000\n  },\n  \"isActive\": true\n}",
+                            "raw": "{\n  \"academicYear\": \"{{academic_year}}\",\n  \"isActive\": true,\n  \"academicStructures\": [\n    {\n      \"quota\": \"Government Quota\",\n      \"educationType\": \"UG\",\n      \"degreeProgram\": \"BE\",\n      \"isActive\": true,\n      \"departments\": [\n        {\n          \"departmentName\": \"CSE\",\n          \"isActive\": true,\n          \"semesters\": [\n            {\n              \"semesterNumber\": 1,\n              \"tuition\": {\n                \"fee\": 40000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 2,\n              \"tuition\": {\n                \"fee\": 40000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 3,\n              \"tuition\": {\n                \"fee\": 42000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 4,\n              \"tuition\": {\n                \"fee\": 42000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 5,\n              \"tuition\": {\n                \"fee\": 44000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 6,\n              \"tuition\": {\n                \"fee\": 44000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 7,\n              \"tuition\": {\n                \"fee\": 46000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 8,\n              \"tuition\": {\n                \"fee\": 46000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            }\n          ]\n        }\n      ]\n    }\n  ]\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -195,7 +218,22 @@
                             }
                         }
                     },
-                    "response": []
+                    "response": [],
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Create fee structure status', function () {",
+                                    "  pm.expect([201, 409]).to.include(pm.response.code);",
+                                    "});",
+                                    "const body = pm.response.json();",
+                                    "pm.expect(body.success).to.eql(true);"
+                                ]
+                            }
+                        }
+                    ]
                 },
                 {
                     "name": "Get All Fee Structures",
@@ -212,7 +250,23 @@
                             ]
                         }
                     },
-                    "response": []
+                    "response": [],
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Get all fee structures status', function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "});",
+                                    "const body = pm.response.json();",
+                                    "pm.expect(body.success).to.eql(true);",
+                                    "pm.expect(Array.isArray(body.data)).to.eql(true);"
+                                ]
+                            }
+                        }
+                    ]
                 },
                 {
                     "name": "Get Fee Structure By Year",
@@ -230,7 +284,23 @@
                             ]
                         }
                     },
-                    "response": []
+                    "response": [],
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Get by year fee structure status', function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "});",
+                                    "const body = pm.response.json();",
+                                    "pm.expect(body.success).to.eql(true);",
+                                    "pm.expect(body.data.academicYear).to.eql(pm.environment.get('academic_year'));"
+                                ]
+                            }
+                        }
+                    ]
                 },
                 {
                     "name": "Update Fee Structure",
@@ -254,7 +324,7 @@
                         },
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"academicYear\": \"{{academic_year}}\",\n  \"academicStructures\": [\n    {\n      \"quota\": \"Government Quota\",\n      \"educationType\": \"UG\",\n      \"degreeProgram\": \"BE\",\n      \"departments\": [\n        {\n          \"departmentName\": \"CSE\",\n          \"semesters\": [\n            {\n              \"semesterNumber\": 1,\n              \"tuition\": {\n                \"fee\": 40500\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 45500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 2,\n              \"tuition\": {\n                \"fee\": 40500\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 45500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 3,\n              \"tuition\": {\n                \"fee\": 42000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 47000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 4,\n              \"tuition\": {\n                \"fee\": 42000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 47000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 5,\n              \"tuition\": {\n                \"fee\": 44000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 49000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 6,\n              \"tuition\": {\n                \"fee\": 44000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 49000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 7,\n              \"tuition\": {\n                \"fee\": 46000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 51000\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 8,\n              \"tuition\": {\n                \"fee\": 46000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"total\": {\n                \"fee\": 51000\n              },\n              \"isActive\": true\n            }\n          ],\n          \"total\": {\n            \"fee\": 388500\n          },\n          \"isActive\": true\n        }\n      ],\n      \"total\": {\n        \"fee\": 388500\n      },\n      \"isActive\": true\n    }\n  ],\n  \"total\": {\n    \"fee\": 388500\n  },\n  \"isActive\": true\n}",
+                            "raw": "{\n  \"academicYear\": \"{{academic_year}}\",\n  \"academicStructures\": [\n    {\n      \"quota\": \"Government Quota\",\n      \"educationType\": \"UG\",\n      \"degreeProgram\": \"BE\",\n      \"isActive\": true,\n      \"departments\": [\n        {\n          \"departmentName\": \"CSE\",\n          \"isActive\": true,\n          \"semesters\": [\n            {\n              \"semesterNumber\": 1,\n              \"tuition\": {\n                \"fee\": 40500\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 2,\n              \"tuition\": {\n                \"fee\": 40500\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 3,\n              \"tuition\": {\n                \"fee\": 42000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 4,\n              \"tuition\": {\n                \"fee\": 42000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 5,\n              \"tuition\": {\n                \"fee\": 44000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 6,\n              \"tuition\": {\n                \"fee\": 44000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 7,\n              \"tuition\": {\n                \"fee\": 46000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            },\n            {\n              \"semesterNumber\": 8,\n              \"tuition\": {\n                \"fee\": 46000\n              },\n              \"exam\": {\n                \"fee\": 2000\n              },\n              \"erp\": {\n                \"fee\": 500\n              },\n              \"book\": {\n                \"fee\": 1000\n              },\n              \"lab\": {\n                \"fee\": 1500\n              },\n              \"isActive\": true\n            }\n          ]\n        }\n      ]\n    }\n  ]\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -262,10 +332,26 @@
                             }
                         }
                     },
-                    "response": []
+                    "response": [],
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Update fee structure status', function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "});",
+                                    "const body = pm.response.json();",
+                                    "pm.expect(body.success).to.eql(true);",
+                                    "pm.expect(body.data.feeStructure.academicYear).to.eql(pm.environment.get('academic_year'));"
+                                ]
+                            }
+                        }
+                    ]
                 },
                 {
-                    "name": "Delete Fee Structure",
+                    "name": "Delete By Year",
                     "request": {
                         "method": "DELETE",
                         "header": [],
@@ -280,7 +366,22 @@
                             ]
                         }
                     },
-                    "response": []
+                    "response": [],
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Delete fee structure status', function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "});",
+                                    "const body = pm.response.json();",
+                                    "pm.expect(body.success).to.eql(true);"
+                                ]
+                            }
+                        }
+                    ]
                 }
             ]
         },
@@ -308,7 +409,7 @@
                         },
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"personal\": {\n    \"rollNo\": \"{{student_roll_no}}\",\n    \"studentName\": \"Arun Prakash\",\n    \"gender\": \"Male\",\n    \"dob\": \"2006-08-15\",\n    \"bloodGroup\": \"O+\",\n    \"aadharNo\": \"987654321012\",\n    \"emisNo\": \"98765432101234\",\n    \"religion\": \"Hindu\",\n    \"community\": \"BC\",\n    \"casteName\": \"Kongu Vellalar\",\n    \"nationality\": \"Indian\",\n    \"studentPhoto\": \"https://example.com/student-photo.jpg\",\n    \"registerNumber\": \"713521104001\"\n  },\n  \"academic\": {\n    \"educationType\": \"UG\",\n    \"academicType\": \"REG\",\n    \"isLateralEntry\": false,\n    \"departmentName\": \"CSE\",\n    \"degreeProgram\": \"BE\",\n    \"yearStudying\": 1,\n    \"currentSemesterNumber\": 1,\n    \"section\": \"A\",\n    \"batch\": \"{{batch_year}}\",\n    \"currentAcademicYear\": \"{{academic_year}}\"\n  },\n  \"contact\": {\n    \"selfMobileNo\": \"9876543210\",\n    \"selfEmail\": \"arun.prakash@example.com\",\n    \"officialEmail\": \"arun.prakash@sece.ac.in\"\n  },\n  \"family\": {\n    \"father\": {\n      \"name\": \"Prakash\",\n      \"mobile\": \"9988776655\",\n      \"workType\": \"Business\",\n      \"qualification\": \"B.Sc\"\n    },\n    \"mother\": {\n      \"name\": \"Kavitha\",\n      \"mobile\": \"9988776644\",\n      \"workType\": \"Homemaker\",\n      \"qualification\": \"B.A\"\n    },\n    \"guardian\": {\n      \"name\": \"Ramesh\",\n      \"mobile\": \"9988776633\"\n    },\n    \"familyIncomeAsPerCertificate\": 200000,\n    \"communityCertificateNo\": \"CC123456789\"\n  },\n  \"address\": {\n    \"permanent\": {\n      \"doorNo\": \"12/3\",\n      \"street\": \"Main Street\",\n      \"taluk\": \"Coimbatore North\",\n      \"district\": \"Coimbatore\",\n      \"state\": \"Tamil Nadu\",\n      \"pincode\": \"641001\"\n    },\n    \"communication\": {\n      \"doorNo\": \"12/3\",\n      \"street\": \"Main Street\",\n      \"taluk\": \"Coimbatore North\",\n      \"district\": \"Coimbatore\",\n      \"state\": \"Tamil Nadu\",\n      \"pincode\": \"641001\"\n    }\n  },\n  \"enrollment\": {\n    \"quota\": \"Government Quota\",\n    \"firstGraduate\": {\n      \"isApplicable\": true,\n      \"yearlyTuitionConcessionAmount\": 20000,\n      \"yearlyExamConcessionAmount\": 1000,\n      \"yearlyErpConcessionAmount\": 500,\n      \"yearlyBookConcessionAmount\": 1000,\n      \"yearlyLabConcessionAmount\": 1500,\n      \"yearlyTransportConcessionAmount\": 1000,\n      \"yearlyHostelConcessionAmount\": 0\n    },\n    \"scheme7point5\": {\n      \"isApplicable\": false,\n      \"yearlyTuitionConcessionAmount\": 0,\n      \"yearlyExamConcessionAmount\": 0,\n      \"yearlyErpConcessionAmount\": 0,\n      \"yearlyBookConcessionAmount\": 0,\n      \"yearlyLabConcessionAmount\": 0,\n      \"yearlyTransportConcessionAmount\": 0,\n      \"yearlyHostelConcessionAmount\": 0\n    },\n    \"pmssScheme\": {\n      \"isApplicable\": false,\n      \"yearlyTuitionConcessionAmount\": 0,\n      \"yearlyExamConcessionAmount\": 0,\n      \"yearlyErpConcessionAmount\": 0,\n      \"yearlyBookConcessionAmount\": 0,\n      \"yearlyLabConcessionAmount\": 0,\n      \"yearlyTransportConcessionAmount\": 0,\n      \"yearlyHostelConcessionAmount\": 0\n    },\n    \"sakthiScheme\": {\n      \"isApplicable\": false,\n      \"yearlyTuitionConcessionAmount\": 0,\n      \"yearlyExamConcessionAmount\": 0,\n      \"yearlyErpConcessionAmount\": 0,\n      \"yearlyBookConcessionAmount\": 0,\n      \"yearlyLabConcessionAmount\": 0,\n      \"yearlyTransportConcessionAmount\": 0,\n      \"yearlyHostelConcessionAmount\": 0\n    },\n    \"specialConcession\": {\n      \"isApplicable\": false,\n      \"yearlyTuitionConcessionAmount\": 0,\n      \"yearlyExamConcessionAmount\": 0,\n      \"yearlyErpConcessionAmount\": 0,\n      \"yearlyBookConcessionAmount\": 0,\n      \"yearlyLabConcessionAmount\": 0,\n      \"yearlyTransportConcessionAmount\": 0,\n      \"yearlyHostelConcessionAmount\": 0\n    }\n  },\n  \"transport\": {\n    \"isApplicable\": true,\n    \"route\": \"Bharathiyar University\",\n    \"stopName\": \"Vadavalli\"\n  },\n  \"hostel\": {\n    \"isApplicable\": false\n  }\n}",
+                            "raw": "{\n  \"personal\": {\n    \"rollNo\": \"{{student_roll_no}}\",\n    \"studentName\": \"Arun Prakash\",\n    \"gender\": \"Male\",\n    \"dob\": \"2006-08-15\",\n    \"bloodGroup\": \"O+\",\n    \"aadharNo\": \"987654321012\",\n    \"emisNo\": \"98765432101234\",\n    \"religion\": \"Hindu\",\n    \"community\": \"BC\",\n    \"casteName\": \"Kongu Vellalar\",\n    \"nationality\": \"Indian\",\n    \"studentPhoto\": \"https://example.com/student-photo.jpg\",\n    \"registerNumber\": \"{{student_register_no}}\"\n  },\n  \"academic\": {\n    \"educationType\": \"UG\",\n    \"academicType\": \"REG\",\n    \"isLateralEntry\": false,\n    \"departmentName\": \"CSE\",\n    \"degreeProgram\": \"BE\",\n    \"yearStudying\": 1,\n    \"currentSemesterNumber\": 1,\n    \"section\": \"A\",\n    \"batch\": \"{{batch_year}}\",\n    \"currentAcademicYear\": \"{{academic_year}}\"\n  },\n  \"contact\": {\n    \"selfMobileNo\": \"9876543210\",\n    \"selfEmail\": \"{{student_self_email}}\",\n    \"officialEmail\": \"{{student_official_email}}\"\n  },\n  \"family\": {\n    \"father\": {\n      \"name\": \"Prakash\",\n      \"mobile\": \"9988776655\",\n      \"workType\": \"Business\",\n      \"qualification\": \"B.Sc\"\n    },\n    \"mother\": {\n      \"name\": \"Kavitha\",\n      \"mobile\": \"9988776644\",\n      \"workType\": \"Homemaker\",\n      \"qualification\": \"B.A\"\n    },\n    \"guardian\": {\n      \"name\": \"Ramesh\",\n      \"mobile\": \"9988776633\"\n    },\n    \"familyIncomeAsPerCertificate\": 200000,\n    \"communityCertificateNo\": \"CC123456789\"\n  },\n  \"address\": {\n    \"permanent\": {\n      \"doorNo\": \"12/3\",\n      \"street\": \"Main Street\",\n      \"taluk\": \"Coimbatore North\",\n      \"district\": \"Coimbatore\",\n      \"state\": \"Tamil Nadu\",\n      \"pincode\": \"641001\"\n    },\n    \"communication\": {\n      \"doorNo\": \"12/3\",\n      \"street\": \"Main Street\",\n      \"taluk\": \"Coimbatore North\",\n      \"district\": \"Coimbatore\",\n      \"state\": \"Tamil Nadu\",\n      \"pincode\": \"641001\"\n    }\n  },\n  \"enrollment\": {\n    \"quota\": \"Government Quota\",\n    \"firstGraduate\": {\n      \"isApplicable\": true,\n      \"yearlyTuitionConcessionAmount\": 20000,\n      \"yearlyExamConcessionAmount\": 1000,\n      \"yearlyErpConcessionAmount\": 500,\n      \"yearlyBookConcessionAmount\": 1000,\n      \"yearlyLabConcessionAmount\": 1500,\n      \"yearlyTransportConcessionAmount\": 1000,\n      \"yearlyHostelConcessionAmount\": 0\n    },\n    \"scheme7point5\": {\n      \"isApplicable\": false,\n      \"yearlyTuitionConcessionAmount\": 0,\n      \"yearlyExamConcessionAmount\": 0,\n      \"yearlyErpConcessionAmount\": 0,\n      \"yearlyBookConcessionAmount\": 0,\n      \"yearlyLabConcessionAmount\": 0,\n      \"yearlyTransportConcessionAmount\": 0,\n      \"yearlyHostelConcessionAmount\": 0\n    },\n    \"pmssScheme\": {\n      \"isApplicable\": false,\n      \"yearlyTuitionConcessionAmount\": 0,\n      \"yearlyExamConcessionAmount\": 0,\n      \"yearlyErpConcessionAmount\": 0,\n      \"yearlyBookConcessionAmount\": 0,\n      \"yearlyLabConcessionAmount\": 0,\n      \"yearlyTransportConcessionAmount\": 0,\n      \"yearlyHostelConcessionAmount\": 0\n    },\n    \"sakthiScheme\": {\n      \"isApplicable\": false,\n      \"yearlyTuitionConcessionAmount\": 0,\n      \"yearlyExamConcessionAmount\": 0,\n      \"yearlyErpConcessionAmount\": 0,\n      \"yearlyBookConcessionAmount\": 0,\n      \"yearlyLabConcessionAmount\": 0,\n      \"yearlyTransportConcessionAmount\": 0,\n      \"yearlyHostelConcessionAmount\": 0\n    },\n    \"specialConcession\": {\n      \"isApplicable\": false,\n      \"yearlyTuitionConcessionAmount\": 0,\n      \"yearlyExamConcessionAmount\": 0,\n      \"yearlyErpConcessionAmount\": 0,\n      \"yearlyBookConcessionAmount\": 0,\n      \"yearlyLabConcessionAmount\": 0,\n      \"yearlyTransportConcessionAmount\": 0,\n      \"yearlyHostelConcessionAmount\": 0\n    }\n  },\n  \"transport\": {\n    \"isApplicable\": true,\n    \"route\": \"Bharathiyar University\",\n    \"stopName\": \"Vadavalli\"\n  },\n  \"hostel\": {\n    \"isApplicable\": false\n  }\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -325,6 +426,7 @@
                                     "let reqBody = {};",
                                     "try { reqBody = JSON.parse(pm.request.body.raw || '{}'); } catch (e) {}",
                                     "if (reqBody?.personal?.rollNo) pm.environment.set('student_roll_no', reqBody.personal.rollNo);",
+                                    "if (reqBody?.personal?.registerNumber) pm.environment.set('student_register_no', reqBody.personal.registerNumber);",
                                     "",
                                     "let resBody = {};",
                                     "try { resBody = pm.response.json(); } catch (e) {}",
@@ -708,7 +810,7 @@
                                 },
                                 {
                                     "key": "rollNo",
-                                    "value": "22CSE001",
+                                    "value": "{{student_roll_no}}",
                                     "description": "Filter by exact student roll number (case-insensitive)",
                                     "disabled": true
                                 },
@@ -994,7 +1096,8 @@
                                     "language": "json"
                                 }
                             }
-                        }
+                        },
+                        "description": "Backfills missing fee-tracking rows for all students. This endpoint does not allow query params and only accepts an empty JSON body `{}`."
                     },
                     "event": [
                         {
@@ -1007,13 +1110,61 @@
                                     "  const body = pm.response.json();",
                                     "  pm.expect(body.success).to.equal(true);",
                                     "  pm.expect(body.data).to.be.an('object');",
+                                    "  pm.expect(body.data.studentsScanned).to.be.a('number');",
+                                    "  pm.expect(body.data.trackingDocsCreated).to.be.a('number');",
+                                    "  pm.expect(body.data.studentsUpdated).to.be.a('number');",
                                     "  pm.expect(body.data.rowsAppended).to.be.a('number');",
+                                    "  pm.expect(body.data.rowsAlreadyPresent).to.be.a('number');",
+                                    "  pm.expect(body.data.skippedNoFeeStructure).to.be.a('number');",
+                                    "  pm.expect(body.data.skippedNoMatchingAcademicStructure).to.be.a('number');",
                                     "});"
                                 ]
                             }
                         }
                     ],
-                    "response": []
+                    "response": [
+                        {
+                            "name": "Backfill Success Summary",
+                            "originalRequest": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{base_url}}/studentFeeTracking/backfill",
+                                    "host": [
+                                        "{{base_url}}"
+                                    ],
+                                    "path": [
+                                        "studentFeeTracking",
+                                        "backfill"
+                                    ]
+                                },
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": true,\n  \"data\": {\n    \"studentsScanned\": 102,\n    \"trackingDocsCreated\": 0,\n    \"studentsUpdated\": 0,\n    \"rowsAppended\": 0,\n    \"rowsAlreadyPresent\": 117,\n    \"skippedNoFeeStructure\": 133,\n    \"skippedNoMatchingAcademicStructure\": 0\n  },\n  \"message\": \"Student fee tracking backfill completed successfully\"\n}"
+                        }
+                    ]
                 }
             ]
         },
@@ -1612,7 +1763,7 @@
                                 },
                                 {
                                     "key": "rollNo",
-                                    "value": "25CS101",
+                                    "value": "{{student_roll_no}}",
                                     "disabled": true
                                 },
                                 {
@@ -1693,7 +1844,7 @@
                                 "header": [
                                     {
                                         "key": "Authorization",
-                                        "value": "Bearer {{admin_token}}"
+                                        "value": "Bearer {{token}}"
                                     }
                                 ],
                                 "url": {
@@ -1734,7 +1885,7 @@
                                 "header": [
                                     {
                                         "key": "Authorization",
-                                        "value": "Bearer {{admin_token}}"
+                                        "value": "Bearer {{token}}"
                                     }
                                 ],
                                 "url": {
@@ -2488,12 +2639,12 @@
                             },
                             {
                                 "key": "Authorization",
-                                "value": "Bearer {{admin_token}}"
+                                "value": "Bearer {{token}}"
                             }
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"rollNo\": \"22CSE001\",\n  \"paymentType\": \"DD\",\n  \"bankName\": \"SBI\",\n  \"excessAmount\": 0,\n  \"totalAmount\": 1000,\n  \"breakdowns\": [\n    {\n      \"academicYear\": \"2023-2024\",\n      \"academic\": {\n        \"semesterNumber\": 3,\n        \"tuition\": 1000\n      }\n    }\n  ]\n}"
+                            "raw": "{\n  \"rollNo\": \"{{student_roll_no}}\",\n  \"paymentType\": \"DD\",\n  \"bankName\": \"SBI\",\n  \"excessAmount\": 0,\n  \"totalAmount\": 1000,\n  \"breakdowns\": [\n    {\n      \"academicYear\": \"{{academic_year}}\",\n      \"academic\": {\n        \"semesterNumber\": 3,\n        \"tuition\": 1000\n      }\n    }\n  ]\n}"
                         },
                         "url": {
                             "raw": "{{base_url}}/feeAcknowledgement",
@@ -2517,12 +2668,12 @@
                             },
                             {
                                 "key": "Authorization",
-                                "value": "Bearer {{admin_token}}"
+                                "value": "Bearer {{token}}"
                             }
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"rollNo\": \"22CSE001\",\n  \"receiptNo\": \"REC-2026...\",\n  \"status\": \"SUCCESSFUL\"\n}"
+                            "raw": "{\n  \"rollNo\": \"{{student_roll_no}}\",\n  \"receiptNo\": \"{{receipt_no}}\",\n  \"status\": \"SUCCESSFUL\"\n}"
                         },
                         "url": {
                             "raw": "{{base_url}}/feeAcknowledgement",
@@ -2546,12 +2697,12 @@
                             },
                             {
                                 "key": "Authorization",
-                                "value": "Bearer {{admin_token}}"
+                                "value": "Bearer {{token}}"
                             }
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"rollNo\": \"22CSE001\",\n  \"paymentType\": \"DD\",\n  \"bankName\": \"SBI\",\n  \"totalAmount\": 1200,\n  \"message\": \"Collected at desk\"\n}"
+                            "raw": "{\n  \"rollNo\": \"{{student_roll_no}}\",\n  \"paymentType\": \"DD\",\n  \"bankName\": \"SBI\",\n  \"totalAmount\": 1200,\n  \"message\": \"Collected at desk\"\n}"
                         },
                         "url": {
                             "raw": "{{base_url}}/feeAcknowledgement/v2",
@@ -2572,7 +2723,7 @@
                         "header": [
                             {
                                 "key": "Authorization",
-                                "value": "Bearer {{admin_token}}"
+                                "value": "Bearer {{token}}"
                             }
                         ],
                         "url": {
@@ -2599,12 +2750,12 @@
                             },
                             {
                                 "key": "Authorization",
-                                "value": "Bearer {{admin_token}}"
+                                "value": "Bearer {{token}}"
                             }
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"rollNo\": \"22CSE001\",\n  \"ackId\": \"{{ack_v2_id}}\",\n  \"status\": \"approved\",\n  \"message\": \"Approved by finance admin\"\n}"
+                            "raw": "{\n  \"rollNo\": \"{{student_roll_no}}\",\n  \"ackId\": \"{{ack_v2_id}}\",\n  \"status\": \"approved\",\n  \"message\": \"Approved by finance admin\"\n}"
                         },
                         "url": {
                             "raw": "{{base_url}}/feeAcknowledgement/v2",

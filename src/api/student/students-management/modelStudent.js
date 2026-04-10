@@ -198,7 +198,8 @@ const studentSchema=new mongoose.Schema({
   address:addressSchema,
   enrollment:enrollmentSchema,
   transport:transportSchema,
-  hostel:hostelSchema
+  hostel:hostelSchema,
+  passedout:{type:Boolean,default:false}
 },{timestamps:true});
 
 

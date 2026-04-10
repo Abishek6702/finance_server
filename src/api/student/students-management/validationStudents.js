@@ -63,6 +63,7 @@ const validateStudentPayload = (payload, { partial = false } = {}) => {
   const enrollment = payload?.enrollment;
   const transport = payload?.transport;
   const hostel = payload?.hostel;
+  const passedout = payload?.passedout;
 
   if (!partial) {
     pushRequired(errors, personal, "personal");
@@ -187,6 +188,10 @@ const validateStudentPayload = (payload, { partial = false } = {}) => {
     }
   }
 
+  if (!isUndefined(passedout) && typeof passedout !== "boolean") {
+    errors.push("passedout must be a boolean");
+  }
+
   return errors;
 };
 
@@ -206,7 +211,7 @@ const updateStudentValidation = (req, res, next) => {
   next();
 };
 
-const VALID_STUDENT_FIELDS = ["personal", "academic", "contact", "family", "address", "enrollment", "transport", "hostel"];
+const VALID_STUDENT_FIELDS = ["personal", "academic", "contact", "family", "address", "enrollment", "transport", "hostel", "passedout"];
 
 const getStudentsValidation = (req, res, next) => {
   const { rollNo, fields: fieldsParam } = req.query;

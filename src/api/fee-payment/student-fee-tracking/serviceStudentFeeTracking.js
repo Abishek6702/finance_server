@@ -5,6 +5,11 @@ const { Transport } = require("../../fee-structure/transport/modelTransport");
 const { Hostel } = require("../../fee-structure/hostel/modelHostel");
 const mongoose = require("mongoose");
 const AppError = require("../../../utils/appError");
+const {
+  triggerBulkFeeTrackingRefresh,
+  triggerPromotion,
+  triggerDepromotion,
+} = require("./serviceTrackingSyncInternal");
 
 const MAX_SEMESTER = 8;
 
@@ -769,8 +774,23 @@ const backfillAllStudentFeeTracking = async () => {
   return summary;
 };
 
+const triggerFeeTrackingUpdate = async (payload) => {
+  return triggerBulkFeeTrackingRefresh(payload);
+};
+
+const triggerPromotionForAcademicYear = async (payload) => {
+  return triggerPromotion(payload);
+};
+
+const triggerDepromotionForAcademicYear = async (payload) => {
+  return triggerDepromotion(payload);
+};
+
 module.exports = {
   getStudentsFeeTrackingData,
   getStudentsFeeTrackingData2,
   backfillAllStudentFeeTracking,
+  triggerFeeTrackingUpdate,
+  triggerPromotionForAcademicYear,
+  triggerDepromotionForAcademicYear,
 };

@@ -6,7 +6,28 @@ const DEGREE_PROGRAMS = ["BE", "BTech", "ME", "MTech"];
 const DEPARTMENTS = ["CSE", "IT", "AIML", "AIDS", "ECE", "EEE", "MECH", "CIVIL"];
 const HOSTEL_SHARING = ["Two", "Three", "Four", "Five"];
 
+// Strip client-supplied totals — the model calculates them automatically
+const stripTotals = (body) => {
+  delete body.total;
+  if (Array.isArray(body.academicStructures)) {
+    body.academicStructures.forEach((struct) => {
+      delete struct.total;
+      if (Array.isArray(struct.departments)) {
+        struct.departments.forEach((dept) => {
+          delete dept.total;
+          if (Array.isArray(dept.semesters)) {
+            dept.semesters.forEach((sem) => delete sem.total);
+          }
+        });
+      }
+    });
+  }
+};
+
 const validateFeeStructure = (req, res, next) => {
+  // Remove any totals the client sent — we calculate them ourselves
+  stripTotals(req.body);
+
   const { academicYear, academicStructures } = req.body;
   
   if (!academicYear || !/^\d{4}-\d{4}$/.test(academicYear)) {

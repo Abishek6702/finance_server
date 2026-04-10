@@ -2,7 +2,9 @@ const Student=require("./modelStudent");
 const { Transport }=require("../../fee-structure/transport/modelTransport");
 const { Hostel }=require("../../fee-structure/hostel/modelHostel");
 const StudentFeeTracking=require("../../fee-payment/student-fee-tracking/modelStudentFeeTracking");
-const generateLedger = require("./utilsStudents").generateLedger;
+const {
+  upsertTrackingRowsForStudent,
+} = require("../../fee-payment/student-fee-tracking/serviceTrackingSyncInternal");
 const { validateStudentPayload } = require("./validationStudents");
 const mongoose=require("mongoose");
 const AppError=require("../../../utils/appError");
@@ -91,7 +93,10 @@ const createStudentWithoutTransaction=async(data)=>{
 
   const student=await Student.create(data);
 
-  await generateLedger(student);
+  await upsertTrackingRowsForStudent(student, {
+    academicYears: [student?.academic?.currentAcademicYear],
+    replaceExisting: true,
+  });
   return student;
 };
  
@@ -112,7 +117,11 @@ const createStudent=async(data)=>{
       const students=await Student.create([data],{session});
       createdStudent=students[0];
 
-     traking = await generateLedger(createdStudent,{session}); 
+      traking = await upsertTrackingRowsForStudent(createdStudent, {
+        session,
+        academicYears: [createdStudent?.academic?.currentAcademicYear],
+        replaceExisting: true,
+      });
 
     });
   }catch(error){
@@ -133,7 +142,7 @@ const createStudent=async(data)=>{
   return createdStudent;
 };
 
-const VALID_STUDENT_FIELDS = ["personal", "academic", "contact", "family", "address", "enrollment", "transport", "hostel"];
+const VALID_STUDENT_FIELDS = ["personal", "academic", "contact", "family", "address", "enrollment", "transport", "hostel", "passedout"];
 
 const getStudents = async ({ rollNo, fields } = {}) => {
   const projection = fields && fields.length > 0
@@ -278,7 +287,11 @@ const updateStudent = async (rollNo, data) => {
   
   if (!updated) throw new AppError("Student not found",404);
 
-  await generateLedger(updated);
+  await upsertTrackingRowsForStudent(updated, {
+    academicYears: [updated?.academic?.currentAcademicYear],
+    replaceExisting: true,
+    skipMissingFeeStructure: true,
+  });
 
   return updated;
 };

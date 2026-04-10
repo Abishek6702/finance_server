@@ -1,41 +1,10 @@
-const xlsx = require("xlsx");
 const mongoose = require("mongoose");
 const FeeStructureMaster = require("./modelAcadamic");
 const AppError = require("../../../utils/appError");
-
-const normalizeMoney = (value) => {
-  const number = Number(value);
-  if (!Number.isFinite(number) || number < 0) return 0;
-  return Math.round(number * 100) / 100;
-};
-
-/* ──────────────────────────────────────────────────────────
-   BULK UPSERT HELPERS
-────────────────────────────────────────────────────────── */
-
-const BULK_VALID_QUOTAS         = ["Management Quota", "Government Quota"];
-const BULK_VALID_EDUCATION_TYPES = ["UG", "PG"];
-const BULK_VALID_DEGREE_PROGRAMS = ["BE", "BTech", "ME", "MTech"];
-const BULK_VALID_DEPARTMENTS     = ["CSE", "IT", "AIML", "AIDS", "ECE", "EEE", "MECH", "CIVIL"];
-const BULK_REQUIRED_COLUMNS      = ["academicYear","quota","educationType","degreeProgram","departmentName","semesterNumber","tuition","exam","erp","book","lab"];
-
-const buildEmptySemester = (semNum) => ({
-  semesterNumber: semNum,
-  tuition: { fee: 0 },
-  exam:    { fee: 0 },
-  erp:     { fee: 0 },
-  book:    { fee: 0 },
-  lab:     { fee: 0 },
-  isActive: true,
-});
-
-const ensureEightSemesters = (semesters) => {
-  const result = [];
-  for (let i = 1; i <= 8; i++) {
-    result.push(semesters.find(s => s.semesterNumber === i) || buildEmptySemester(i));
-  }
-  return result;
-};
+const Student = require("../../student/students-management/modelStudent");
+const {
+  upsertTrackingRowsForStudent,
+} = require("../../fee-payment/student-fee-tracking/serviceTrackingSyncInternal");
 
 const filterActiveData = (feeStructure, filters = {}) => {
   if (!feeStructure || !feeStructure.isActive) return null;
@@ -67,7 +36,33 @@ const filterActiveData = (feeStructure, filters = {}) => {
 const createFeeStructure = async (data) => {
   const existing = await FeeStructureMaster.findOne({ academicYear: data.academicYear });
   if (existing) throw new AppError("Fee structure for this academic year already exists", 409);
-  const feeStructure = await FeeStructureMaster.create(data);
+
+  let feeStructure = null;
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const createdDocs = await FeeStructureMaster.create([data], { session });
+      feeStructure = createdDocs[0];
+
+      const students = await Student.find({
+        "academic.currentAcademicYear": data.academicYear,
+        passedout: { $ne: true },
+      }).session(session);
+
+      for (const student of students) {
+        await upsertTrackingRowsForStudent(student, {
+          session,
+          academicYears: [data.academicYear],
+          replaceExisting: false,
+        });
+      }
+    });
+  } catch (error) {
+    throw error;
+  } finally {
+    await session.endSession();
+  }
+
   return feeStructure;
 };
 
@@ -149,7 +144,7 @@ const updateFeeStructure = async (academicYear, data) => {
   existing.markModified('academicStructures');
   await existing.save();
 
-  return { feeStructure: filterActiveData(existing) };
+  return { feeStructure: existing.toObject() };
 };
 
 const deleteFeeStructure = async (academicYear, query = {}) => {
