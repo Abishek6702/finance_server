@@ -82,6 +82,30 @@ function ensureTotal(obj){
   if(!obj.total) obj.total={fee:0};
 }
 
+function getSemesterTotal(semester){
+  return sum([
+    semester?.tuition,
+    semester?.exam,
+    semester?.erp,
+    semester?.book,
+    semester?.lab,
+  ]);
+}
+
+function getDepartmentTotal(department){
+  return (department?.semesters||[]).reduce((acc,semester)=>{
+    if(!semester?.isActive) return acc;
+    return acc + getSemesterTotal(semester);
+  },0);
+}
+
+function getAcademicStructureTotal(structure){
+  return (structure?.departments||[]).reduce((acc,department)=>{
+    if(!department?.isActive) return acc;
+    return acc + getDepartmentTotal(department);
+  },0);
+}
+
 
 /* ======================================================
    AUTO TOTAL CALCULATIONS
@@ -90,27 +114,28 @@ function ensureTotal(obj){
 semesterWiseFeeSchema.pre("validate",async function(){
   ensureTotal(this);
   if(!this.isActive){ this.total.fee=0; return; }
-  this.total.fee=sum([this.tuition,this.exam,this.erp,this.book,this.lab]);
+  this.total.fee=getSemesterTotal(this);
 });
 
 departmentWiseFeeSchema.pre("validate",async function(){
   ensureTotal(this);
   if(!this.isActive){ this.total.fee=0; return; }
-  this.total.fee=sum(this.semesters.filter(s=>s.isActive).map(s=>s.total));
+  this.total.fee=getDepartmentTotal(this);
 });
 
 academicFeeSchema.pre("validate",async function(){
   ensureTotal(this);
   if(!this.isActive){ this.total.fee=0; return; }
-  this.total.fee=sum(this.departments.filter(d=>d.isActive).map(d=>d.total));
+  this.total.fee=getAcademicStructureTotal(this);
 });
 
 feeStructureMasterSchema.pre("validate",async function(){
   ensureTotal(this);
 
-  const academicTotals =this.academicStructures.filter(a=>a.isActive).map(a=>a.total);
-
-  this.total.fee=sum([...academicTotals]);
+  this.total.fee=(this.academicStructures||[]).reduce((acc,structure)=>{
+    if(!structure?.isActive) return acc;
+    return acc + getAcademicStructureTotal(structure);
+  },0);
 });
 
 

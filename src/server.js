@@ -21,6 +21,7 @@ const refundRoutes = require("./api/fee-payment/refund/routes.refund");
 const superadminRoutes = require("./api/superadmin/routesSuperadmin");
 const reportsRoutes = require("./api/fee-payment/reports/routesReports");
 const studentFacilityRoutes = require("./api/student/student-facility/routesStudentFacility");
+const dashboardRoutes = require("./api/dashboard/routesDashboard");
 
 const corsMiddleware = require("./middleware/corsMiddleware");
 const { notFoundHandler, errorHandler } = require("./middleware/errorHandler");
@@ -46,6 +47,7 @@ app.use("/api/refund", refundRoutes);
 app.use("/api/superadmin", superadminRoutes);
 app.use("/api/reports", reportsRoutes);
 app.use("/api/studentFacility", studentFacilityRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
