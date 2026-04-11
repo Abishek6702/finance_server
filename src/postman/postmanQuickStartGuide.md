@@ -2,7 +2,7 @@
 
 ## 1. Setup
 
-1. **Import collection** — drag `Qpulse_Finance_API.postman_collection.json` into Postman.
+1. **Import collection** — drag `qpulseFinanceApi.postman_collection.json` into Postman.
 2. **Create environment** — click ⚙️ → **Add** → name it `Qpulse Local`. Add one variable:
 
    | Variable | Initial Value |
@@ -37,9 +37,13 @@ Creates a student with roll `{{student_roll_no}}` linked to the fee structure ab
 `Student Fee Tracking` → **Get Students with Fee Tracking** → Send  
 Enable the `rollNo` query param and set to `{{student_roll_no}}`. Shows the full fee ledger with all amounts unpaid.
 
-### Step 4.1 — Add Facility (Optional)
-`Student Facility` → **Update Facility (Add/Change)** → Send  
-Use `effectiveDate` when setting `hostel.isApplicable` or `transport.isApplicable` to `true`.
+### Step 4.1 — Manage Facility (Optional)
+`Student Facility` supports three update flows:
+- **Assign Facility** -> `PUT /api/studentFacility/assign/:rollNo`
+- **Cancel Facility** -> `PUT /api/studentFacility/cancel/:rollNo`
+- **Cancel and Assign Facility** -> `PUT /api/studentFacility/cancel-assign/:rollNo`
+
+Use `effectiveDate` when assigning a new facility.
 
 ### Step 5 — Make a Payment
 `Fee Payment` → **Create Payment** → Send  
@@ -56,7 +60,7 @@ Confirm the receipt and breakdowns are recorded. Copy a breakdown `_id` from the
   "receiptNo": "<paste receipt number>",
   "rollNo": "{{student_roll_no}}",
   "reason": "Testing recall",
-  "breakdownIds": ["<paste breakdown _id>"]
+  "feeHeadIds": ["<paste feeHead _id>"]
 }
 ```
 Send → the breakdown is instantly reversed.

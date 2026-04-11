@@ -1,4 +1,4 @@
-# Transaction API Documentation
+# Fee Payment API Documentation
 
 Base path: `/api/feePayment`
 All routes require `Authorization: Bearer <token>` (admin role).
@@ -8,8 +8,8 @@ All routes require `Authorization: Bearer <token>` (admin role).
 ## Table of Contents
 
 1. [POST /pay — Record a Payment](#1-post-pay--record-a-payment)
-2. [POST /ack — Create Acknowledgement](#2-post-ack--create-acknowledgement)
-3. [PUT /ack — Update Acknowledgement](#3-put-ack--update-acknowledgement)
+2. [POST /acknowledgement — Create Acknowledgement](#2-post-acknowledgement--create-acknowledgement-separate-module)
+3. [PUT /acknowledgement — Update Acknowledgement](#3-put-acknowledgement--update-acknowledgement-separate-module)
 4. [GET / — Get All Transactions](#4-get---get-all-transactions)
 5. [GET /:rollNo — Get Student Transactions](#5-get-rollno--get-student-transactions)
 6. [GET /recent — Get Recent Transactions](#6-get-recent--get-recent-transactions)
@@ -140,11 +140,13 @@ Records a fee payment for a student across one or more academic years and fee ca
 
 ---
 
-## 2. POST /ack — Create Acknowledgement
+## 2. POST /acknowledgement — Create Acknowledgement (Separate Module)
 
-Creates an acknowledgement record for a fee payment (such as Cheque or DD) without actually modifying the student's fee balance. The initial status is `RECEIVED`.
+Creates an acknowledgement record for a fee payment (such as Cheque or DD) without modifying tracked fee balances. The initial status is RECEIVED.
 
-**`POST /api/feePayment/ack`**
+**`POST /api/feeAcknowledgement/`**
+
+Note: acknowledgement routes are mounted under `/api/feeAcknowledgement` in `src/server.js` and implemented in `src/api/fee-payment/acknoledgement`.
 
 The request headers, request body, and validations are exactly the same as `POST /pay`. However, this endpoint specifically generates an acknowledgement receipt instead of an actual student transaction.
 
@@ -160,11 +162,11 @@ The request headers, request body, and validations are exactly the same as `POST
 
 ---
 
-## 3. PUT /ack — Update Acknowledgement
+## 3. PUT /acknowledgement — Update Acknowledgement (Separate Module)
 
 Updates the status of an existing acknowledgement. If updated to `SUCCESSFUL`, the payment amounts are securely processed into the student's actual tracked fee balances. 
 
-**`PUT /api/feePayment/ack`**
+**`PUT /api/feeAcknowledgement/`**
 
 ### Headers
 
