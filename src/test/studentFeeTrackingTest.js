@@ -604,4 +604,148 @@ describe("Student Fee Tracking API", () => {
       expect(after.passedout).toBe(false);
     });
   });
+
+  describe("POST /api/studentFeeTracking/trigger-fee-update", () => {
+    const refreshRoll = `69CS${testCtx.TS.slice(-3)}`;
+
+    afterAll(async () => {
+      await Promise.all([
+        StudentFeeTracking.deleteMany({ rollNo: refreshRoll }),
+        Student.deleteMany({ "personal.rollNo": refreshRoll }),
+      ]);
+    });
+
+    it("rejects trigger-fee-update without token", async () => {
+      const res = await request(app)
+        .post("/api/studentFeeTracking/trigger-fee-update")
+        .send({ academicYear: testCtx.academicYearPrimary });
+      expect(res.status).toBe(401);
+    });
+
+    it("rejects trigger-fee-update for admin role", async () => {
+      const res = await request(app)
+        .post("/api/studentFeeTracking/trigger-fee-update")
+        .set(adminAuth())
+        .send({ academicYear: testCtx.academicYearPrimary });
+      expect(res.status).toBe(401);
+    });
+
+    it("rejects trigger-fee-update payload with invalid semesterNumber", async () => {
+      const res = await request(app)
+        .post("/api/studentFeeTracking/trigger-fee-update")
+        .set(superadminAuth())
+        .send({ academicYear: testCtx.academicYearPrimary, semesterNumber: 9 });
+      expect(res.status).toBe(400);
+    });
+
+    it("refreshes fee tracking rows for filtered students", async () => {
+      const studentRes = await createStudent(refreshRoll, { academicYear: testCtx.academicYearPrimary });
+      expect([200, 201, 409]).toContain(studentRes.status);
+
+      const res = await request(app)
+        .post("/api/studentFeeTracking/trigger-fee-update")
+        .set(superadminAuth())
+        .send({
+          academicYear: testCtx.academicYearPrimary,
+          quota: "Government Quota",
+          educationType: "UG",
+          degreeProgram: "BE",
+          departmentName: "CSE",
+          semesterNumber: 1,
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toMatchObject({
+        matchedStudents: expect.any(Number),
+        updatedStudents: expect.any(Number),
+        filtersApplied: {
+          academicYear: testCtx.academicYearPrimary,
+          quota: "Government Quota",
+          educationType: "UG",
+          degreeProgram: "BE",
+          departmentName: "CSE",
+          semesterNumber: 1,
+        },
+      });
+      expect(res.body.data.matchedStudents).toBeGreaterThan(0);
+      expect(res.body.data.updatedStudents).toBeGreaterThan(0);
+    });
+  });
+
+  describe("POST /api/studentFeeTracking/depromotion", () => {
+    const depromotionRoll = `70CS${testCtx.TS.slice(-3)}`;
+
+    afterAll(async () => {
+      await Promise.all([
+        StudentFeeTracking.deleteMany({ rollNo: depromotionRoll }),
+        Student.deleteMany({ "personal.rollNo": depromotionRoll }),
+      ]);
+    });
+
+    it("rejects depromotion without token", async () => {
+      const res = await request(app)
+        .post("/api/studentFeeTracking/depromotion")
+        .send({ currentAcademicYear: testCtx.academicYearMissing });
+      expect(res.status).toBe(401);
+    });
+
+    it("rejects depromotion for admin role", async () => {
+      const res = await request(app)
+        .post("/api/studentFeeTracking/depromotion")
+        .set(adminAuth())
+        .send({ currentAcademicYear: testCtx.academicYearMissing });
+      expect(res.status).toBe(401);
+    });
+
+    it("rejects depromotion payload with invalid academic year format", async () => {
+      const res = await request(app)
+        .post("/api/studentFeeTracking/depromotion")
+        .set(superadminAuth())
+        .send({ currentAcademicYear: "2026" });
+      expect(res.status).toBe(400);
+    });
+
+    it("depromotes students in the given academic year to previous semester", async () => {
+      const feeStructureRes = await createFeeStructure(testCtx.academicYearMissing);
+      expect([201, 409]).toContain(feeStructureRes.status);
+
+      const studentRes = await createStudent(depromotionRoll, { academicYear: testCtx.academicYearMissing });
+      expect([200, 201, 409]).toContain(studentRes.status);
+
+      await Student.updateOne(
+        { "personal.rollNo": depromotionRoll },
+        {
+          $set: {
+            "academic.currentSemesterNumber": 2,
+            "academic.yearStudying": 1,
+          },
+        }
+      );
+
+      const before = await Student.findOne({ "personal.rollNo": depromotionRoll });
+      expect(before).toBeTruthy();
+      expect(before.academic.currentSemesterNumber).toBe(2);
+
+      const res = await request(app)
+        .post("/api/studentFeeTracking/depromotion")
+        .set(superadminAuth())
+        .send({ currentAcademicYear: testCtx.academicYearMissing });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toMatchObject({
+        matchedStudents: expect.any(Number),
+        depromotedStudents: expect.any(Number),
+        trackingUpdated: false,
+      });
+
+      const after = await Student.findOne({ "personal.rollNo": depromotionRoll });
+      expect(after).toBeTruthy();
+      expect(after.academic.currentSemesterNumber).toBe(1);
+      expect(after.academic.yearStudying).toBe(1);
+      expect(after.academic.currentAcademicYear).toBe(testCtx.academicYearMissing);
+      expect(after.passedout).toBe(false);
+    });
+  });
 });

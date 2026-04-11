@@ -1245,6 +1245,60 @@
                                                    ]
                                   },
                                   {
+                                      "name":  "Trigger Fee Tracking Update (Superadmin)",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/studentFeeTracking/trigger-fee-update",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "studentFeeTracking",
+                                                                               "trigger-fee-update"
+                                                                           ]
+                                                              },
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"academicYear\": \"{{academic_year}}\",\n  \"quota\": \"Government Quota\",\n  \"educationType\": \"UG\",\n  \"degreeProgram\": \"BE\",\n  \"departmentName\": \"CSE\",\n  \"semesterNumber\": 1\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "description":  "Refreshes fee tracking for students in the provided academicYear and optional filters. Requires superadmin token."
+                                                  },
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test('Fee tracking update triggered successfully', function () {",
+                                                                                    "  pm.response.to.have.status(200);",
+                                                                                    "  const body = pm.response.json();",
+                                                                                    "  pm.expect(body.success).to.equal(true);",
+                                                                                    "  pm.expect(body.data).to.be.an('object');",
+                                                                                    "  pm.expect(body.data.matchedStudents).to.be.a('number');",
+                                                                                    "  pm.expect(body.data.updatedStudents).to.be.a('number');",
+                                                                                    "  pm.expect(body.data.filtersApplied).to.be.an('object');",
+                                                                                    "});"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
                                       "name":  "Promote Students by Current Academic Year (Superadmin)",
                                       "request":  {
                                                       "method":  "POST",
@@ -1290,6 +1344,60 @@
                                                                                     "  pm.expect(body.data.promotedStudents).to.be.a('number');",
                                                                                     "  pm.expect(body.data.passedOutStudents).to.be.a('number');",
                                                                                     "  pm.expect(body.data.trackingRowsCreated).to.be.a('number');",
+                                                                                    "});"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Depromote Students by Current Academic Year (Superadmin)",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/studentFeeTracking/depromotion",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "studentFeeTracking",
+                                                                               "depromotion"
+                                                                           ]
+                                                              },
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"currentAcademicYear\": \"{{academic_year}}\"\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "description":  "Moves students in the provided currentAcademicYear to previous semester. Requires superadmin token."
+                                                  },
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test('Depromotion completed successfully', function () {",
+                                                                                    "  pm.response.to.have.status(200);",
+                                                                                    "  const body = pm.response.json();",
+                                                                                    "  pm.expect(body.success).to.equal(true);",
+                                                                                    "  pm.expect(body.data).to.be.an('object');",
+                                                                                    "  pm.expect(body.data.matchedStudents).to.be.a('number');",
+                                                                                    "  pm.expect(body.data.depromotedStudents).to.be.a('number');",
+                                                                                    "  pm.expect(body.data.trackingUpdated).to.equal(false);",
                                                                                     "});"
                                                                                 ]
                                                                    }
