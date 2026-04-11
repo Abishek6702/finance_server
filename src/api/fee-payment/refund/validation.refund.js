@@ -5,7 +5,20 @@ const ALL_FEE_HEADS = ["tuition", "exam", "erp", "book", "lab", "hostel", "trans
 
 const validateCreateRefund = (req, res, next) => {
   const { rollNo } = req.params;
-  const { academicYear, semNumber, feeHead, refundAmount, reason, isActive } = req.body;
+  const {
+    academicYear,
+    semNumber,
+    feeHead,
+    refundAmount,
+    reason,
+    isActive,
+    refundMode,
+    refundVia,
+    paymentFrom,
+    studentAccount,
+    studentAccountNumber,
+    studentBankName,
+  } = req.body;
   const idempotencyKey = req.headers['x-idempotency-key'];
 
   if (!rollNo || typeof rollNo !== "string" || !rollNo.trim()) {
@@ -47,12 +60,47 @@ const validateCreateRefund = (req, res, next) => {
     return next(new AppError("isActive=false is not supported for excessAmount refunds", 400));
   }
 
+  const normalizedMode = String(refundMode || refundVia || "").trim().toLowerCase();
+  const normalizedPaymentFrom = String(paymentFrom || "").trim();
+  const normalizedStudentBankName = String(studentBankName || "").trim();
+  const normalizedStudentAccount = String(studentAccountNumber || studentAccount || "").trim();
+
+  let finalMode = normalizedMode;
+  const hasAnyBankField = Boolean(
+    normalizedPaymentFrom || normalizedStudentBankName || normalizedStudentAccount
+  );
+
+  if (!finalMode) {
+    finalMode = hasAnyBankField ? "bank" : "cash";
+  }
+
+  if (!["cash", "bank"].includes(finalMode)) {
+    return next(new AppError("refundMode/refundVia must be either cash or bank", 400));
+  }
+
+  if (finalMode === "bank") {
+    if (!normalizedPaymentFrom) {
+      return next(new AppError("paymentFrom is required when refund mode is bank", 400));
+    }
+    if (!normalizedStudentAccount) {
+      return next(new AppError("studentAccountNumber is required when refund mode is bank", 400));
+    }
+    if (!normalizedStudentBankName) {
+      return next(new AppError("studentBankName is required when refund mode is bank", 400));
+    }
+  }
+
   req.params.rollNo = rollNo.trim().toUpperCase();
   req.body.academicYear = academicYear.trim();
   req.body.feeHead = feeHead;
   req.body.refundAmount = amount;
   req.body.reason = reason.trim();
   req.body.isActive = isActive === false ? false : true;
+  req.body.refundMode = finalMode;
+  req.body.paymentFrom = finalMode === "bank" ? normalizedPaymentFrom : null;
+  req.body.studentBankName = finalMode === "bank" ? normalizedStudentBankName : null;
+  req.body.studentAccount = finalMode === "bank" ? normalizedStudentAccount : null;
+  req.body.studentAccountNumber = req.body.studentAccount;
   if (ACADEMIC_HEADS.has(feeHead)) {
     req.body.semNumber = Number(semNumber);
   }

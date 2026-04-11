@@ -27,6 +27,10 @@ Deducts the specified amount from the student's paid balance for a given fee hea
   "feeHead": "tuition",
   "refundAmount": 2000,
   "reason": "Duplicate payment",
+  "refundMode": "bank",
+  "paymentFrom": "Main College Account",
+  "studentBankName": "SBI",
+  "studentAccountNumber": "1234567890",
   "isActive": true
 }
 ```
@@ -38,6 +42,10 @@ Deducts the specified amount from the student's paid balance for a given fee hea
 | `semNumber` | Number | Conditional | Required for academic heads (`tuition`/`exam`/`erp`/`book`/`lab`); omit for `hostel`/`transport`/`excessAmount` |
 | `refundAmount` | Number | Yes | Must be > 0 and ≤ current paid amount for that fee head |
 | `reason` | String | Yes | Reason for refund (audit trail) |
+| `refundMode` / `refundVia` | String | Yes | `cash` or `bank` |
+| `paymentFrom` | String | Conditional | Required when `refundMode=bank` |
+| `studentBankName` | String | Conditional | Required when `refundMode=bank` |
+| `studentAccountNumber` | String | Conditional | Required when `refundMode=bank` |
 | `isActive` | Boolean | No | Default: `true`. If `false`, the target ledger breakdown is marked inactive and refund amount is also reduced from its total/net demand |
 
 ### Success Response `201`
@@ -136,7 +144,11 @@ Returns a flat refund list with student details. This endpoint replaces:
         "amount": 500,
         "raisedOn": "2026-03-11T10:00:00.000Z",
         "approvedOn": "2026-03-11T10:00:00.000Z",
+        "RefundMode": "bank",
         "paymentMode": "bank",
+        "paymentFrom": "Main College Account",
+        "studentBankName": "SBI",
+        "studentAccountNumber": "1234567890",
         "bankName": "SBI",
         "accountNo": "1234567890"
       }

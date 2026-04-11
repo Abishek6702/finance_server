@@ -317,12 +317,16 @@ describe("Refund API", () => {
         feeHead: "erp",
         refundAmount: 100,
         reason: "Bank transfer refund",
+        refundMode: "bank",
+        paymentFrom: "Main Account",
         studentBankName: "SBI",
-        studentAccount: "1234567890",
+        studentAccountNumber: "1234567890",
       });
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
+    expect(res.body.data.refundMode).toBe("bank");
+    expect(res.body.data.paymentFrom).toBe("Main Account");
     expect(res.body.data.studentBankName).toBe("SBI");
     expect(res.body.data.studentAccount).toBe("1234567890");
   });
@@ -352,7 +356,11 @@ describe("Refund API", () => {
         amount: expect.any(Number),
         raisedOn: expect.any(String),
         approvedOn: expect.any(String),
+        RefundMode: expect.any(String),
         paymentMode: expect.any(String),
+        paymentFrom: expect.any(String),
+        studentBankName: expect.any(String),
+        studentAccountNumber: expect.any(String),
         bankName: expect.any(String),
         accountNo: expect.any(String),
       })

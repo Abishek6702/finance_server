@@ -47,10 +47,27 @@ const createRefund = async (data, userId, options = {}) => {
     reason,
     idempotencyKey,
     isActive,
+    refundMode,
+    paymentFrom,
     collegeAccount,
     studentBankName,
     studentAccount,
+    studentAccountNumber,
   } = data;
+    const normalizedRefundMode = String(refundMode || "").trim().toLowerCase() || "cash";
+    const normalizedPaymentFrom =
+      normalizedRefundMode === "bank"
+        ? String(paymentFrom || collegeAccount || "").trim() || null
+        : null;
+    const normalizedStudentBankName =
+      normalizedRefundMode === "bank"
+        ? String(studentBankName || "").trim() || null
+        : null;
+    const normalizedStudentAccount =
+      normalizedRefundMode === "bank"
+        ? String(studentAccountNumber || studentAccount || "").trim() || null
+        : null;
+
   const deactivateAfterRefund = isActive === false;
   const { session: externalSession = null } = options;
 
@@ -104,10 +121,12 @@ const createRefund = async (data, userId, options = {}) => {
         refundReceiptNo,
         refundedBy: userId,
         ledgerIsActive: true,
+        refundMode: normalizedRefundMode,
         idempotencyKey,
-        collegeAccount: collegeAccount || null,
-        studentBankName: studentBankName || null,
-        studentAccount: studentAccount || null,
+        paymentFrom: normalizedPaymentFrom,
+        collegeAccount: normalizedPaymentFrom,
+        studentBankName: normalizedStudentBankName,
+        studentAccount: normalizedStudentAccount,
       }], { session });
 
       if (ownSession) await ownSession.commitTransaction();
@@ -260,10 +279,12 @@ const createRefund = async (data, userId, options = {}) => {
       refundReceiptNo,
       refundedBy: userId,
       ledgerIsActive: deactivateAfterRefund ? false : true,
+      refundMode: normalizedRefundMode,
       idempotencyKey,
-      collegeAccount: collegeAccount || null,
-      studentBankName: studentBankName || null,
-      studentAccount: studentAccount || null,
+      paymentFrom: normalizedPaymentFrom,
+      collegeAccount: normalizedPaymentFrom,
+      studentBankName: normalizedStudentBankName,
+      studentAccount: normalizedStudentAccount,
     }], { session });
 
     if (ownSession) await ownSession.commitTransaction();
@@ -337,15 +358,20 @@ const getRefundFlatReport = async (query) => {
     {
       $addFields: {
         paymentMode: {
-          $cond: [
+          $ifNull: [
+            "$refundMode",
             {
-              $or: [
-                { $gt: [{ $strLenCP: { $ifNull: ["$studentBankName", ""] } }, 0] },
-                { $gt: [{ $strLenCP: { $ifNull: ["$studentAccount", ""] } }, 0] },
+              $cond: [
+                {
+                  $or: [
+                    { $gt: [{ $strLenCP: { $ifNull: ["$studentBankName", ""] } }, 0] },
+                    { $gt: [{ $strLenCP: { $ifNull: ["$studentAccount", ""] } }, 0] },
+                  ],
+                },
+                "bank",
+                "cash",
               ],
             },
-            "bank",
-            "cash",
           ],
         },
       },
@@ -387,7 +413,11 @@ const getRefundFlatReport = async (query) => {
         amount: "$refundAmount",
         raisedOn: "$createdAt",
         approvedOn: "$updatedAt",
+        RefundMode: "$paymentMode",
         paymentMode: "$paymentMode",
+        paymentFrom: { $ifNull: ["$paymentFrom", { $ifNull: ["$collegeAccount", ""] }] },
+        studentBankName: { $ifNull: ["$studentBankName", ""] },
+        studentAccountNumber: { $ifNull: ["$studentAccount", ""] },
         bankName: { $ifNull: ["$studentBankName", ""] },
         accountNo: { $ifNull: ["$studentAccount", ""] },
       },

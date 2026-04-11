@@ -55,11 +55,22 @@ const feeRefundSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    refundMode: {
+      type: String,
+      enum: ["cash", "bank"],
+      default: "cash",
+      trim: true,
+    },
     idempotencyKey: {
       type: String,
       sparse: true,
       unique: true,
       trim: true,
+    },
+    paymentFrom: {
+      type: String,
+      trim: true,
+      default: null,
     },
     collegeAccount: {
       type: String,
