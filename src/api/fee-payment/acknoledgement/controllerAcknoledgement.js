@@ -1,4 +1,4 @@
-const acknoledgementService = require("./serviceacknoledgement");
+const acknoledgementService = require("./serviceAcknoledgement");
 const asyncHandler = require("../../../utils/asyncHandler");
 
 const createAcknowledgment = asyncHandler(async (req, res) => {

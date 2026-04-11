@@ -8,7 +8,7 @@ const {
 	validateUpdateAcknowledgmentV2,
 	validateAckIdParamV2,
 	validateGetAcknowledgment,
-} = require("./validationacknoledgement");
+} = require("./validationAcknoledgement");
 const { protect, admin } = require("../../../middleware/authMiddleware");
 
 router.use(protect, admin);

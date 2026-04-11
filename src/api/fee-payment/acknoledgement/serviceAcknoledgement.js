@@ -1,6 +1,6 @@
 const StudentTransaction = require("../payments/model/modelStudentFeePayments");
-const Studentacknoledgement = require("./modelacknoledgement");
-const { StudentacknoledgementV2 } = require("./modelacknoledgement");
+const Studentacknoledgement = require("./modelAcknoledgement");
+const { StudentacknoledgementV2 } = require("./modelAcknoledgement");
 const StudentFeeTracking = require("../student-fee-tracking/modelStudentFeeTracking");
 const Student = require("../../student/students-management/modelStudent");
 const ReceiptCounter = require("../payments/model/modelReceiptCounter");

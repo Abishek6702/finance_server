@@ -519,7 +519,7 @@ describe("Fee Payment / Transaction API", () => {
         StudentFeeTracking.deleteMany({ rollNo: testAckRollNo }),
         Student.deleteMany({ "personal.rollNo": testAckRollNo }),
         // We must also delete Studentacknoledgement but we might need to import it. Let's just rely on teardown or clean it via mongoose directly.
-        require("../api/fee-payment/acknoledgement/modelacknoledgement").deleteMany({ rollNo: testAckRollNo })
+        require("../api/fee-payment/acknoledgement/modelAcknoledgement").deleteMany({ rollNo: testAckRollNo })
       ]);
     });
 
@@ -546,7 +546,7 @@ describe("Fee Payment / Transaction API", () => {
       expect(txDoc).toBeNull();
       
       // Verify ack record exists
-      const AckModel = require("../api/fee-payment/acknoledgement/modelacknoledgement");
+      const AckModel = require("../api/fee-payment/acknoledgement/modelAcknoledgement");
       const ackDoc = await AckModel.findOne({ rollNo: testAckRollNo });
       expect(ackDoc).not.toBeNull();
       expect(ackDoc.acknoledgements.length).toBe(1);
@@ -566,7 +566,7 @@ describe("Fee Payment / Transaction API", () => {
       expect(putRes.status).toBe(200);
 
       // Verify ack record updated
-      const AckModel = require("../api/fee-payment/acknoledgement/modelacknoledgement");
+      const AckModel = require("../api/fee-payment/acknoledgement/modelAcknoledgement");
       const ackDoc = await AckModel.findOne({ rollNo: testAckRollNo });
       expect(ackDoc.acknoledgements[0].status).toBe("REJECTED");
     });
@@ -632,7 +632,7 @@ describe("Fee Payment / Transaction API", () => {
       expect(createRes.status).toBe(201);
       const excessAckReceiptNo = createRes.body.data;
 
-      const AckModel = require("../api/fee-payment/acknoledgement/modelacknoledgement");
+      const AckModel = require("../api/fee-payment/acknoledgement/modelAcknoledgement");
       const ackDoc = await AckModel.findOne({ rollNo: testAckRollNo });
       const createdAck = ackDoc.acknoledgements.find(a => a.receiptNo === excessAckReceiptNo);
       expect(createdAck).toBeDefined();
@@ -663,7 +663,7 @@ describe("Fee Payment / Transaction API", () => {
   });
 
   describe("Acknowledgement API V2", () => {
-    const { StudentacknoledgementV2: AckModelV2 } = require("../api/fee-payment/acknoledgement/modelacknoledgement");
+    const { StudentacknoledgementV2: AckModelV2 } = require("../api/fee-payment/acknoledgement/modelAcknoledgement");
     const testAckV2RollNo = `36CS${testCtx.TS.slice(-3)}`;
     let ackV2Id;
 
