@@ -1250,10 +1250,10 @@
                                                       "method":  "POST",
                                                       "header":  [
                                                                      {
-                                                                         "key":  "Content-Type",
-                                                                         "value":  "application/json"
-                                                                     }
-                                                                 ],
+                                                                            "key":  "Content-Type",
+                                                                            "value":  "application/json"
+                                                                        }
+                                                                    ],
                                                       "url":  {
                                                                   "raw":  "{{base_url}}/studentFeeTracking/trigger-fee-update",
                                                                   "host":  [
@@ -2326,6 +2326,128 @@
                                                    ]
                                   },
                                   {
+                                      "name":  "Cancel Facility (Settlement + Refund - Cash)",
+                                      "request":  {
+                                                      "method":  "PUT",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{token}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "x-idempotency-key",
+                                                                         "value":  "facility-remove-cash-{{$timestamp}}",
+                                                                         "type":  "text"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/studentFacility/cancel/{{student_roll_no}}",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "studentFacility",
+                                                                               "cancel",
+                                                                               "{{student_roll_no}}"
+                                                                           ]
+                                                              },
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"facilityType\": \"hostel\",\n  \"applyFromAcademicYear\": \"{{academic_year}}\",\n  \"endDate\": \"2025-10-15\",\n  \"conceptionAmount\": 5000,\n  \"refundMode\": \"cash\",\n  \"refundAmount\": 1200\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "description":  "Cancels facility and settles refund in cash mode."
+                                                  },
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Facility removed successfully (cash)\u0027, function () {",
+                                                                                    "  pm.response.to.have.status(200);",
+                                                                                    "  const body = pm.response.json();",
+                                                                                    "  pm.expect(body.success).to.equal(true);",
+                                                                                    "  pm.expect(body.data.settlement).to.be.an(\u0027object\u0027);",
+                                                                                    "});"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Cancel Facility (Settlement + Refund - Bank)",
+                                      "request":  {
+                                                      "method":  "PUT",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{token}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "x-idempotency-key",
+                                                                         "value":  "facility-remove-bank-{{$timestamp}}",
+                                                                         "type":  "text"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/studentFacility/cancel/{{student_roll_no}}",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "studentFacility",
+                                                                               "cancel",
+                                                                               "{{student_roll_no}}"
+                                                                           ]
+                                                              },
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"facilityType\": \"hostel\",\n  \"applyFromAcademicYear\": \"{{academic_year}}\",\n  \"endDate\": \"2025-10-15\",\n  \"conceptionAmount\": 5000,\n  \"refundMode\": \"bank\",\n  \"refundAmount\": 1200,\n  \"collegeAccount\": \"SECE-COLLEGE-001\",\n  \"studentBankName\": \"State Bank of India\",\n  \"studentAccount\": \"STUDENT-ACC-9988\"\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "description":  "Cancels facility and settles refund in bank mode with student bank details."
+                                                  },
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Facility removed successfully (bank)\u0027, function () {",
+                                                                                    "  pm.response.to.have.status(200);",
+                                                                                    "  const body = pm.response.json();",
+                                                                                    "  pm.expect(body.success).to.equal(true);",
+                                                                                    "  pm.expect(body.data.settlement).to.be.an(\u0027object\u0027);",
+                                                                                    "});"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
                                       "name":  "Cancel And Assign Facility (Atomic)",
                                       "request":  {
                                                       "method":  "PUT",
@@ -2488,6 +2610,118 @@
                                                                                     "  pm.expect(body.data.refundReceiptNo).to.match(/^RF-\\d{4}-\\d{5}$/);",
                                                                                     "  pm.expect(body.data.status).to.equal(\u0027completed\u0027);",
                                                                                     "  pm.environment.set(\u0027refund_receipt_no\u0027, body.data.refundReceiptNo);",
+                                                                                    "});"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Process Refund (Admin) - Cash",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "x-idempotency-key",
+                                                                         "value":  "refund-cash-{{$timestamp}}",
+                                                                         "type":  "text"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/refund/{{student_roll_no}}",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "refund",
+                                                                               "{{student_roll_no}}"
+                                                                           ]
+                                                              },
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"academicYear\": \"2025-2026\",\n  \"semNumber\": 1,\n  \"feeHead\": \"tuition\",\n  \"refundAmount\": 500,\n  \"reason\": \"Cash refund test\",\n  \"refundMode\": \"cash\"\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "description":  "Process refund in cash mode for an academic fee head."
+                                                  },
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Refund (cash) processed successfully\u0027, function () {",
+                                                                                    "  pm.response.to.have.status(201);",
+                                                                                    "  const body = pm.response.json();",
+                                                                                    "  pm.expect(body.success).to.equal(true);",
+                                                                                    "  pm.expect(body.data.refundMode).to.equal(\u0027cash\u0027);",
+                                                                                    "});"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Process Refund (Admin) - Bank",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "x-idempotency-key",
+                                                                         "value":  "refund-bank-{{$timestamp}}",
+                                                                         "type":  "text"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/refund/{{student_roll_no}}",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "refund",
+                                                                               "{{student_roll_no}}"
+                                                                           ]
+                                                              },
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"academicYear\": \"2025-2026\",\n  \"semNumber\": 1,\n  \"feeHead\": \"exam\",\n  \"refundAmount\": 300,\n  \"reason\": \"Bank refund test\",\n  \"refundMode\": \"bank\",\n  \"paymentFrom\": \"Main College Account\",\n  \"studentBankName\": \"SBI\",\n  \"studentAccountNumber\": \"1234567890\"\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "description":  "Process refund in bank mode with bank account details."
+                                                  },
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Refund (bank) processed successfully\u0027, function () {",
+                                                                                    "  pm.response.to.have.status(201);",
+                                                                                    "  const body = pm.response.json();",
+                                                                                    "  pm.expect(body.success).to.equal(true);",
+                                                                                    "  pm.expect(body.data.refundMode).to.equal(\u0027bank\u0027);",
                                                                                     "});"
                                                                                 ]
                                                                    }

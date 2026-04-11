@@ -144,13 +144,7 @@ Returns a flat refund list with student details. This endpoint replaces:
         "amount": 500,
         "raisedOn": "2026-03-11T10:00:00.000Z",
         "approvedOn": "2026-03-11T10:00:00.000Z",
-        "RefundMode": "bank",
-        "paymentMode": "bank",
-        "paymentFrom": "Main College Account",
-        "studentBankName": "SBI",
-        "studentAccountNumber": "1234567890",
-        "bankName": "SBI",
-        "accountNo": "1234567890"
+        "RefundMode": "bank"
       }
     ],
     "pagination": {

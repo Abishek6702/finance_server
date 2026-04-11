@@ -357,12 +357,6 @@ describe("Refund API", () => {
         raisedOn: expect.any(String),
         approvedOn: expect.any(String),
         RefundMode: expect.any(String),
-        paymentMode: expect.any(String),
-        paymentFrom: expect.any(String),
-        studentBankName: expect.any(String),
-        studentAccountNumber: expect.any(String),
-        bankName: expect.any(String),
-        accountNo: expect.any(String),
       })
     );
     expect(pagination).toMatchObject({ page: 1, limit: 20 });
@@ -403,8 +397,7 @@ describe("Refund API", () => {
     expect(res.status).toBe(200);
     const { rows } = res.body.data;
     expect(rows.length).toBeGreaterThanOrEqual(1);
-    expect(rows.every((row) => row.paymentMode === "bank")).toBe(true);
-    expect(rows.some((row) => row.bankName === "SBI")).toBe(true);
+    expect(rows.every((row) => row.RefundMode === "bank")).toBe(true);
   });
 
   it("GET /refund filters by date", async () => {
