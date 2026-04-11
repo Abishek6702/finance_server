@@ -518,7 +518,6 @@ describe("Fee Payment / Transaction API", () => {
         StudentTransaction.deleteMany({ rollNo: testAckRollNo }),
         StudentFeeTracking.deleteMany({ rollNo: testAckRollNo }),
         Student.deleteMany({ "personal.rollNo": testAckRollNo }),
-        // We must also delete Studentacknoledgement but we might need to import it. Let's just rely on teardown or clean it via mongoose directly.
         require("../api/fee-payment/acknoledgement/modelAcknoledgement").deleteMany({ rollNo: testAckRollNo })
       ]);
     });

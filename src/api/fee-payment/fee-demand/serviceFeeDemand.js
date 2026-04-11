@@ -1,6 +1,7 @@
  const Student = require("../../student/students-management/modelStudent");
  const StudentFeeTracking = require("../student-fee-tracking/modelStudentFeeTracking");
  const AppError = require("../../../utils/appError");
+ const { paginateArray } = require("../../../utils/pagination");
  
  const normalizeMoney = (value) => {
    const n = Number(value);
@@ -121,7 +122,7 @@ const buildStudentTypeInfoForAcademicYear = (student, yearRecord) => {
     Summary list with optional filters
  ──────────────────────────────────────────────── */
  const getFeeDemandList = async (query = {}) => {
-  const { rollNo, batch, department, academicYear, studyingYear } = query;
+  const { rollNo, batch, department, academicYear, studyingYear, page, limit } = query;
 
   const studentFilter = {};
   if (rollNo) studentFilter["personal.rollNo"] = rollNo.toUpperCase();
@@ -142,7 +143,10 @@ const buildStudentTypeInfoForAcademicYear = (student, yearRecord) => {
     )
     .lean();
 
-  if (!students.length) return { data: [], totalRecords: 0 };
+  if (!students.length) {
+    const empty = paginateArray([], page, limit);
+    return { data: [], pagination: empty.pagination };
+  }
 
   let filteredStudents = students;
 
@@ -180,7 +184,8 @@ const buildStudentTypeInfoForAcademicYear = (student, yearRecord) => {
     };
   });
 
-  return { data, totalRecords: data.length };
+  const paged = paginateArray(data, page, limit);
+  return { data: paged.rows, pagination: paged.pagination };
 };
  /* ────────────────────────────────────────────────
     API 2: GET /FeeDemand/:rollNo

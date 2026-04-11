@@ -214,7 +214,7 @@ const updateStudentValidation = (req, res, next) => {
 const VALID_STUDENT_FIELDS = ["personal", "academic", "contact", "family", "address", "enrollment", "transport", "hostel", "passedout"];
 
 const getStudentsValidation = (req, res, next) => {
-  const { rollNo, fields: fieldsParam } = req.query;
+  const { rollNo, fields: fieldsParam, page, limit } = req.query;
 
   if (rollNo !== undefined) {
     if (!/^\d{2}[A-Z]{2}\d{3}$/.test(rollNo)) {
@@ -233,14 +233,31 @@ const getStudentsValidation = (req, res, next) => {
     }
   }
 
+  if (page && (!Number.isInteger(Number(page)) || Number(page) < 1)) {
+    return next(new AppError("page must be a positive integer", 400));
+  }
+
+  if (limit && (!Number.isInteger(Number(limit)) || Number(limit) < 1)) {
+    return next(new AppError("limit must be a positive integer", 400));
+  }
+
   next();
 };
 
 const searchStudentsValidation = (req, res, next) => {
-  const { q } = req.query;
+  const { q, page, limit } = req.query;
   if (!q || typeof q !== "string" || q.trim().length === 0) {
     return next(new AppError("Search query 'q' is required", 400));
   }
+
+  if (page && (!Number.isInteger(Number(page)) || Number(page) < 1)) {
+    return next(new AppError("page must be a positive integer", 400));
+  }
+
+  if (limit && (!Number.isInteger(Number(limit)) || Number(limit) < 1)) {
+    return next(new AppError("limit must be a positive integer", 400));
+  }
+
   next();
 };
 

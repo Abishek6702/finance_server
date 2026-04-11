@@ -67,8 +67,9 @@ const createFeeStructure = async (data) => {
 };
 
 const getFeeStructures = async (query = {}) => {
+  const { page, limit, ...filters } = query;
   const data = await FeeStructureMaster.find().sort({ createdAt: -1 });
-  return data.map(d => filterActiveData(d, query)).filter(Boolean);
+  return data.map(d => filterActiveData(d, filters)).filter(Boolean);
 };
 
 const getFeeStructureByYear = async (academicYear, query = {}) => {

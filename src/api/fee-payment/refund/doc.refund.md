@@ -100,55 +100,20 @@ Even semesters (2, 4, 6, 8) → `academic.even`
 
 ---
 
-## GET `/api/refund/student/:rollNo` — Get Refunds by Student
+## GET `/api/refund` — Flat Refund Report
 
-Returns all refund records for a student, sorted newest first.
-
-### Path Parameter
-| Param | Type | Description |
-|-------|------|-------------|
-| `rollNo` | String | Student roll number |
-
-### Success Response `200`
-```json
-{
-  "success": true,
-  "message": "Refunds fetched successfully",
-  "data": [
-    {
-      "_id": "...",
-      "rollNo": "23CS109",
-      "academicYear": "2024-2025",
-      "semesterNumber": 3,
-      "feeHead": "tuition",
-      "refundAmount": 2000,
-      "reason": "Duplicate payment",
-      "refundReceiptNo": "RF-2026-00001",
-      "refundedBy": { "_id": "...", "name": "Admin User", "email": "admin@sece.ac.in" },
-      "status": "completed",
-      "createdAt": "2026-03-11T10:00:00.000Z"
-    }
-  ]
-}
-```
-
----
-
-## GET `/api/refund/year/:academicYear` — Get Refunds by Academic Year
-
-Returns paginated refund records for an academic year with optional filters.
-
-### Path Parameter
-| Param | Type | Description |
-|-------|------|-------------|
-| `academicYear` | String | e.g. `2024-2025` |
+Returns a flat refund list with student details. This endpoint replaces:
+- `GET /api/refund/student/:rollNo`
+- `GET /api/refund/year/:academicYear`
+- `GET /api/refund/report`
 
 ### Query Parameters
 | Param | Type | Description |
 |-------|------|-------------|
-| `feeHead` | String | Filter by fee head |
-| `fromDate` | String | ISO date — start of date range (inclusive) |
-| `toDate` | String | ISO date — end of date range (inclusive, set to 23:59:59) |
+| `year` | String | Academic year in `YYYY-YYYY` format |
+| `department` | String | Department code (e.g., `CSE`) |
+| `mode` | String | `cash` or `bank` |
+| `date` | String | Date (YYYY-MM-DD). Filters by `raisedOn` day |
 | `page` | Number | Page number (default: 1) |
 | `limit` | Number | Records per page (default: 20, max: 500) |
 
@@ -158,7 +123,24 @@ Returns paginated refund records for an academic year with optional filters.
   "success": true,
   "message": "Refunds fetched successfully",
   "data": {
-    "refunds": [...],
+    "rows": [
+      {
+        "name": "Student Name",
+        "profileUrl": "https://cdn.example.com/profile.jpg",
+        "rollNumber": "23CS109",
+        "yearOfStudying": 2,
+        "department": "CSE",
+        "receiptNumber": "RF-2026-00001",
+        "semPeriod": "odd",
+        "feesHead": "tuition",
+        "amount": 500,
+        "raisedOn": "2026-03-11T10:00:00.000Z",
+        "approvedOn": "2026-03-11T10:00:00.000Z",
+        "paymentMode": "bank",
+        "bankName": "SBI",
+        "accountNo": "1234567890"
+      }
+    ],
     "pagination": {
       "total": 42,
       "page": 1,
@@ -168,25 +150,6 @@ Returns paginated refund records for an academic year with optional filters.
   }
 }
 ```
-
----
-
-## GET `/api/refund/report` — Admin Refund Report
-
-Returns paginated refund records across all students with multi-dimensional filters.
-
-### Query Parameters
-| Param | Type | Description |
-|-------|------|-------------|
-| `feeHead` | String | Filter by fee head |
-| `fromDate` | String | ISO date — start of date range |
-| `toDate` | String | ISO date — end of date range |
-| `operator` | String | MongoDB ObjectId of the user who processed the refund |
-| `page` | Number | Page number (default: 1) |
-| `limit` | Number | Records per page (default: 20, max: 500) |
-
-### Success Response `200`
-Same structure as Get Refunds by Academic Year.
 
 ---
 

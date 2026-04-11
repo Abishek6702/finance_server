@@ -307,70 +307,130 @@ describe("Refund API", () => {
     expect(student.enrollment.isExcessAmountTrue).toBe(true);
   });
 
+  it("processes refund with bank details for mode filter coverage", async () => {
+    const res = await request(app)
+      .post(`/api/refund/${rollNo}`)
+      .set(adminAuth())
+      .send({
+        academicYear: year,
+        semNumber: 1,
+        feeHead: "erp",
+        refundAmount: 100,
+        reason: "Bank transfer refund",
+        studentBankName: "SBI",
+        studentAccount: "1234567890",
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.studentBankName).toBe("SBI");
+    expect(res.body.data.studentAccount).toBe("1234567890");
+  });
+
   /* ─── GET ENDPOINTS ─────────────────────────────────────────────── */
 
-  it("GET /refund/student/:rollNo returns all refunds for student", async () => {
+  it("GET /refund returns flat rows", async () => {
     const res = await request(app)
-      .get(`/api/refund/student/${rollNo}`)
+      .get(`/api/refund`)
       .set(adminAuth());
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    const data = res.body.data;
-    expect(Array.isArray(data)).toBe(true);
-    expect(data.length).toBeGreaterThanOrEqual(4); // at least the 4 we created above
-    expect(data[0].rollNo).toBe(rollNo);
-    expect(data[0].refundReceiptNo).toMatch(/^RF-\d{4}-\d{5}$/);
-  });
-
-  it("GET /refund/student/:rollNo requires auth", async () => {
-    const res = await request(app).get(`/api/refund/student/${rollNo}`);
-    expect(res.status).toBe(401);
-  });
-
-  it("GET /refund/year/:academicYear returns paginated refunds for the year", async () => {
-    const res = await request(app)
-      .get(`/api/refund/year/${year}`)
-      .set(adminAuth());
-
-    expect(res.status).toBe(200);
-    const { refunds, pagination } = res.body.data;
-    expect(Array.isArray(refunds)).toBe(true);
-    expect(refunds.length).toBeGreaterThanOrEqual(4);
+    const { rows, pagination } = res.body.data;
+    expect(Array.isArray(rows)).toBe(true);
+    expect(rows.length).toBeGreaterThanOrEqual(1);
+    expect(rows[0]).toEqual(
+      expect.objectContaining({
+        name: expect.any(String),
+        profileUrl: expect.any(String),
+        rollNumber: rollNo,
+        yearOfStudying: expect.any(Number),
+        department: expect.any(String),
+        receiptNumber: expect.stringMatching(/^RF-\d{4}-\d{5}$/),
+        semPeriod: expect.any(String),
+        feesHead: expect.any(String),
+        amount: expect.any(Number),
+        raisedOn: expect.any(String),
+        approvedOn: expect.any(String),
+        paymentMode: expect.any(String),
+        bankName: expect.any(String),
+        accountNo: expect.any(String),
+      })
+    );
     expect(pagination).toMatchObject({ page: 1, limit: 20 });
   });
 
-  it("GET /refund/year/:academicYear filters by feeHead", async () => {
-    const res = await request(app)
-      .get(`/api/refund/year/${year}?feeHead=hostel`)
-      .set(adminAuth());
-
-    expect(res.status).toBe(200);
-    const { refunds } = res.body.data;
-    expect(refunds.every((r) => r.feeHead === "hostel")).toBe(true);
-  });
-
-  it("GET /refund/report returns paginated report", async () => {
-    const res = await request(app)
-      .get("/api/refund/report")
-      .set(adminAuth());
-
-    expect(res.status).toBe(200);
-    const { refunds, pagination } = res.body.data;
-    expect(Array.isArray(refunds)).toBe(true);
-    expect(typeof pagination.total).toBe("number");
-  });
-
-  it("GET /refund/report requires auth", async () => {
-    const res = await request(app).get("/api/refund/report");
+  it("GET /refund requires auth", async () => {
+    const res = await request(app).get(`/api/refund`);
     expect(res.status).toBe(401);
   });
 
-  it("GET /refund/year/:academicYear rejects invalid page param", async () => {
+  it("GET /refund filters by year", async () => {
     const res = await request(app)
-      .get(`/api/refund/year/${year}?page=abc`)
+      .get(`/api/refund?year=${year}`)
+      .set(adminAuth());
+
+    expect(res.status).toBe(200);
+    const { rows } = res.body.data;
+    expect(Array.isArray(rows)).toBe(true);
+    expect(rows.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("GET /refund filters by department", async () => {
+    const res = await request(app)
+      .get(`/api/refund?department=CSE`)
+      .set(adminAuth());
+
+    expect(res.status).toBe(200);
+    const { rows } = res.body.data;
+    expect(rows.length).toBeGreaterThanOrEqual(1);
+    expect(rows.every((row) => row.department === "CSE")).toBe(true);
+  });
+
+  it("GET /refund filters by mode=bank", async () => {
+    const res = await request(app)
+      .get("/api/refund?mode=bank")
+      .set(adminAuth());
+
+    expect(res.status).toBe(200);
+    const { rows } = res.body.data;
+    expect(rows.length).toBeGreaterThanOrEqual(1);
+    expect(rows.every((row) => row.paymentMode === "bank")).toBe(true);
+    expect(rows.some((row) => row.bankName === "SBI")).toBe(true);
+  });
+
+  it("GET /refund filters by date", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const res = await request(app)
+      .get(`/api/refund?date=${today}`)
+      .set(adminAuth());
+
+    expect(res.status).toBe(200);
+    const { rows } = res.body.data;
+    expect(rows.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("GET /refund rejects invalid mode", async () => {
+    const res = await request(app)
+      .get(`/api/refund?mode=upi`)
+      .set(adminAuth());
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/mode/i);
+  });
+
+  it("GET /refund rejects invalid page param", async () => {
+    const res = await request(app)
+      .get(`/api/refund?page=abc`)
       .set(adminAuth());
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/page/i);
+  });
+
+  it("GET /refund rejects invalid year format", async () => {
+    const res = await request(app)
+      .get(`/api/refund?year=2026`)
+      .set(adminAuth());
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/year/i);
   });
 });

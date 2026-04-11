@@ -597,14 +597,16 @@ describe("Student Facility Management API", () => {
       expect(refundDoc.studentAccount).toBe("STUDENT-ACC-9988");
 
       const refundGetRes = await request(app)
-        .get(`/api/refund/student/${rollNo}`)
+        .get(`/api/refund?year=${testCtx.academicYearPrimary}&limit=500`)
         .set(adminAuth());
 
       expect(refundGetRes.status).toBe(200);
-      expect(Array.isArray(refundGetRes.body.data)).toBe(true);
-      expect(refundGetRes.body.data[0].collegeAccount).toBe("SECE-COLLEGE-001");
-      expect(refundGetRes.body.data[0].studentBankName).toBe("State Bank of India");
-      expect(refundGetRes.body.data[0].studentAccount).toBe("STUDENT-ACC-9988");
+      expect(Array.isArray(refundGetRes.body.data.rows)).toBe(true);
+      const refundRow = refundGetRes.body.data.rows.find((row) => row.rollNumber === rollNo);
+      expect(refundRow).toBeTruthy();
+      expect(refundRow.paymentMode).toBe("bank");
+      expect(refundRow.bankName).toBe("State Bank of India");
+      expect(refundRow.accountNo).toBe("STUDENT-ACC-9988");
 
       await Promise.all([
         StudentTransaction.deleteMany({ rollNo }),

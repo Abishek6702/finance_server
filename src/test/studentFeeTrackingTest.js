@@ -536,4 +536,72 @@ describe("Student Fee Tracking API", () => {
       expect(evenTuition.total).toBeCloseTo(41000, 1);
     });
   });
+
+  describe("POST /api/studentFeeTracking/promotion", () => {
+    const promotionRoll = `68CS${testCtx.TS.slice(-3)}`;
+
+    afterAll(async () => {
+      await Promise.all([
+        StudentFeeTracking.deleteMany({ rollNo: promotionRoll }),
+        Student.deleteMany({ "personal.rollNo": promotionRoll }),
+        FeeStructureMaster.deleteMany({ academicYear: testCtx.academicYearMissing }),
+      ]);
+    });
+
+    it("rejects promotion without token", async () => {
+      const res = await request(app)
+        .post("/api/studentFeeTracking/promotion")
+        .send({ currentAcademicYear: testCtx.academicYearMissing });
+      expect(res.status).toBe(401);
+    });
+
+    it("rejects promotion for admin role", async () => {
+      const res = await request(app)
+        .post("/api/studentFeeTracking/promotion")
+        .set(adminAuth())
+        .send({ currentAcademicYear: testCtx.academicYearMissing });
+      expect(res.status).toBe(401);
+    });
+
+    it("rejects promotion payload with invalid academic year format", async () => {
+      const res = await request(app)
+        .post("/api/studentFeeTracking/promotion")
+        .set(superadminAuth())
+        .send({ currentAcademicYear: "2026" });
+      expect(res.status).toBe(400);
+    });
+
+    it("promotes students in the given academic year to next semester", async () => {
+      const feeStructureRes = await createFeeStructure(testCtx.academicYearMissing);
+      expect([201, 409]).toContain(feeStructureRes.status);
+
+      const studentRes = await createStudent(promotionRoll, { academicYear: testCtx.academicYearMissing });
+      expect([200, 201, 409]).toContain(studentRes.status);
+
+      const before = await Student.findOne({ "personal.rollNo": promotionRoll });
+      expect(before).toBeTruthy();
+      expect(before.academic.currentSemesterNumber).toBe(1);
+
+      const res = await request(app)
+        .post("/api/studentFeeTracking/promotion")
+        .set(superadminAuth())
+        .send({ currentAcademicYear: testCtx.academicYearMissing });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toMatchObject({
+        matchedStudents: expect.any(Number),
+        promotedStudents: expect.any(Number),
+        passedOutStudents: expect.any(Number),
+        trackingRowsCreated: expect.any(Number),
+      });
+
+      const after = await Student.findOne({ "personal.rollNo": promotionRoll });
+      expect(after).toBeTruthy();
+      expect(after.academic.currentSemesterNumber).toBe(2);
+      expect(after.academic.yearStudying).toBe(1);
+      expect(after.academic.currentAcademicYear).toBe(testCtx.academicYearMissing);
+      expect(after.passedout).toBe(false);
+    });
+  });
 });

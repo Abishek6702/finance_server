@@ -279,94 +279,134 @@ const createRefund = async (data, userId, options = {}) => {
 };
 
 /* ===================================================================
-   GET REFUNDS BY STUDENT
+   GET REFUND FLAT REPORT
 =================================================================== */
-const getRefundsByStudent = async (rollNo) => {
-  const refunds = await FeeRefund.find({ rollNo })
-    .sort({ createdAt: -1 })
-    .populate("refundedBy", "name email")
-    .lean();
-  return refunds;
-};
+const getRefundFlatReport = async (query) => {
+  const { year, department, mode, date, page, limit } = query;
 
-/* ===================================================================
-   GET REFUNDS BY ACADEMIC YEAR
-=================================================================== */
-const getRefundsByYear = async (academicYear, query) => {
-  const { feeHead, fromDate, toDate, page, limit } = query;
-
-  const filter = { academicYear };
-  if (feeHead) filter.feeHead = feeHead;
-  if (fromDate || toDate) {
-    filter.createdAt = {};
-    if (fromDate) filter.createdAt.$gte = new Date(fromDate);
-    if (toDate) {
-      const end = new Date(toDate);
-      end.setHours(23, 59, 59, 999);
-      filter.createdAt.$lte = end;
-    }
-  }
-
-  const pageNum = Math.max(1, parseInt(page) || 1);
-  const limitNum = Math.min(500, Math.max(1, parseInt(limit) || 20));
+  const pageNum = Math.max(1, parseInt(page, 10) || 1);
+  const limitNum = Math.min(500, Math.max(1, parseInt(limit, 10) || 20));
   const skip = (pageNum - 1) * limitNum;
 
-  const [total, refunds] = await Promise.all([
-    FeeRefund.countDocuments(filter),
-    FeeRefund.find(filter)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limitNum)
-      .populate("refundedBy", "name email")
-      .lean(),
-  ]);
+  const match = {};
+  if (year) {
+    match.academicYear = year;
+  }
+  if (date) {
+    const start = new Date(date);
+    const end = new Date(date);
+    end.setHours(23, 59, 59, 999);
+    match.createdAt = { $gte: start, $lte: end };
+  }
 
-  return {
-    refunds,
-    pagination: {
-      total,
-      page: pageNum,
-      limit: limitNum,
-      totalPages: Math.ceil(total / limitNum),
+  const departmentFilter = department ? String(department).trim().toUpperCase() : null;
+  const modeFilter = mode ? String(mode).trim().toLowerCase() : null;
+
+  const pipeline = [
+    { $match: match },
+    {
+      $lookup: {
+        from: "students",
+        let: { refundRollNo: "$rollNo" },
+        pipeline: [
+          {
+            $match: {
+              $expr: { $eq: ["$personal.rollNo", "$$refundRollNo"] },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              name: "$personal.studentName",
+              profileUrl: "$personal.studentPhoto",
+              rollNumber: "$personal.rollNo",
+              yearOfStudying: "$academic.yearStudying",
+              department: "$academic.departmentName",
+            },
+          },
+        ],
+        as: "student",
+      },
     },
-  };
-};
+    {
+      $unwind: {
+        path: "$student",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $addFields: {
+        paymentMode: {
+          $cond: [
+            {
+              $or: [
+                { $gt: [{ $strLenCP: { $ifNull: ["$studentBankName", ""] } }, 0] },
+                { $gt: [{ $strLenCP: { $ifNull: ["$studentAccount", ""] } }, 0] },
+              ],
+            },
+            "bank",
+            "cash",
+          ],
+        },
+      },
+    },
+  ];
 
-/* ===================================================================
-   GET REFUND REPORT
-=================================================================== */
-const getRefundReport = async (query) => {
-  const { feeHead, fromDate, toDate, operator, page, limit } = query;
-
-  const filter = {};
-  if (feeHead) filter.feeHead = feeHead;
-  if (operator) filter.refundedBy = operator;
-  if (fromDate || toDate) {
-    filter.createdAt = {};
-    if (fromDate) filter.createdAt.$gte = new Date(fromDate);
-    if (toDate) {
-      const end = new Date(toDate);
-      end.setHours(23, 59, 59, 999);
-      filter.createdAt.$lte = end;
-    }
+  if (departmentFilter) {
+    pipeline.push({ $match: { "student.department": departmentFilter } });
   }
 
-  const pageNum = Math.max(1, parseInt(page) || 1);
-  const limitNum = Math.min(500, Math.max(1, parseInt(limit) || 20));
-  const skip = (pageNum - 1) * limitNum;
+  if (modeFilter) {
+    pipeline.push({ $match: { paymentMode: modeFilter } });
+  }
 
-  const [total, refunds] = await Promise.all([
-    FeeRefund.countDocuments(filter),
-    FeeRefund.find(filter)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limitNum)
-      .populate("refundedBy", "name email")
-      .lean(),
-  ]);
+  pipeline.push(
+    {
+      $project: {
+        _id: 0,
+        name: { $ifNull: ["$student.name", ""] },
+        profileUrl: { $ifNull: ["$student.profileUrl", ""] },
+        rollNumber: "$rollNo",
+        yearOfStudying: { $ifNull: ["$student.yearOfStudying", null] },
+        department: { $ifNull: ["$student.department", ""] },
+        receiptNumber: "$refundReceiptNo",
+        semPeriod: {
+          $cond: [
+            { $or: [{ $eq: ["$semesterNumber", null] }, { $eq: ["$semesterNumber", 0] }] },
+            "-",
+            {
+              $cond: [
+                { $eq: [{ $mod: ["$semesterNumber", 2] }, 0] },
+                "even",
+                "odd",
+              ],
+            },
+          ],
+        },
+        feesHead: "$feeHead",
+        amount: "$refundAmount",
+        raisedOn: "$createdAt",
+        approvedOn: "$updatedAt",
+        paymentMode: "$paymentMode",
+        bankName: { $ifNull: ["$studentBankName", ""] },
+        accountNo: { $ifNull: ["$studentAccount", ""] },
+      },
+    },
+    { $sort: { raisedOn: -1 } },
+    {
+      $facet: {
+        rows: [{ $skip: skip }, { $limit: limitNum }],
+        metadata: [{ $count: "total" }],
+      },
+    }
+  );
+
+  const [result] = await FeeRefund.aggregate(pipeline);
+  const rows = result?.rows || [];
+  const total = result?.metadata?.[0]?.total || 0;
 
   return {
-    refunds,
+    rows,
     pagination: {
       total,
       page: pageNum,
@@ -378,7 +418,5 @@ const getRefundReport = async (query) => {
 
 module.exports = {
   createRefund,
-  getRefundsByStudent,
-  getRefundsByYear,
-  getRefundReport,
+  getRefundFlatReport,
 };

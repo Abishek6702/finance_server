@@ -4,6 +4,7 @@ const Student = require("../../student/students-management/modelStudent");
 const ReceiptCounter = require("./model/modelReceiptCounter");
 const mongoose = require("mongoose");
 const AppError = require("../../../utils/appError");
+const { getPagination } = require("../../../utils/pagination");
 
 const parseBillingDate = (billingDate) => {
   if (!billingDate) return new Date();
@@ -346,38 +347,12 @@ transactionDoc.transactions.push({
 
 
 /* ============================================================
-   PAGINATION CONSTANTS (DRY)
-============================================================ */
-const DEFAULT_PAGE = 1;
-const DEFAULT_LIMIT = 20;
-const MAX_LIMIT = 500;
-
-const getPagination = (page, limit) => {
-  const pageNum =
-    Number.isInteger(Number(page)) && Number(page) > 0
-      ? Number(page)
-      : DEFAULT_PAGE;
-
-  const limitNum =
-    Number.isInteger(Number(limit)) && Number(limit) > 0
-      ? Math.min(Number(limit), MAX_LIMIT)
-      : DEFAULT_LIMIT;
-
-  const skip = (pageNum - 1) * limitNum;
-
-  return { pageNum, limitNum, skip };
-};
-
-
-
-/* ============================================================
    GET ALL TRANSACTIONS
 ============================================================ */
 const getAllTransactions = async (query) => {
   const { department, paymentMode, fromDate, toDate, page, limit } = query;
 
   const { pageNum, limitNum, skip } = getPagination(page, limit);
-  const hasLimit = limit !== undefined && limit !== null && limit !== "";
 
   const pipeline = [];
 
@@ -441,44 +416,22 @@ const getAllTransactions = async (query) => {
     }
   };
 
-  if (hasLimit) {
-    pipeline.push({
-      $facet: {
-        metadata: [{ $count: "total" }],
-        data: [
-          { $skip: skip },
-          { $limit: limitNum },
-          projectStage
-        ]
-      }
-    });
+  pipeline.push({
+    $facet: {
+      metadata: [{ $count: "total" }],
+      data: [
+        { $skip: skip },
+        { $limit: limitNum },
+        projectStage
+      ]
+    }
+  });
 
-    const [result] = await StudentTransaction.aggregate(pipeline);
-    const total = result.metadata[0]?.total || 0;
-
-    return {
-      transactions: result.data.map(item => ({
-        ...item,
-        transaction: {
-          ...item.transaction,
-          reductionReasonId: normalizeReductionReasonId(item.transaction?.reductionId),
-          breakdowns: reshapeBreakdowns(item.transaction?.breakdowns)
-        }
-      })),
-      pagination: {
-        total,
-        page: pageNum,
-        limit: limitNum,
-        totalPages: Math.ceil(total / limitNum)
-      }
-    };
-  }
-
-  pipeline.push(projectStage);
-  const results = await StudentTransaction.aggregate(pipeline);
+  const [result] = await StudentTransaction.aggregate(pipeline);
+  const total = result.metadata[0]?.total || 0;
 
   return {
-    transactions: results.map(item => ({
+    transactions: result.data.map(item => ({
       ...item,
       transaction: {
         ...item.transaction,
@@ -487,10 +440,10 @@ const getAllTransactions = async (query) => {
       }
     })),
     pagination: {
-      total: results.length,
-      page: 1,
-      limit: results.length,
-      totalPages: 1
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: total === 0 ? 0 : Math.ceil(total / limitNum)
     }
   };
 };
@@ -502,7 +455,6 @@ const getStudentTransactions = async (rollNo, query = {}) => {
   const { fromDate, toDate, page, limit } = query;
 
   const { pageNum, limitNum, skip } = getPagination(page, limit);
-  const hasLimit = limit !== undefined && limit !== null && limit !== "";
 
  const student = await Student.findOne(
   { "personal.rollNo": rollNo },
@@ -558,52 +510,32 @@ const studentData = {
     }
   };
 
-  if (hasLimit) {
-    pipeline.push({
-      $facet: {
-        metadata: [{ $count: "total" }],
-        data: [
-          { $skip: skip },
-          { $limit: limitNum },
-          projectStage
-        ]
-      }
-    });
+  pipeline.push({
+    $facet: {
+      metadata: [{ $count: "total" }],
+      data: [
+        { $skip: skip },
+        { $limit: limitNum },
+        projectStage
+      ]
+    }
+  });
 
-    const [result] = await StudentTransaction.aggregate(pipeline);
-    const total = result.metadata[0]?.total || 0;
-
-    return {
-      studentData,
-      transactions: result.data.map(d => ({
-        ...d.transaction,
-        reductionReasonId: normalizeReductionReasonId(d.transaction?.reductionId),
-        breakdowns: reshapeBreakdowns(d.transaction?.breakdowns)
-      })),
-      pagination: {
-        total,
-        page: pageNum,
-        limit: limitNum,
-        totalPages: Math.ceil(total / limitNum)
-      }
-    };
-  }
-
-  pipeline.push(projectStage);
-  const results = await StudentTransaction.aggregate(pipeline);
+  const [result] = await StudentTransaction.aggregate(pipeline);
+  const total = result.metadata[0]?.total || 0;
 
   return {
-    student,
-    transactions: results.map(r => ({
-      ...r.transaction,
-      reductionReasonId: normalizeReductionReasonId(r.transaction?.reductionId),
-      breakdowns: reshapeBreakdowns(r.transaction?.breakdowns)
+    studentData,
+    transactions: result.data.map(d => ({
+      ...d.transaction,
+      reductionReasonId: normalizeReductionReasonId(d.transaction?.reductionId),
+      breakdowns: reshapeBreakdowns(d.transaction?.breakdowns)
     })),
     pagination: {
-      total: results.length,
-      page: 1,
-      limit: results.length,
-      totalPages: 1
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: total === 0 ? 0 : Math.ceil(total / limitNum)
     }
   };
 };
@@ -644,8 +576,6 @@ const getNextReceiptNo = async ({ session = null } = {}) => {
 /* ============================================================
    GET RECENT TRANSACTIONS (flat: one row per fee head)
 ============================================================ */
-const RECENT_DEFAULT_LIMIT = 10;
-
 const getRecentTransactions = async (query) => {
   const {
     department,
@@ -660,13 +590,7 @@ const getRecentTransactions = async (query) => {
     limit
   } = query;
 
-  const pageNum =
-    Number.isInteger(Number(page)) && Number(page) > 0 ? Number(page) : DEFAULT_PAGE;
-  const limitNum =
-    Number.isInteger(Number(limit)) && Number(limit) > 0
-      ? Math.min(Number(limit), MAX_LIMIT)
-      : RECENT_DEFAULT_LIMIT;
-  const skip = (pageNum - 1) * limitNum;
+  const { pageNum, limitNum, skip } = getPagination(page, limit);
 
   const pipeline = [];
 
@@ -800,7 +724,7 @@ const getRecentTransactions = async (query) => {
       total,
       page: pageNum,
       limit: limitNum,
-      totalPages: Math.ceil(total / limitNum)
+      totalPages: total === 0 ? 0 : Math.ceil(total / limitNum)
     }
   };
 };

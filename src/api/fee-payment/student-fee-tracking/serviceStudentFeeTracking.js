@@ -5,6 +5,7 @@ const { Transport } = require("../../fee-structure/transport/modelTransport");
 const { Hostel } = require("../../fee-structure/hostel/modelHostel");
 const mongoose = require("mongoose");
 const AppError = require("../../../utils/appError");
+const { paginateArray } = require("../../../utils/pagination");
 const {
   triggerBulkFeeTrackingRefresh,
   triggerPromotion,
@@ -347,6 +348,7 @@ const buildAcademicYearTrackingRow = async (student, feeStructure, academicYear)
    
 ──────────────────────────────────────────────── */
 const getStudentsFeeTrackingData2 = async (query = {}) => {
+  const { page, limit } = query;
   const search = {};
   if (query.batch) {
     search["academic.batch"] = query.batch;
@@ -368,7 +370,10 @@ const getStudentsFeeTrackingData2 = async (query = {}) => {
   const students = await Student.find(search) 
     .lean();
 
-  if (!students.length) return [];
+  if (!students.length) {
+    const empty = paginateArray([], page, limit);
+    return { rows: [], pagination: empty.pagination };
+  }
 
   const rollNos = students
     .map((s) => s.personal?.rollNo)
@@ -453,7 +458,7 @@ const getStudentsFeeTrackingData2 = async (query = {}) => {
   /* ────────────────────────────────────────────────
      Shape Final Response
   ──────────────────────────────────────────────── */
-  return students.map((s) => {
+  const results = students.map((s) => {
     const tracking = trackingMap[s.personal?.rollNo];
     const yearRecords = [...(tracking?.academicYearWiseRecord || [])].sort(
       (a, b) => parseAcademicYearStart(a.academicYear) - parseAcademicYearStart(b.academicYear)
@@ -575,6 +580,9 @@ const getStudentsFeeTrackingData2 = async (query = {}) => {
       academicYears,
     };
   });
+
+  const paged = paginateArray(results, page, limit);
+  return { rows: paged.rows, pagination: paged.pagination };
 };
 
 
@@ -584,6 +592,7 @@ const getStudentsFeeTrackingData2 = async (query = {}) => {
    Filters: batch, department, rollNo
 ──────────────────────────────────────────────── */
 const getStudentsFeeTrackingData = async (query = {}) => {
+  const { page, limit } = query;
   const search = {};
   if (query.batch) {
     search["academic.batch"] = query.batch;
@@ -605,7 +614,10 @@ const getStudentsFeeTrackingData = async (query = {}) => {
   const students = await Student.find(search) 
     .lean();
 
-  if (!students.length) return [];
+  if (!students.length) {
+    const empty = paginateArray([], page, limit);
+    return { rows: [], pagination: empty.pagination };
+  }
 
   const rollNos = students
     .map((s) => s.personal?.rollNo)
@@ -640,7 +652,7 @@ const stripTracking = (t) => {
   /* ────────────────────────────────────────────────
      Shape Final Response
   ──────────────────────────────────────────────── */
-  return students.map((s) => ({
+  const results = students.map((s) => ({
     student: {
       personal: {
         rollNo: s.personal?.rollNo,
@@ -682,6 +694,9 @@ const stripTracking = (t) => {
       trackingMap[s.personal?.rollNo] || null
     ),
   }));
+
+  const paged = paginateArray(results, page, limit);
+  return { rows: paged.rows, pagination: paged.pagination };
 };
 
 

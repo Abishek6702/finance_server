@@ -28,7 +28,12 @@ const updateAcknowledgmentV2 = asyncHandler(async (req, res) => {
 
 const getAcknowledgments = asyncHandler(async (req, res) => {
   const data = await acknoledgementService.getAcknowledgments(req.query);
-  res.status(200).json({ success: true, data, message: "Acknowledgments fetched successfully" });
+  res.status(200).json({
+    success: true,
+    data: data.rows,
+    pagination: data.pagination,
+    message: "Acknowledgments fetched successfully",
+  });
 });
 
 const getAcknowledgmentById = asyncHandler(async (req, res) => {
@@ -38,7 +43,12 @@ const getAcknowledgmentById = asyncHandler(async (req, res) => {
 
 const getAcknowledgmentV2 = asyncHandler(async (req, res) => {
   const data = await acknoledgementService.getAcknowledgmentV2(req.query);
-  res.status(200).json({ success: true, data, message: "Acknowledgments V2 fetched successfully" });
+  res.status(200).json({
+    success: true,
+    data: data.rows,
+    pagination: data.pagination,
+    message: "Acknowledgments V2 fetched successfully",
+  });
 });
 
 module.exports = {

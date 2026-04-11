@@ -9,25 +9,30 @@ const createStudent = asyncHandler(async (req, res) => {
 });
 
 const getStudents = asyncHandler(async (req, res) => {
-  const { rollNo, fields: fieldsParam } = req.query;
+  const { rollNo, fields: fieldsParam, page, limit } = req.query;
   const fields = fieldsParam
     ? fieldsParam.split(",").map(f => f.trim()).filter(Boolean)
     : null;
-  const data = await studentService.getStudents({ rollNo, fields });
+  const data = await studentService.getStudents({ rollNo, fields, page, limit });
   const message = rollNo ? "Student fetched successfully" : "Students fetched successfully";
-  res.status(200).json({ success: true, data, message });
+  if (rollNo) {
+    return res.status(200).json({ success: true, data, message });
+  }
+
+  res.status(200).json({ success: true, data: data.rows, pagination: data.pagination, message });
 });
 
 const getBasicStudents = asyncHandler(async (req, res) => {
-  const { academicYear, department, yearStudying, search } = req.query;
-  const data = await studentService.getBasicStudents({ academicYear, department, yearStudying, search });
+  const { academicYear, department, yearStudying, search, page, limit } = req.query;
+  const data = await studentService.getBasicStudents({ academicYear, department, yearStudying, search, page, limit });
   const message = "Students fetched successfully";
-  res.status(200).json({ success: true, data, message });
+  res.status(200).json({ success: true, data: data.rows, pagination: data.pagination, message });
 });
 
 const searchStudents = asyncHandler(async (req, res) => {
-  const data = await studentService.searchStudents(req.query.q);
-  res.status(200).json({ success: true, data, message: "Students searched successfully" });
+  const { q, page, limit } = req.query;
+  const data = await studentService.searchStudents(q, page, limit);
+  res.status(200).json({ success: true, data: data.rows, pagination: data.pagination, message: "Students searched successfully" });
 });
 
 const updateStudent = asyncHandler(async (req, res) => {

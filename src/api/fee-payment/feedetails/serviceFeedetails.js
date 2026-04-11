@@ -1,6 +1,7 @@
 const Student = require("../../student/students-management/modelStudent");
 const StudentFeeTracking = require("../student-fee-tracking/modelStudentFeeTracking");
 const AppError = require("../../../utils/appError");
+const { paginateArray } = require("../../../utils/pagination");
 
 const normalizeMoney = (value) => {
   const n = Number(value);
@@ -61,7 +62,7 @@ const buildContactBlock = (s) => ({
    Summary list with optional filters
 ──────────────────────────────────────────────── */
 const getFeeDetailsList = async (query = {}) => {
-  const { rollNo, batch, department, academicYear ,studyingYear } = query;
+  const { rollNo, batch, department, academicYear ,studyingYear, page, limit } = query;
 
   const studentFilter = {};
   if (rollNo) studentFilter["personal.rollNo"] = rollNo.toUpperCase();
@@ -81,7 +82,10 @@ const getFeeDetailsList = async (query = {}) => {
     )
     .lean();
 
-  if (!students.length) return { data: [], totalRecords: 0 };
+  if (!students.length) {
+    const empty = paginateArray([], page, limit);
+    return { data: [], pagination: empty.pagination };
+  }
 
   const rollNos = students.map((s) => s.personal?.rollNo).filter(Boolean);
 
@@ -146,7 +150,8 @@ const getFeeDetailsList = async (query = {}) => {
     };
   });
 
-  return { data, totalRecords: data.length };
+  const paged = paginateArray(data, page, limit);
+  return { data: paged.rows, pagination: paged.pagination };
 };
 
 /* ────────────────────────────────────────────────

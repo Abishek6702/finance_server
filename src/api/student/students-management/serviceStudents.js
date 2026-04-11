@@ -8,6 +8,7 @@ const {
 const { validateStudentPayload } = require("./validationStudents");
 const mongoose=require("mongoose");
 const AppError=require("../../../utils/appError");
+const { getPagination } = require("../../../utils/pagination");
 
 const isTransactionUnsupported=(error)=>{
   const message=String(error?.message||"").toLowerCase();
@@ -144,7 +145,7 @@ const createStudent=async(data)=>{
 
 const VALID_STUDENT_FIELDS = ["personal", "academic", "contact", "family", "address", "enrollment", "transport", "hostel", "passedout"];
 
-const getStudents = async ({ rollNo, fields } = {}) => {
+const getStudents = async ({ rollNo, fields, page, limit } = {}) => {
   const projection = fields && fields.length > 0
     ? fields.reduce((acc, f) => { acc[f] = 1; return acc; }, {})
     : null;
@@ -157,13 +158,26 @@ const getStudents = async ({ rollNo, fields } = {}) => {
     return student;
   }
 
-  const query = Student.find().sort({ createdAt: -1 });
+  const { pageNum, limitNum, skip } = getPagination(page, limit);
+  const baseFilter = {};
+  const total = await Student.countDocuments(baseFilter);
+  const query = Student.find(baseFilter).sort({ createdAt: -1 }).skip(skip).limit(limitNum);
   if (projection) query.select(projection);
-  return await query;
+  const rows = await query;
+
+  return {
+    rows,
+    pagination: {
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: total === 0 ? 0 : Math.ceil(total / limitNum),
+    },
+  };
 };
 
 
-const getBasicStudents = async ({ academicYear, department, yearStudying, search }) => {
+const getBasicStudents = async ({ academicYear, department, yearStudying, search, page, limit }) => {
   
   const query = {};
 
@@ -178,6 +192,9 @@ const getBasicStudents = async ({ academicYear, department, yearStudying, search
     ];
   }
 
+  const { pageNum, limitNum, skip } = getPagination(page, limit);
+  const total = await Student.countDocuments(query);
+
   const students = await Student.find(query)
     .select({
       "personal.studentName": 1,
@@ -189,9 +206,11 @@ const getBasicStudents = async ({ academicYear, department, yearStudying, search
       "academic.currentAcademicYear": 1
     })
     .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limitNum)
     .lean();
 
-  return students.map(student => ({
+  const rows = students.map(student => ({
     _id: student._id,
     name: student.personal?.studentName || "",
     rollNo: student.personal?.rollNo || "",
@@ -201,24 +220,40 @@ const getBasicStudents = async ({ academicYear, department, yearStudying, search
     section: student.academic?.section || "",
     currentAcademicYear: student.academic?.currentAcademicYear || ""
   }));
+
+  return {
+    rows,
+    pagination: {
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: total === 0 ? 0 : Math.ceil(total / limitNum),
+    },
+  };
 };
 
-const searchStudents = async (q) => {
+const searchStudents = async (q, page, limit) => {
   // Regex search on rollNo (starts-with query)
   // Maps results safely using optional chaining.
-  const students = await Student.find({
+  const filter = {
     "personal.rollNo": { $regex: `^${q}`, $options: "i" }
-  })
+  };
+  const { pageNum, limitNum, skip } = getPagination(page, limit);
+  const total = await Student.countDocuments(filter);
+
+  const students = await Student.find(filter)
     .select({
       personal: 1,
       academic: 1,
       "enrollment.excessAmount": 1,
       "enrollment.isExcessAmountTrue": 1
     })
-    .limit(20)
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limitNum)
     .lean();
 
-  return students.map(student => ({
+  const rows = students.map(student => ({
     rollNo: student.personal?.rollNo || "",
     name: student.personal?.studentName || "",
     profile: student.personal?.studentPhoto || "",
@@ -231,6 +266,16 @@ const searchStudents = async (q) => {
     excessAmount: student.enrollment?.excessAmount || 0,
     isExcessAmountTrue: Boolean(student.enrollment?.isExcessAmountTrue)
   }));
+
+  return {
+    rows,
+    pagination: {
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: total === 0 ? 0 : Math.ceil(total / limitNum),
+    },
+  };
 };
 
 const updateStudent = async (rollNo, data) => {

@@ -1243,6 +1243,61 @@
                                                            "body":  "{\n  \"success\": true,\n  \"data\": {\n    \"studentsScanned\": 102,\n    \"trackingDocsCreated\": 0,\n    \"studentsUpdated\": 0,\n    \"rowsAppended\": 0,\n    \"rowsAlreadyPresent\": 117,\n    \"skippedNoFeeStructure\": 133,\n    \"skippedNoMatchingAcademicStructure\": 0\n  },\n  \"message\": \"Student fee tracking backfill completed successfully\"\n}"
                                                        }
                                                    ]
+                                  },
+                                  {
+                                      "name":  "Promote Students by Current Academic Year (Superadmin)",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/studentFeeTracking/promotion",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "studentFeeTracking",
+                                                                               "promotion"
+                                                                           ]
+                                                              },
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"currentAcademicYear\": \"{{academic_year}}\"\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "description":  "Promotes all active students in the provided currentAcademicYear to their next semester. Requires superadmin token."
+                                                  },
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test('Promotion completed successfully', function () {",
+                                                                                    "  pm.response.to.have.status(200);",
+                                                                                    "  const body = pm.response.json();",
+                                                                                    "  pm.expect(body.success).to.equal(true);",
+                                                                                    "  pm.expect(body.data).to.be.an('object');",
+                                                                                    "  pm.expect(body.data.matchedStudents).to.be.a('number');",
+                                                                                    "  pm.expect(body.data.promotedStudents).to.be.a('number');",
+                                                                                    "  pm.expect(body.data.passedOutStudents).to.be.a('number');",
+                                                                                    "  pm.expect(body.data.trackingRowsCreated).to.be.a('number');",
+                                                                                    "});"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "response":  [
+
+                                                   ]
                                   }
                               ]
                  },
@@ -2391,79 +2446,43 @@
                                                    ]
                                   },
                                   {
-                                      "name":  "Get Refunds by Student",
+                                      "name":  "Get Refund Flat Report",
                                       "request":  {
                                                       "method":  "GET",
                                                       "header":  [
 
                                                                  ],
                                                       "url":  {
-                                                                  "raw":  "{{base_url}}/refund/student/{{student_roll_no}}",
+                                                                  "raw":  "{{base_url}}/refund",
                                                                   "host":  [
                                                                                "{{base_url}}"
                                                                            ],
                                                                   "path":  [
-                                                                               "refund",
-                                                                               "student",
-                                                                               "{{student_roll_no}}"
-                                                                           ]
-                                                              },
-                                                      "description":  "Returns all refund records for a specific student, sorted newest first."
-                                                  },
-                                      "event":  [
-                                                    {
-                                                        "listen":  "test",
-                                                        "script":  {
-                                                                       "type":  "text/javascript",
-                                                                       "exec":  [
-                                                                                    "pm.test(\u0027Refunds fetched for student\u0027, function () {",
-                                                                                    "  pm.response.to.have.status(200);",
-                                                                                    "  const body = pm.response.json();",
-                                                                                    "  pm.expect(body.success).to.equal(true);",
-                                                                                    "  pm.expect(body.data).to.be.an(\u0027array\u0027);",
-                                                                                    "});"
-                                                                                ]
-                                                                   }
-                                                    }
-                                                ],
-                                      "response":  [
-
-                                                   ]
-                                  },
-                                  {
-                                      "name":  "Get Refunds by Academic Year",
-                                      "request":  {
-                                                      "method":  "GET",
-                                                      "header":  [
-
-                                                                 ],
-                                                      "url":  {
-                                                                  "raw":  "{{base_url}}/refund/year/2025-2026",
-                                                                  "host":  [
-                                                                               "{{base_url}}"
-                                                                           ],
-                                                                  "path":  [
-                                                                               "refund",
-                                                                               "year",
-                                                                               "2025-2026"
+                                                                               "refund"
                                                                            ],
                                                                   "query":  [
                                                                                 {
-                                                                                    "key":  "feeHead",
-                                                                                    "value":  "tuition",
-                                                                                    "description":  "Filter by fee head",
+                                                                                    "key":  "year",
+                                                                                    "value":  "{{academic_year}}",
+                                                                                    "description":  "Academic year filter (YYYY-YYYY)",
                                                                                     "disabled":  true
                                                                                 },
                                                                                 {
-                                                                                    "key":  "fromDate",
+                                                                                    "key":  "department",
+                                                                                    "value":  "CSE",
+                                                                                    "description":  "Department filter",
+                                                                                    "disabled":  true
+                                                                                },
+                                                                                {
+                                                                                    "key":  "mode",
+                                                                                    "value":  "bank",
+                                                                                    "description":  "Payment mode filter: cash | bank",
+                                                                                    "disabled":  true
+                                                                                },
+                                                                                {
+                                                                                    "key":  "date",
                                                                                     "value":  "2026-01-01",
-                                                                                    "description":  "Start of date range (ISO format)",
-                                                                                    "disabled":  true
-                                                                                },
-                                                                                {
-                                                                                    "key":  "toDate",
-                                                                                    "value":  "2026-12-31",
-                                                                                    "description":  "End of date range (inclusive)",
+                                                                                    "description":  "Date filter on raisedOn (YYYY-MM-DD)",
                                                                                     "disabled":  true
                                                                                 },
                                                                                 {
@@ -2478,7 +2497,7 @@
                                                                                 }
                                                                             ]
                                                               },
-                                                      "description":  "Returns paginated refund records for an academic year. Optional filters: feeHead, fromDate, toDate."
+                                                      "description":  "Returns a flat refund list with student details and filters: year, department, mode, date."
                                                   },
                                       "event":  [
                                                     {
@@ -2486,87 +2505,11 @@
                                                         "script":  {
                                                                        "type":  "text/javascript",
                                                                        "exec":  [
-                                                                                    "pm.test(\u0027Refunds for academic year fetched\u0027, function () {",
+                                                                                    "pm.test(\u0027Refund flat report fetched\u0027, function () {",
                                                                                     "  pm.response.to.have.status(200);",
                                                                                     "  const body = pm.response.json();",
                                                                                     "  pm.expect(body.success).to.equal(true);",
-                                                                                    "  pm.expect(body.data.refunds).to.be.an(\u0027array\u0027);",
-                                                                                    "  pm.expect(body.data.pagination).to.have.property(\u0027total\u0027);",
-                                                                                    "});"
-                                                                                ]
-                                                                   }
-                                                    }
-                                                ],
-                                      "response":  [
-
-                                                   ]
-                                  },
-                                  {
-                                      "name":  "Get Refund Report",
-                                      "request":  {
-                                                      "method":  "GET",
-                                                      "header":  [
-
-                                                                 ],
-                                                      "url":  {
-                                                                  "raw":  "{{base_url}}/refund/report",
-                                                                  "host":  [
-                                                                               "{{base_url}}"
-                                                                           ],
-                                                                  "path":  [
-                                                                               "refund",
-                                                                               "report"
-                                                                           ],
-                                                                  "query":  [
-                                                                                {
-                                                                                    "key":  "feeHead",
-                                                                                    "value":  "tuition",
-                                                                                    "description":  "Filter by fee head",
-                                                                                    "disabled":  true
-                                                                                },
-                                                                                {
-                                                                                    "key":  "fromDate",
-                                                                                    "value":  "2026-01-01",
-                                                                                    "description":  "Start of date range (ISO format)",
-                                                                                    "disabled":  true
-                                                                                },
-                                                                                {
-                                                                                    "key":  "toDate",
-                                                                                    "value":  "2026-12-31",
-                                                                                    "description":  "End of date range (inclusive)",
-                                                                                    "disabled":  true
-                                                                                },
-                                                                                {
-                                                                                    "key":  "operator",
-                                                                                    "value":  "PASTE_USER_OBJECT_ID_HERE",
-                                                                                    "description":  "ObjectId of the admin/user who processed the refunds",
-                                                                                    "disabled":  true
-                                                                                },
-                                                                                {
-                                                                                    "key":  "page",
-                                                                                    "value":  "1",
-                                                                                    "disabled":  true
-                                                                                },
-                                                                                {
-                                                                                    "key":  "limit",
-                                                                                    "value":  "20",
-                                                                                    "disabled":  true
-                                                                                }
-                                                                            ]
-                                                              },
-                                                      "description":  "Admin refund report across all students. Filters: feeHead, fromDate, toDate, operator (userId)."
-                                                  },
-                                      "event":  [
-                                                    {
-                                                        "listen":  "test",
-                                                        "script":  {
-                                                                       "type":  "text/javascript",
-                                                                       "exec":  [
-                                                                                    "pm.test(\u0027Refund report fetched\u0027, function () {",
-                                                                                    "  pm.response.to.have.status(200);",
-                                                                                    "  const body = pm.response.json();",
-                                                                                    "  pm.expect(body.success).to.equal(true);",
-                                                                                    "  pm.expect(body.data.refunds).to.be.an(\u0027array\u0027);",
+                                                                                    "  pm.expect(body.data.rows).to.be.an(\u0027array\u0027);",
                                                                                     "  pm.expect(body.data.pagination).to.have.property(\u0027total\u0027);",
                                                                                     "});"
                                                                                 ]

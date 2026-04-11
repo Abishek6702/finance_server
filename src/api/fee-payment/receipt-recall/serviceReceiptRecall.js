@@ -5,6 +5,7 @@ const StudentFeeTracking = require("../student-fee-tracking/modelStudentFeeTrack
 const Student = require("../../student/students-management/modelStudent");
 const ActivityLog = require("../../../models/activityLog");
 const AppError = require("../../../utils/appError");
+const { getPagination } = require("../../../utils/pagination");
 
 const normalizeMoney = (value) => {
   const number = Number(value);
@@ -340,9 +341,7 @@ const getRecalls = async (query) => {
     ];
   }
 
-  const pageNum = Math.max(1, parseInt(page) || 1);
-  const limitNum = Math.min(500, Math.max(1, parseInt(limit) || 20));
-  const skip = (pageNum - 1) * limitNum;
+  const { pageNum, limitNum, skip } = getPagination(page, limit);
 
   const totalCount = await ReceiptRecallRequest.countDocuments(filter);
 
@@ -388,7 +387,7 @@ const getRecalls = async (query) => {
       total: totalCount,
       page: pageNum,
       limit: limitNum,
-      totalPages: Math.ceil(totalCount / limitNum)
+      totalPages: totalCount === 0 ? 0 : Math.ceil(totalCount / limitNum)
     }
   };
 };

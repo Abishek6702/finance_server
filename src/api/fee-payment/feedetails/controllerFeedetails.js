@@ -2,11 +2,13 @@ const asyncHandler = require("../../../utils/asyncHandler");
 const service = require("./serviceFeedetails");
 
 const getFeeDetailsList = asyncHandler(async (req, res) => {
-  const { data, totalRecords } = await service.getFeeDetailsList(req.query);
+  const { data, pagination } = await service.getFeeDetailsList(req.query);
   res.status(200).json({
     success: true,
     data,
-    pagination: { totalRecords },
+    pagination: {
+      totalRecords: pagination.total,
+    },
     message: "Fee details fetched successfully",
   });
 });

@@ -61,13 +61,41 @@ const validateCreateRefund = (req, res, next) => {
 };
 
 const validateGetQuery = (req, res, next) => {
-  const { page, limit } = req.query;
+  const { page, limit, year, department, mode, date } = req.query;
+
+  if (year && (typeof year !== "string" || !/^\d{4}-\d{4}$/.test(year.trim()))) {
+    return next(new AppError("year must be in YYYY-YYYY format", 400));
+  }
+
+  if (department && (typeof department !== "string" || !department.trim())) {
+    return next(new AppError("department must be a non-empty string", 400));
+  }
+
+  if (mode) {
+    const normalizedMode = String(mode).trim().toLowerCase();
+    if (!["cash", "bank"].includes(normalizedMode)) {
+      return next(new AppError("mode must be either cash or bank", 400));
+    }
+    req.query.mode = normalizedMode;
+  }
+
+  if (date) {
+    const parsedDate = new Date(date);
+    if (Number.isNaN(parsedDate.getTime())) {
+      return next(new AppError("date must be a valid date", 400));
+    }
+  }
+
   if (page && (!Number.isInteger(Number(page)) || Number(page) < 1)) {
     return next(new AppError("page must be a positive integer", 400));
   }
   if (limit && (!Number.isInteger(Number(limit)) || Number(limit) < 1)) {
     return next(new AppError("limit must be a positive integer", 400));
   }
+
+  if (year) req.query.year = year.trim();
+  if (department) req.query.department = department.trim().toUpperCase();
+
   next();
 };
 

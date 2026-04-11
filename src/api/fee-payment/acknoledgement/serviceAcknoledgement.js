@@ -6,6 +6,7 @@ const Student = require("../../student/students-management/modelStudent");
 const ReceiptCounter = require("../payments/model/modelReceiptCounter");
 const mongoose = require("mongoose");
 const AppError = require("../../../utils/appError");
+const { paginateArray } = require("../../../utils/pagination");
 
 const parseBillingDate = (billingDate) => {
   if (!billingDate) return new Date();
@@ -465,8 +466,10 @@ const updateAcknowledgmentV2 = async (data) => {
 };
 
 const getAcknowledgments = async (query = {}) => {
-  const acks = await Studentacknoledgement.find(query).sort({ createdAt: -1 });
-  return acks;
+  const { page, limit, ...filters } = query;
+  const acks = await Studentacknoledgement.find(filters).sort({ createdAt: -1 }).lean();
+  const { rows, pagination } = paginateArray(acks, page, limit);
+  return { rows, pagination };
 };
 
 const getAcknowledgmentById = async (id) => {
@@ -478,8 +481,10 @@ const getAcknowledgmentById = async (id) => {
 };
 
 const getAcknowledgmentV2 = async (query = {}) => {
-  const acks = await StudentacknoledgementV2.find(query).sort({ createdAt: -1 });
-  return acks;
+  const { page, limit, ...filters } = query;
+  const acks = await StudentacknoledgementV2.find(filters).sort({ createdAt: -1 }).lean();
+  const { rows, pagination } = paginateArray(acks, page, limit);
+  return { rows, pagination };
 };
 
 module.exports = {
